@@ -10,5 +10,34 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ตารางข้อมูลนักศึกษา Test
+model Student {
+  id        Int      @id @default(autoincrement())
+  studentId String   @unique
+  name      String
+  enrollments Enrollment[]
+}
+
+// ตารางข้อมูลวิชาเรียน
+model Course {
+  id          Int      @id @default(autoincrement())
+  courseCode  String   @unique 
+  name        String
+  credits     Int
+  enrollments Enrollment[]
+}
+
+// ตารางเก็บเกรด
+model Enrollment {
+  id        Int     @id @default(autoincrement())
+  grade     Float?  
+  student   Student @relation(fields: [studentId], references: [id])
+  studentId Int
+  course    Course  @relation(fields: [courseId], references: [id])
+  courseId  Int
 }
