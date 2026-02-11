@@ -1,15 +1,16 @@
+// src/pages/Roadmap.jsx
 import { useEffect, useState, useRef } from 'react';
 import { CheckCircle, Lock, BookOpen } from 'lucide-react';
 import { roadmapData } from '../data/courses';
-import { useNavigate } from 'react-router-dom'; // 1. เรียกใช้ Navigate
+import { useNavigate } from 'react-router-dom'; 
 
 const Roadmap = () => {
   const containerRef = useRef(null);
   const [lines, setLines] = useState([]);
   const [hoveredCourse, setHoveredCourse] = useState(null);
-  const navigate = useNavigate(); // 2. ประกาศตัวแปร navigate
+  const navigate = useNavigate(); 
 
-  // --- Logic วาดเส้น (เหมือนเดิม) ---
+  // --- Logic วาดเส้น (คำนวณตำแหน่งจาก DOM Elements) ---
   const drawLines = () => {
     if (!containerRef.current) return;
     const newLines = [];
@@ -47,7 +48,8 @@ const Roadmap = () => {
 
   useEffect(() => {
     const handleResize = () => requestAnimationFrame(drawLines);
-    setTimeout(drawLines, 500);
+    // รอให้หน้าเว็บ Render เสร็จก่อนค่อยวาดเส้น
+    setTimeout(drawLines, 500); 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -57,7 +59,7 @@ const Roadmap = () => {
     return line.start === hoveredCourse || line.end === hoveredCourse;
   };
 
-  // --- Style Helper (ปรับแต่งให้สวยและชัด) ---
+  // --- Style Helper สำหรับการ์ดวิชา ---
   const getStatusClass = (status) => {
     const base = "relative p-4 rounded-xl border-2 backdrop-blur-md transition-all duration-300 h-[150px] flex flex-col justify-between group cursor-pointer shadow-md select-none";
     switch (status) {
@@ -72,20 +74,21 @@ const Roadmap = () => {
   };
 
   return (
-    <div className="min-h-screen p-6 md:p-12 text-white relative">
+    <div className="min-h-screen p-6 md:p-12 text-white relative overflow-hidden">
       
       {/* Header */}
-      <div className="text-center mb-16 space-y-4">
+      <div className="text-center mb-16 space-y-4 relative z-20">
         <h1 className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 to-emerald-400 drop-shadow-lg">
           CS Curriculum Roadmap
         </h1>
         <p className="text-slate-300 text-lg">
           Interactive Learning Path & Prerequisite Tree
         </p>
+        
         {/* Legend */}
-        <div className="flex justify-center gap-6 text-sm font-medium text-slate-300 mt-4 bg-black/20 py-2 px-4 rounded-full w-max mx-auto border border-white/5">
-          <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500"></div> Passed</span>
-          <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-400 animate-pulse"></div> Now Learning</span>
+        <div className="flex justify-center gap-6 text-sm font-medium text-slate-300 mt-4 bg-black/40 py-2 px-4 rounded-full w-max mx-auto border border-white/10 backdrop-blur-md">
+          <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></div> Passed</span>
+          <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-400 animate-pulse shadow-[0_0_10px_#60a5fa]"></div> Now Learning</span>
           <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-slate-500"></div> Locked</span>
         </div>
       </div>
@@ -93,16 +96,20 @@ const Roadmap = () => {
       {/* Main Roadmap Area */}
       <div ref={containerRef} className="max-w-7xl mx-auto relative pb-32">
         
-        {/* --- Layer 1: Lines (Background) --- */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible filter drop-shadow-[0_0_3px_rgba(56,189,248,0.5)]">
+        {/* --- Layer 1: Lines (SVG Background) --- */}
+        {/* overflow-visible จำเป็นมากเพื่อให้แสง Glow ไม่โดนตัดขอบ */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
           <defs>
-            <marker id="arrow-active" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L6,3 z" fill="#38bdf8" />
+            {/* หัวลูกศรตอน Active: ใหญ่และสีฟ้า Neon */}
+            <marker id="arrow-active" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+              <path d="M0,0 L0,8 L8,4 z" fill="#22d3ee" />
             </marker>
+            {/* หัวลูกศรตอนปกติ */}
             <marker id="arrow-inactive" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L6,3 z" fill="#64748b" />
+              <path d="M0,0 L0,6 L6,3 z" fill="#475569" />
             </marker>
           </defs>
+
           {lines.map((line) => {
             const active = isLineActive(line);
             return (
@@ -110,22 +117,26 @@ const Roadmap = () => {
                 key={line.id}
                 d={`M ${line.startX} ${line.startY} C ${line.startX} ${(line.startY + line.endY) / 2}, ${line.endX} ${(line.startY + line.endY) / 2}, ${line.endX} ${line.endY}`}
                 fill="none"
-                stroke={active ? "#38bdf8" : "#64748b"}
-                strokeWidth={active ? "3" : "2"}
-                strokeOpacity={active ? "1" : "0.3"}
+                // สีเส้น: Active = Neon Cyan, Inactive = Dark Slate
+                stroke={active ? "#22d3ee" : "#475569"}
+                // ความหนา: Active = 5px (Bold), Inactive = 2px
+                strokeWidth={active ? "5" : "2"}
+                // ความชัด: Active = 100%, Inactive = 20%
+                strokeOpacity={active ? "1" : "0.2"}
                 markerEnd={active ? "url(#arrow-active)" : "url(#arrow-inactive)"}
-                className="transition-all duration-300"
+                // Glow Effect: Drop Shadow สีฟ้าเรืองแสง
+                className={`transition-all duration-300 ${active ? 'filter drop-shadow-[0_0_10px_rgba(34,211,238,0.8)]' : ''}`}
               />
             );
           })}
         </svg>
 
-        {/* --- Layer 2: Courses (Foreground) --- */}
+        {/* --- Layer 2: Courses (Foreground Cards) --- */}
         <div className="space-y-28">
           {roadmapData.map((yearGroup, yearIdx) => (
             <div key={yearIdx} className="relative z-10">
               
-              {/* Year Label */}
+              {/* Year Label (Timeline ด้านซ้าย) */}
               <div className="absolute -left-4 md:-left-16 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-slate-600 to-transparent hidden xl:block"></div>
               <div className="sticky top-24 z-20 flex justify-start mb-10 xl:absolute xl:-left-28 xl:top-0 xl:block xl:w-24 xl:text-right xl:mb-0">
                  <span className="inline-block bg-slate-800/90 backdrop-blur-lg border-2 border-slate-600/80 px-6 py-2 rounded-r-full text-3xl font-black text-white shadow-lg xl:bg-transparent xl:border-none xl:shadow-none xl:p-0 xl:text-7xl xl:text-white/50 xl:uppercase xl:tracking-widest select-none">
@@ -145,7 +156,7 @@ const Roadmap = () => {
                         <div
                           key={course.id}
                           id={course.id}
-                          // 3. คลิกแล้วไปหน้าใหม่ (CourseDetail)
+                          // คลิกแล้วไปหน้า Course Detail
                           onClick={() => navigate(`/course/${course.id}`)}
                           className={getStatusClass(course.status)}
                           onMouseEnter={() => setHoveredCourse(course.id)}

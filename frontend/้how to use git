@@ -1,0 +1,6 @@
+ก่อนเริ่มทำ 
+git pull origin main
+ถ้าจะ save 
+git add .
+git commit -m "ทำอะไรไปให้เขียนบอก"
+git push origin main
