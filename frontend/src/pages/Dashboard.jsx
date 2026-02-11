@@ -10,15 +10,14 @@ const Dashboard = () => {
   const [profile] = useState(() => {
     try {
         const saved = localStorage.getItem('userProfile');
-        return saved ? JSON.parse(saved) : null; // ถ้าไม่มีข้อมูล ให้เป็น null ไปก่อน
+        return saved ? JSON.parse(saved) : null;
     } catch (e) {
         return null;
     }
   });
 
-  // ถ้าไม่มี Profile (เช่น โหลดหน้ามาแล้วว่างเปล่า) ให้เด้งไป Setup หรือ Login
+  // ถ้าไม่มี Profile ให้เด้งไปหน้า Setup
   if (!profile) {
-      // return null หรือ Redirect อัตโนมัติก็ได้ แต่ในที่นี้จะแสดงหน้า error เบาๆ
       return (
           <div className="h-screen flex flex-col items-center justify-center text-white gap-4">
               <h2 className="text-2xl font-bold">ไม่พบข้อมูลผู้ใช้</h2>
@@ -42,7 +41,6 @@ const Dashboard = () => {
     let gpaCount = 0;
     let graphData = [];
 
-    // เช็คว่ามี roadmapData ไหม เพื่อกัน error จอดำ
     if (roadmapData) {
         roadmapData.forEach((yearGroup, yIdx) => {
             const yearNum = yIdx + 1;
@@ -85,18 +83,15 @@ const Dashboard = () => {
     return { totalCredits, earnedCredits, activeCoursesList, calculatedGPAX, graphData, progressPercent };
   }, [profile]);
 
-  // --- 3. Handlers (แก้ Link ให้ตรง App.js) ---
-  
+  // --- 3. Handlers ---
   const handleLogout = () => {
       if(window.confirm('ต้องการออกจากระบบหรือไม่?')) {
           localStorage.removeItem('userProfile'); 
-          // ★★★ สั่งไปหน้า Login โดยตรง ★★★
           navigate('/login'); 
       }
   };
 
   const handleEditSetup = () => {
-      // ★★★ สั่งไปหน้า Setup โดยตรง ★★★
       navigate('/setup'); 
   };
 
@@ -106,42 +101,52 @@ const Dashboard = () => {
       {/* --- COLUMN LEFT --- */}
       <div className="lg:col-span-1 flex flex-col gap-6">
         
-        {/* Profile Card */}
+        {/* Profile Card (Updated) */}
         <div className="relative rounded-3xl overflow-hidden h-[450px] border border-white/20 shadow-2xl group transition-all duration-300">
             <img 
                 src={profile.image || 'https://via.placeholder.com/500'} 
                 alt="Profile" 
-                className="w-full h-full object-cover transition duration-500 grayscale group-hover:grayscale-0"
+                className="w-full h-full object-cover transition duration-500 grayscale group-hover:grayscale-0 scale-105 group-hover:scale-100"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+            
+            {/* Gradient - ปรับให้สว่างขึ้นตรงกลาง เพื่อให้เห็นหน้าชัด */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent"></div>
           
-            <div className="absolute bottom-0 w-full p-6 flex flex-col gap-2 z-20">
-                <div className="inline-block px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/50 text-emerald-300 text-xs font-bold w-max mb-2 backdrop-blur-md animate-pulse">
-                    ● Active Student
+            {/* ★★★ Active Badge - ย้ายมาขวาบน ไม่บังหน้า ★★★ */}
+            <div className="absolute top-4 right-4 z-20">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md border border-emerald-500/50 shadow-lg">
+                    <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Active</span>
                 </div>
-                
+            </div>
+            
+            {/* Info Section - อยู่ด้านล่าง */}
+            <div className="absolute bottom-0 w-full p-6 flex flex-col gap-1 z-20">
                 <div className="mb-1">
-                    <h2 className="text-3xl font-black block truncate" title={profile.name}>
+                    <h2 className="text-3xl font-black block truncate leading-tight" title={profile.name}>
                         {profile.name || 'Your Name'}
                     </h2>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <span className="text-gray-400 text-sm">ID:</span>
-                    <span className="text-gray-300 text-sm font-mono">
+                    <span className="text-gray-400 text-xs font-medium uppercase tracking-tighter opacity-70">Student ID</span>
+                    <span className="text-gray-200 text-sm font-mono tracking-wider">
                         {profile.studentId || '-'}
                     </span>
                 </div>
 
-                <span className="text-blue-300 font-medium mt-1 block">
+                <span className="text-blue-400 font-semibold mt-1 text-sm">
                     {profile.major || 'Computer Science'}
                 </span>
                 
-                <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-sm text-gray-400">
-                  <span>CS Dept.</span>
-                  <span className="flex items-center gap-1 text-white font-bold">
-                      <Zap size={14} className="text-yellow-400 fill-yellow-400"/> 
-                      Year {profile.currentYear} / {profile.currentTerm}
+                <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center text-sm">
+                  <span className="text-gray-400 font-medium">CS Dept.</span>
+                  <span className="flex items-center gap-1.5 text-white font-bold bg-white/5 px-3 py-1 rounded-lg border border-white/5">
+                      <Zap size={14} className="text-yellow-400 fill-yellow-400 animate-pulse"/> 
+                      <span className="text-gray-400 font-normal">Year</span> {profile.currentYear} / {profile.currentTerm}
                   </span>
                 </div>
             </div>
@@ -154,14 +159,13 @@ const Dashboard = () => {
           </div>
           <div className="w-full overflow-hidden">
             <p className="text-xs text-gray-400 mb-1">Advisor</p>
-            {/* ★★★ สีจางลง (Blended) ตามที่ขอ ★★★ */}
             <p className="font-medium text-sm text-white/50 truncate">
                 {profile.advisor || 'Pending Assignment'}
             </p>
           </div>
         </div>
 
-        {/* Logout Button (อยู่ล่างสุดของ Sidebar) */}
+        {/* Logout Button */}
         <button 
             onClick={handleLogout}
             className="w-full py-4 rounded-3xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-400 transition-all flex items-center justify-center gap-2 font-bold group cursor-pointer"
