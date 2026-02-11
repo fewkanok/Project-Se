@@ -1,31 +1,34 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import MainLayout from './layouts/MainLayout'; 
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Roadmap from './pages/Roadmap';
 
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-100">
-        {/* Navbar ตัวอย่าง (สามารถแยกไปอยู่ใน layouts/ ได้) */}
-        <nav className="bg-white shadow-md p-4 mb-6">
-          <div className="container mx-auto flex gap-4">
-            <Link to="/" className="text-blue-600 font-bold">CS-System</Link>
-            <Link to="/login" className="hover:text-blue-500">Login</Link>
-            <Link to="/register" className="hover:text-blue-500">Register</Link>
-          </div>
-        </nav>
+      <Routes>
+        {/* --- โซน 1: หน้า Public (ไม่มี Navbar) --- */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
 
-        {/* ส่วนแสดงผลแต่ละหน้า */}
-        <div className="container mx-auto px-4">
-          <Routes>
-            <Route path="/" element={<h1 className="text-2xl font-bold">ยินดีต้อนรับสู่ระบบจัดการเกรด</h1>} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-          </Routes>
-        </div>
-      </div>
+        {/* --- โซน 2: หน้า App หลัก (มี Navbar + พื้นหลัง) --- */}
+        {/* รวมทุกหน้าที่มี Navbar ไว้ในก้อนนี้ก้อนเดียวครับ */}
+        <Route element={<MainLayout />}>
+          
+          {/* ถ้าเข้า / เฉยๆ ให้เด้งไป Dashboard */}
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
+          {/* หน้า Dashboard */}
+          <Route path="/dashboard" element={<Dashboard />} />
+
+          {/* หน้า Roadmap (เพิ่มตรงนี้บรรทัดเดียว จบเลย) */}
+          <Route path="/roadmap" element={<Roadmap />} />
+          
+        </Route>
+
+      </Routes>
     </Router>
   );
 }
