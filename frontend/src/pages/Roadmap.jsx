@@ -1,12 +1,15 @@
 import { useEffect, useState, useRef } from 'react';
 import { CheckCircle, Lock, BookOpen } from 'lucide-react';
 import { roadmapData } from '../data/courses';
+import { useNavigate } from 'react-router-dom'; // 1. เรียกใช้ Navigate
 
 const Roadmap = () => {
   const containerRef = useRef(null);
   const [lines, setLines] = useState([]);
   const [hoveredCourse, setHoveredCourse] = useState(null);
+  const navigate = useNavigate(); // 2. ประกาศตัวแปร navigate
 
+  // --- Logic วาดเส้น (เหมือนเดิม) ---
   const drawLines = () => {
     if (!containerRef.current) return;
     const newLines = [];
@@ -54,27 +57,24 @@ const Roadmap = () => {
     return line.start === hoveredCourse || line.end === hoveredCourse;
   };
 
-  // --- Style การ์ดวิชา (ปรับให้ชัดขึ้น!) ---
+  // --- Style Helper (ปรับแต่งให้สวยและชัด) ---
   const getStatusClass = (status) => {
-    // เพิ่ม shadow-md และปรับสีพื้นฐานให้เข้มขึ้น
-    const base = "relative p-4 rounded-xl border-2 backdrop-blur-md transition-all duration-300 h-[150px] flex flex-col justify-between group cursor-pointer shadow-md";
+    const base = "relative p-4 rounded-xl border-2 backdrop-blur-md transition-all duration-300 h-[150px] flex flex-col justify-between group cursor-pointer shadow-md select-none";
     switch (status) {
       case 'passed':
-        // สีเขียวเข้มขึ้น ขอบชัด มีเงาสีเขียว
-        return `${base} bg-emerald-800/50 border-emerald-500 shadow-emerald-900/30 hover:bg-emerald-700/60 hover:shadow-lg hover:-translate-y-1`;
+        return `${base} bg-emerald-900/40 border-emerald-500/50 shadow-emerald-900/20 hover:bg-emerald-800/50 hover:shadow-lg hover:-translate-y-1 hover:border-emerald-400`;
       case 'active':
-        // สีน้ำเงินเข้ม ขอบสว่าง เด้งขึ้นมานิดนึง
-        return `${base} bg-blue-800/60 border-blue-300 shadow-blue-900/40 scale-[1.02] hover:scale-[1.05] z-10`;
+        return `${base} bg-blue-900/50 border-blue-400/60 shadow-blue-900/30 scale-[1.02] hover:scale-[1.05] hover:border-blue-300 z-10`;
       case 'locked':
       default:
-        // สีเทาเข้ม ลดความโปร่งใสลงให้อ่านออก แต่อยู่ในโหมด grayscale
-        return `${base} bg-slate-800/70 border-slate-600/50 opacity-80 grayscale hover:opacity-100 hover:grayscale-0 hover:bg-slate-700/80 hover:border-slate-500`;
+        return `${base} bg-slate-800/60 border-slate-700/50 opacity-70 grayscale hover:opacity-100 hover:grayscale-0 hover:bg-slate-700/80 hover:border-slate-500`;
     }
   };
 
   return (
-    <div className="min-h-screen p-6 md:p-12 text-white"> {/* เปลี่ยน text-slate-200 เป็น text-white */}
+    <div className="min-h-screen p-6 md:p-12 text-white relative">
       
+      {/* Header */}
       <div className="text-center mb-16 space-y-4">
         <h1 className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 to-emerald-400 drop-shadow-lg">
           CS Curriculum Roadmap
@@ -82,16 +82,18 @@ const Roadmap = () => {
         <p className="text-slate-300 text-lg">
           Interactive Learning Path & Prerequisite Tree
         </p>
-        <div className="flex justify-center gap-6 text-sm font-medium text-slate-300 mt-4 bg-black/20 py-2 px-4 rounded-full w-max mx-auto">
+        {/* Legend */}
+        <div className="flex justify-center gap-6 text-sm font-medium text-slate-300 mt-4 bg-black/20 py-2 px-4 rounded-full w-max mx-auto border border-white/5">
           <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500"></div> Passed</span>
           <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-400 animate-pulse"></div> Now Learning</span>
           <span className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-slate-500"></div> Locked</span>
         </div>
       </div>
 
+      {/* Main Roadmap Area */}
       <div ref={containerRef} className="max-w-7xl mx-auto relative pb-32">
         
-        {/* Lines Layer */}
+        {/* --- Layer 1: Lines (Background) --- */}
         <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible filter drop-shadow-[0_0_3px_rgba(56,189,248,0.5)]">
           <defs>
             <marker id="arrow-active" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
@@ -101,7 +103,6 @@ const Roadmap = () => {
               <path d="M0,0 L0,6 L6,3 z" fill="#64748b" />
             </marker>
           </defs>
-
           {lines.map((line) => {
             const active = isLineActive(line);
             return (
@@ -111,7 +112,7 @@ const Roadmap = () => {
                 fill="none"
                 stroke={active ? "#38bdf8" : "#64748b"}
                 strokeWidth={active ? "3" : "2"}
-                strokeOpacity={active ? "1" : "0.4"}
+                strokeOpacity={active ? "1" : "0.3"}
                 markerEnd={active ? "url(#arrow-active)" : "url(#arrow-inactive)"}
                 className="transition-all duration-300"
               />
@@ -119,16 +120,14 @@ const Roadmap = () => {
           })}
         </svg>
 
-        {/* Content Layer */}
+        {/* --- Layer 2: Courses (Foreground) --- */}
         <div className="space-y-28">
           {roadmapData.map((yearGroup, yearIdx) => (
             <div key={yearIdx} className="relative z-10">
               
-              {/* --- Year Label (ปรับให้ชัด!) --- */}
+              {/* Year Label */}
               <div className="absolute -left-4 md:-left-16 top-0 bottom-0 w-px bg-gradient-to-b from-transparent via-slate-600 to-transparent hidden xl:block"></div>
-              
-              {/* แบบมือถือ: ป้าย Badge ชัดๆ ติดด้านบน */}
-              <div className="sticky top-24 z-30 flex justify-start mb-10 xl:absolute xl:-left-28 xl:top-0 xl:block xl:w-24 xl:text-right xl:mb-0">
+              <div className="sticky top-24 z-20 flex justify-start mb-10 xl:absolute xl:-left-28 xl:top-0 xl:block xl:w-24 xl:text-right xl:mb-0">
                  <span className="inline-block bg-slate-800/90 backdrop-blur-lg border-2 border-slate-600/80 px-6 py-2 rounded-r-full text-3xl font-black text-white shadow-lg xl:bg-transparent xl:border-none xl:shadow-none xl:p-0 xl:text-7xl xl:text-white/50 xl:uppercase xl:tracking-widest select-none">
                   {yearGroup.year.replace("Year ", "Y")}
                 </span>
@@ -137,16 +136,17 @@ const Roadmap = () => {
               {/* Semesters Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-10 md:gap-20">
                 {yearGroup.semesters.map((sem, semIdx) => (
-                  <div key={semIdx} className="space-y-6 bg-black/20 p-6 rounded-3xl border border-white/5">
+                  <div key={semIdx} className="space-y-6 bg-black/20 p-6 rounded-3xl border border-white/5 backdrop-blur-sm">
                     <h3 className="text-2xl font-bold text-white border-l-8 border-blue-500 pl-4">
                       {sem.term}
                     </h3>
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                       {sem.courses.map((course) => (
                         <div
                           key={course.id}
                           id={course.id}
+                          // 3. คลิกแล้วไปหน้าใหม่ (CourseDetail)
+                          onClick={() => navigate(`/course/${course.id}`)}
                           className={getStatusClass(course.status)}
                           onMouseEnter={() => setHoveredCourse(course.id)}
                           onMouseLeave={() => setHoveredCourse(null)}
@@ -163,7 +163,7 @@ const Roadmap = () => {
 
                           {/* Content Card */}
                           <div>
-                            <h4 className="font-bold text-lg text-white leading-tight mb-2 text-shadow-sm">
+                            <h4 className="font-bold text-lg text-white leading-tight mb-2 text-shadow-sm group-hover:text-blue-200 transition-colors">
                               {course.name}
                             </h4>
                             <div className="flex items-center flex-wrap gap-2 text-sm font-medium text-slate-300">
@@ -175,7 +175,6 @@ const Roadmap = () => {
                                 )}
                             </div>
                           </div>
-
                         </div>
                       ))}
                     </div>
