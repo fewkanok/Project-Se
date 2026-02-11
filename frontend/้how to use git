@@ -2,5 +2,5 @@
 git pull origin main
 ถ้าจะ save 
 git add .
-git commit -m "ทำอะไรไปให้เขียนบอก"
+git commit -m "navbar smooter"
 git push origin main
