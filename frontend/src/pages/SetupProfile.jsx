@@ -1,71 +1,130 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil } from 'lucide-react'; // ✅ เพิ่ม Pencil
+import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 
 const SetupProfile = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
+  
+  // --- 1. Load Data (ดึงข้อมูลอย่างระมัดระวัง) ---
+  const getSavedData = () => {
+      try {
+          const saved = localStorage.getItem('userProfile');
+          return saved ? JSON.parse(saved) : null;
+      } catch (e) {
+          return null;
+      }
+  };
 
-  // --- 1. State ---
-  const [basicInfo, setBasicInfo] = useState({
-    name: '',
-    studentId: '',
-    currentYear: 1,
-    currentTerm: 1,
-    image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png' 
+  const savedData = getSavedData();
+
+  // ✅ เช็คว่ามีข้อมูล courseStates เก่าหรือไม่ (ใช้ useRef เพื่อให้ค่าคงที่ตลอด component lifecycle)
+  const hasExistingData = useRef(savedData?.courseStates && Object.keys(savedData.courseStates).length > 0);
+  
+  // ตัวแปรเช็คว่า "useEffect รันครั้งแรกหรือยัง"
+  const hasRunAutoLogic = useRef(false);
+
+  // State: Basic Info
+  const [basicInfo, setBasicInfo] = useState(() => {
+    if (savedData) {
+        // รองรับโครงสร้างข้อมูลทั้งแบบเก่าและใหม่
+        return {
+            name: savedData.basicInfo?.name || savedData.name || '',
+            studentId: savedData.basicInfo?.studentId || savedData.studentId || '',
+            currentYear: savedData.basicInfo?.currentYear || savedData.currentYear || 1,
+            currentTerm: savedData.basicInfo?.currentTerm || savedData.currentTerm || 1,
+            image: savedData.basicInfo?.image || savedData.image || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+        };
+    }
+    // ถ้าไม่มี Save ให้ดู Session
+    const sessionData = localStorage.getItem('active_session');
+    const user = sessionData ? JSON.parse(sessionData) : {};
+    return {
+        name: user.name || '',
+        studentId: user.studentId || '',
+        currentYear: 1,
+        currentTerm: 1,
+        image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+    };
   });
 
-  const [gpaHistory, setGpaHistory] = useState({});
-  const [courseStates, setCourseStates] = useState({}); 
+  // State: Course States (Mission Status)
+  const [courseStates, setCourseStates] = useState(() => {
+    // ✅ ถ้ามี Save ให้ใช้ Save, ถ้าไม่มีให้เริ่มเป็น Object ว่าง
+    const saved = savedData?.courseStates || {};
+    console.log('🔍 Loading courseStates:', saved);
+    console.log('🔍 Number of saved courses:', Object.keys(saved).length);
+    return saved;
+  });
+
+  // State: GPA
+  const [gpaHistory, setGpaHistory] = useState(() => {
+    return savedData?.gpaHistory || {};
+  });
+
   const [totalCredits, setTotalCredits] = useState(0);
 
-  // ✅ ดึงข้อมูลจาก Login มาใส่ให้เอง
+  // --- 2. Logic: Auto-Select (ทำงานเฉพาะตอนเปลี่ยนปี/เทอม *หลังจากโหลดเสร็จแล้ว*) ---
   useEffect(() => {
-    try {
-        const sessionData = localStorage.getItem('active_session');
-        if (sessionData) {
-            const user = JSON.parse(sessionData);
-            setBasicInfo(prev => ({
-                ...prev,
-                name: user.name || '',
-                studentId: user.studentId || ''
-            }));
-        }
-    } catch (e) {
-        console.error("Error loading session:", e);
+    // 🔥 FIX: ถ้ามีข้อมูลเก่า -> ไม่ทำอะไรเลย ใช้ข้อมูลเก่าตรงๆ
+    if (hasExistingData.current) {
+        console.log('✅ Has existing data - SKIP Auto-Logic');
+        return; // จบเลย ไม่รันอะไรต่อ
     }
-  }, []);
 
-  // --- 2. Logic: Auto-Select ---
-  useEffect(() => {
-    let newStates = {};
+    console.log('🔄 No existing data - Running Auto-Logic');
+
+    // --- เริ่มคำนวณ Auto (เฉพาะ user ใหม่ หรือ user เปลี่ยนปี) ---
+    let newStates = { ...courseStates }; 
+    let hasChanges = false;
+
     roadmapData.forEach((yearGroup, yearIdx) => {
         const thisYear = yearIdx + 1;
         yearGroup.semesters.forEach((sem, semIdx) => {
             const thisTerm = semIdx + 1;
+            
             const isPast = (thisYear < basicInfo.currentYear) || 
                            (thisYear === basicInfo.currentYear && thisTerm < basicInfo.currentTerm);
             const isCurrent = (thisYear === basicInfo.currentYear && thisTerm === basicInfo.currentTerm);
 
             sem.courses.forEach(course => {
-                const prereqId = course.prereq;
-                const isPrereqMet = !prereqId || (prereqId && newStates[prereqId] === 'passed');
+                const currentStatus = newStates[course.id];
 
-                if (isPrereqMet) {
-                    if (isPast) {
-                        newStates[course.id] = 'passed';
-                    } else if (isCurrent) {
-                        newStates[course.id] = 'learning';
+                // 1. ถ้าวิชาเคยเป็น Learning แต่อยู่ในอดีตแล้ว -> ปรับเป็น Passed
+                if (currentStatus === 'learning' && isPast) {
+                    newStates[course.id] = 'passed';
+                    hasChanges = true;
+                }
+
+                // 2. ถ้าวิชายังว่างอยู่ (ไม่เคยติ๊ก) -> ลอง Auto-Fill ดู
+                if (!currentStatus) {
+                    const prereqId = course.prereq;
+                    // เช็คว่าผ่านตัวแม่หรือยัง (ถ้าไม่มีตัวแม่ ถือว่าผ่านเงื่อนไข)
+                    const isPrereqMet = !prereqId || (prereqId && newStates[prereqId] === 'passed');
+
+                    if (isPrereqMet) {
+                        if (isPast) {
+                            newStates[course.id] = 'passed';
+                            hasChanges = true;
+                        } else if (isCurrent) {
+                            newStates[course.id] = 'learning';
+                            hasChanges = true;
+                        }
                     }
                 }
             });
         });
     });
-    setCourseStates(newStates);
-  }, [basicInfo.currentYear, basicInfo.currentTerm]); 
 
-  // Calculate Credits
+    if (hasChanges) {
+        setCourseStates(newStates);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // 🔥 รันแค่ครั้งเดียวตอน mount
+
+
+  // --- 3. Calculate Credits (นับหน่วยกิต real-time) ---
   useEffect(() => {
     let credits = 0;
     roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => {
@@ -75,7 +134,7 @@ const SetupProfile = () => {
   }, [courseStates]);
 
 
-  // --- 3. Helper Functions ---
+  // --- Helper Functions ---
   const getDependentCourses = (parentId) => {
       let dependents = [];
       roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => {
@@ -95,40 +154,38 @@ const SetupProfile = () => {
       return found;
   };
 
-  // --- Core Logic: Cycle Status ---
+  // --- Click Handler (User กดติ๊กเอง) ---
   const handleCourseClick = (courseId) => {
       const currentState = courseStates[courseId];
       const courseObj = findCourseById(courseId);
+      
+      let nextState = '';
+      if (!currentState) nextState = 'learning'; 
+      else if (currentState === 'learning') nextState = 'passed';
+      else if (currentState === 'passed') nextState = undefined; 
 
-      if (!currentState || currentState === 'learning') {
-        let nextState = '';
-        if (!currentState) nextState = 'passed';
-        else if (currentState === 'passed') nextState = 'learning';
-        else if (currentState === 'learning') nextState = undefined; 
-
-        if (nextState === 'passed' || nextState === 'learning') {
-            if (courseObj.prereq) {
-                const prereqState = courseStates[courseObj.prereq];
-                if (prereqState !== 'passed') {
-                    alert(`Cannot select this course! You must pass ${findCourseById(courseObj.prereq)?.name || courseObj.prereq} first.`);
-                    return;
-                }
-            }
-        }
-
-        setCourseStates(prev => {
-            const updated = { ...prev };
-            if (nextState) updated[courseId] = nextState;
-            else {
-                delete updated[courseId];
-                const children = getDependentCourses(courseId);
-                children.forEach(childId => delete updated[childId]);
-            }
-            return updated;
-        });
-      } else if (currentState === 'passed') {
-          setCourseStates(prev => ({ ...prev, [courseId]: 'learning' }));
+      // Validation: ห้ามกด Passed/Learning ถ้ายังไม่ผ่านตัวแม่
+      if (nextState === 'passed' || nextState === 'learning') {
+          if (courseObj.prereq) {
+              const prereqState = courseStates[courseObj.prereq];
+              if (prereqState !== 'passed') {
+                  alert(`Cannot select this course! You must pass ${findCourseById(courseObj.prereq)?.name || courseObj.prereq} first.`);
+                  return;
+              }
+          }
       }
+
+      setCourseStates(prev => {
+          const updated = { ...prev };
+          if (nextState) updated[courseId] = nextState;
+          else {
+              delete updated[courseId];
+              // ถ้าลบตัวแม่ ตัวลูกต้องหายด้วย
+              const children = getDependentCourses(courseId);
+              children.forEach(childId => delete updated[childId]);
+          }
+          return updated;
+      });
   };
 
   const handleInfoChange = (e) => {
@@ -154,19 +211,28 @@ const SetupProfile = () => {
   const handleSubmit = () => {
     if (!basicInfo.name || !basicInfo.studentId) return alert("Please enter your Name and Student ID.");
     
-    const passedCourses = Object.keys(courseStates).filter(id => courseStates[id] === 'passed');
-    
     const userPayload = { 
-        ...basicInfo, 
+        basicInfo, // เก็บแยกส่วน
+        ...basicInfo, // เก็บรวม (Backup)
         gpaHistory,
-        passedCourses, 
+        passedCourses: Object.keys(courseStates).filter(id => courseStates[id] === 'passed'), 
         learningCourses: Object.keys(courseStates).filter(id => courseStates[id] === 'learning'),
-        courseStates, 
+        courseStates, // ✅ หัวใจสำคัญ: ต้อง save ก้อนนี้ไปด้วย เพื่อให้โหลดกลับมาได้ตรงเป๊ะ
         totalCredits, 
         lastUpdated: new Date().toISOString() 
     };
     
+    console.log('💾 Saving userPayload:', userPayload);
+    console.log('💾 courseStates to save:', courseStates);
+    console.log('💾 Number of courses:', Object.keys(courseStates).length);
+    
     localStorage.setItem('userProfile', JSON.stringify(userPayload));
+    
+    // ทดสอบว่า save สำเร็จไหม
+    const verify = JSON.parse(localStorage.getItem('userProfile'));
+    console.log('✅ Verification - Loaded back:', verify);
+    console.log('✅ courseStates match?', JSON.stringify(verify.courseStates) === JSON.stringify(courseStates));
+    
     navigate('/dashboard');
   };
 
@@ -221,7 +287,6 @@ const SetupProfile = () => {
                     </div>
 
                     <div className="space-y-4">
-                        {/* ✅ เพิ่ม Icon รูปดินสอ เพื่อบอกว่าแก้ไขได้ */}
                         <div className="space-y-1">
                             <label className="text-[10px] text-slate-500 font-bold ml-1 uppercase">Full Name</label>
                             <div className="relative group">
