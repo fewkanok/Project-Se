@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Mail, ArrowRight, Terminal } from 'lucide-react'; // เปลี่ยน User เป็น Mail
+import { Lock, Mail, ArrowRight, Terminal } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   
-  // เปลี่ยน State จาก id เป็น email
   const [formData, setFormData] = useState({ 
     email: '', 
     password: '' 
@@ -19,15 +18,14 @@ const Login = () => {
   const handleLogin = (e) => {
     e.preventDefault();
 
-    // 1. ดึงข้อมูล User ที่เคยสมัครไว้
+    // 1. อ่านข้อมูลจากที่ลงทะเบียนไว้
     const registeredUser = JSON.parse(localStorage.getItem('registered_user'));
 
     let isValid = false;
     let currentUserData = null;
 
-    // 2. Logic การ Login (เช็ค Email แทน Student ID)
+    // 2. เช็คว่ามีข้อมูลตรงกันไหม (Email & Password)
     if (registeredUser && registeredUser.email === formData.email) {
-        // กรณี User มีในระบบ -> เช็ค Password
         if (registeredUser.password === formData.password) {
             isValid = true;
             currentUserData = registeredUser;
@@ -36,16 +34,16 @@ const Login = () => {
             return;
         }
     } else {
-        // กรณี Hardcode (Testing) - เผื่ออยากลองเทสแบบไม่ต้องสมัคร
+        // Backdoor สำหรับการ Test (Optional)
         if (formData.email === "test@example.com" && formData.password === "1234") {
             isValid = true;
             currentUserData = { 
                 name: 'Survivor Guest', 
-                studentId: '6600000000', 
+                studentId: '6609999999', 
                 email: 'test@example.com' 
             };
         } else {
-            alert("Email not found or Wrong password! (Try registering first)");
+            alert("Email not found! Please register first.");
             return;
         }
     }
@@ -55,7 +53,7 @@ const Login = () => {
         setTimeout(() => {
             setLoading(false);
             
-            // บันทึก Session (ส่งข้อมูลไปหน้า Setup)
+            // ✅ จุดสำคัญ: บันทึก Session ว่าใครล็อกอินอยู่ (Active Session)
             localStorage.setItem('active_session', JSON.stringify(currentUserData));
             
             navigate('/setup');
@@ -86,20 +84,11 @@ const Login = () => {
 
         <form onSubmit={handleLogin} className="space-y-6">
           
-          {/* ✅ เปลี่ยนเป็นช่อง Email */}
           <div className="space-y-2 group">
             <label className="text-xs font-bold text-slate-400 ml-1 uppercase tracking-wider group-focus-within:text-orange-400 transition-colors">Email Address</label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-white transition-colors" size={20} />
-              <input 
-                name="email" 
-                type="email" 
-                placeholder="student@example.com" 
-                value={formData.email} 
-                onChange={handleChange} 
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/50 focus:bg-white/10 transition-all duration-300" 
-                required 
-              />
+              <input name="email" type="email" placeholder="student@example.com" value={formData.email} onChange={handleChange} className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/50 focus:bg-white/10 transition-all duration-300" required />
             </div>
           </div>
 
@@ -107,15 +96,7 @@ const Login = () => {
             <label className="text-xs font-bold text-slate-400 ml-1 uppercase tracking-wider group-focus-within:text-purple-400 transition-colors">Password</label>
             <div className="relative">
               <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-white transition-colors" size={20} />
-              <input 
-                name="password" 
-                type="password" 
-                placeholder="••••••••" 
-                value={formData.password} 
-                onChange={handleChange} 
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/50 focus:bg-white/10 transition-all duration-300" 
-                required 
-              />
+              <input name="password" type="password" placeholder="••••••••" value={formData.password} onChange={handleChange} className="w-full bg-white/5 border border-white/10 rounded-xl py-3.5 pl-12 pr-4 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500/50 focus:bg-white/10 transition-all duration-300" required />
             </div>
           </div>
 

@@ -23,7 +23,7 @@ const Register = () => {
   const handleRegister = (e) => {
     e.preventDefault();
 
-    // Validation
+    // 1. Validation Logic
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match!");
       return;
@@ -36,21 +36,21 @@ const Register = () => {
 
     setLoading(true);
 
+    // 2. Save Data & Simulate API Call
     setTimeout(() => {
       setLoading(false);
       
-      // --- จุดสำคัญ: บันทึกข้อมูลลงเครื่องจริงๆ (LocalStorage) ---
+      // ✅ จุดสำคัญ: บันทึกข้อมูลลงเครื่อง (เปรียบเสมือน Database)
       const userData = {
           name: formData.fullName,
           studentId: formData.studentId,
-          email: formData.email, // บันทึก Email
-          password: formData.password // บันทึก Password
+          email: formData.email,
+          password: formData.password
       };
       
-      // เก็บข้อมูลใส่กล่องชื่อ 'registered_user'
       localStorage.setItem('registered_user', JSON.stringify(userData));
 
-      alert("Registration Successful! Now go Login.");
+      alert("Registration Successful! Please Login.");
       navigate('/login');
     }, 1500);
   };

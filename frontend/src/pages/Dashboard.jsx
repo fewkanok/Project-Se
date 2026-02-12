@@ -28,19 +28,22 @@ const Dashboard = () => {
       );
   }
 
-  // --- 2. Calculation Logic (สูตรใหม่: Weighted Average & Fixed Key Access) ---
+  // --- 2. Calculation Logic (สูตรใหม่: Dynamic Weight based on Passed Courses) ---
   const stats = useMemo(() => {
-    let totalStructureCredits = 0; // หน่วยกิตทั้งหมดตามหลักสูตร
-    let earnedCredits = 0;         // หน่วยกิตที่เก็บได้แล้ว (Passed)
+    let totalStructureCredits = 0;
+    let earnedCredits = 0;
     let activeCoursesList = [];
     
     // ตัวแปรสำหรับคำนวณ GPAX
-    let totalPoints = 0;           // ผลรวมของ (เกรด x หน่วยกิต)
-    let totalGradedCredits = 0;    // ผลรวมหน่วยกิตที่นำมาคิดเกรด
+    let totalPoints = 0;        
+    let totalGradedCredits = 0; 
     let graphData = [];
 
     const currentYearNum = parseInt(profile.currentYear) || 1;
     const currentTermNum = parseInt(profile.currentTerm) || 1;
+
+    // เตรียมรายการวิชาที่ผ่านแล้วเพื่อให้ค้นหาง่าย
+    const passedSet = new Set(profile.passedCourses || []);
 
     if (roadmapData) {
         roadmapData.forEach((yearGroup, yIdx) => {
@@ -49,45 +52,55 @@ const Dashboard = () => {
             yearGroup.semesters.forEach((sem, sIdx) => {
                 const termNum = sIdx + 1;
                 
-                // 1. หา Active Courses (วิชาที่เรียนอยู่ปัจจุบัน)
+                // 1. หา Active Courses
                 if (yearNum === currentYearNum && termNum === currentTermNum) {
                     activeCoursesList = sem.courses.map(c => ({...c, termLabel: sem.term}));
                 }
 
-                // 2. คำนวณหน่วยกิตรวมและหน่วยกิตที่ได้
-                let semesterCredits = 0; // หน่วยกิตรวมเฉพาะเทอมนี้ (ใช้คำนวณ Weight)
-                
+                // 2. นับหน่วยกิตรวมโครงสร้าง
                 sem.courses.forEach(course => {
                     totalStructureCredits += course.credits;
-                    semesterCredits += course.credits; // นับหน่วยกิตเทอมนี้
-
-                    if (profile.passedCourses?.includes(course.id)) {
+                    if (passedSet.has(course.id)) {
                         earnedCredits += course.credits;
                     }
                 });
 
-                // 3. Logic กราฟ & GPAX (แก้ไขส่วนนี้)
-                // เช็คว่าเป็นเทอมในอดีตหรือไม่ (ปีน้อยกว่า หรือ ปีเท่ากันแต่เทอมน้อยกว่า)
+                // 3. Logic GPAX
                 const isPastTerm = (yearNum < currentYearNum) || (yearNum === currentYearNum && termNum < currentTermNum);
 
                 if (isPastTerm) {
-                    // ✅ แก้ไข: สร้าง Key ให้ตรงกับ format ที่เก็บใน localStorage (เช่น "Y1/1")
                     const termKey = `Y${yearNum}/${termNum}`;
                     const historyGradeStr = profile.gpaHistory?.[termKey];
                     
-                    // ต้องมีเกรด และ เกรดต้องไม่เป็นค่าว่าง
                     if (historyGradeStr && !isNaN(parseFloat(historyGradeStr))) {
                         const termGPA = parseFloat(historyGradeStr);
                         
-                        // คำนวณสะสม GPAX (Grade * Credits)
-                        totalPoints += (termGPA * semesterCredits);
-                        totalGradedCredits += semesterCredits;
+                        // --- แก้ไขจุดสำคัญ (Dynamic Credit Calculation) ---
+                        // แทนที่จะเอาหน่วยกิตทั้งเทอมมาคิด (ซึ่งรวมวิชาที่ W หรือยังไม่เรียน)
+                        // เราจะนับเฉพาะหน่วยกิตของวิชาที่ User ติ๊ก 'Passed' ในเทอมนั้นจริงๆ
+                        let actualTermCredits = 0;
+                        sem.courses.forEach(c => {
+                            if (passedSet.has(c.id)) {
+                                actualTermCredits += c.credits;
+                            }
+                        });
 
-                        // Push ลงกราฟ
+                        // Fallback: ถ้า User ลืมติ๊ก Passed เลยสักวิชา แต่ดันกรอกเกรดมา 
+                        // ให้ใช้หน่วยกิตเต็มตามแผนไปก่อน (กัน Error หาร 0)
+                        if (actualTermCredits === 0) {
+                             sem.courses.forEach(c => actualTermCredits += c.credits);
+                        }
+
+                        // คำนวณ Point
+                        totalPoints += (termGPA * actualTermCredits);
+                        totalGradedCredits += actualTermCredits;
+
+                        // Push กราฟ
                         graphData.push({
-                            term: termKey, // ใช้ Key สั้นๆ เช่น Y1/1
+                            term: termKey, 
                             gpa: parseFloat(termGPA.toFixed(2)),
-                            fullTerm: sem.term
+                            fullTerm: sem.term,
+                            credits: actualTermCredits // เก็บไว้โชว์ใน Tooltip
                         });
                     }
                 }
@@ -95,10 +108,12 @@ const Dashboard = () => {
         });
     }
 
-    // คำนวณ GPAX สุดท้าย (Weighted Average)
-    const calculatedGPAX = totalGradedCredits > 0 
-        ? (totalPoints / totalGradedCredits).toFixed(2) 
-        : "0.00";
+    // --- Rounding (ตัดเศษทิ้ง Floor) ---
+    let calculatedGPAX = "0.00";
+    if (totalGradedCredits > 0) {
+        const rawGPA = totalPoints / totalGradedCredits;
+        calculatedGPAX = (Math.floor(rawGPA * 100) / 100).toFixed(2);
+    }
 
     const progressPercent = totalStructureCredits > 0 
         ? Math.round((earnedCredits / totalStructureCredits) * 100) 
@@ -110,11 +125,15 @@ const Dashboard = () => {
   // --- 3. Custom Tooltip ---
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
+      const data = payload[0].payload;
       return (
         <div className="bg-black/90 backdrop-blur-md border border-cyan-500/30 p-3 rounded-xl shadow-[0_0_15px_rgba(34,211,238,0.3)]">
-          <p className="text-gray-300 text-xs mb-1">{payload[0].payload.fullTerm}</p>
-          <p className="text-cyan-400 font-bold text-lg shadow-cyan-500/50">
-            GPA: {payload[0].value.toFixed(2)}
+          <p className="text-gray-300 text-xs mb-1">{data.fullTerm}</p>
+          <div className="text-cyan-400 font-bold text-lg shadow-cyan-500/50">
+            GPA: {data.gpa.toFixed(2)}
+          </div>
+          <p className="text-[10px] text-gray-500 mt-1">
+             Weight: {data.credits} Credits
           </p>
         </div>
       );
