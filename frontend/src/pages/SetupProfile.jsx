@@ -1,20 +1,21 @@
-import { useState, useEffect, useRef } from 'react'; // เพิ่ม useRef
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera } from 'lucide-react'; // เพิ่ม Camera icon
+import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 
 const SetupProfile = () => {
   const navigate = useNavigate();
-  const fileInputRef = useRef(null); // Ref สำหรับ input file
+  const fileInputRef = useRef(null);
 
   // --- 1. State ---
   const [basicInfo, setBasicInfo] = useState({
     name: '',
     studentId: '',
-    advisor: '',
+    // advisor: '', // ลบ advisor ออกตาม request
     currentYear: 1,
     currentTerm: 1,
-    image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=500&auto=format&fit=crop&q=60' // Default Image
+    // เปลี่ยนรูป default เป็น Avatar
+    image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png' 
   });
 
   const [gpaHistory, setGpaHistory] = useState({});
@@ -49,7 +50,7 @@ const SetupProfile = () => {
     setCourseStates(newStates);
   }, [basicInfo.currentYear, basicInfo.currentTerm]); 
 
-  // คำนวณหน่วยกิต
+  // Calculate Credits
   useEffect(() => {
     let credits = 0;
     roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => {
@@ -60,7 +61,6 @@ const SetupProfile = () => {
 
 
   // --- 3. Helper Functions ---
-
   const getDependentCourses = (parentId) => {
       let dependents = [];
       roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => {
@@ -95,7 +95,8 @@ const SetupProfile = () => {
             if (courseObj.prereq) {
                 const prereqState = courseStates[courseObj.prereq];
                 if (prereqState !== 'passed') {
-                    alert(`ไม่สามารถเลือกวิชานี้ได้! ต้องผ่านวิชา ${findCourseById(courseObj.prereq)?.name || courseObj.prereq} ให้เสร็จสมบูรณ์ก่อน`);
+                    // เปลี่ยน Alert เป็นภาษาอังกฤษ
+                    alert(`Cannot select this course! You must pass ${findCourseById(courseObj.prereq)?.name || courseObj.prereq} first.`);
                     return;
                 }
             }
@@ -121,12 +122,11 @@ const SetupProfile = () => {
     setBasicInfo(prev => ({ ...prev, [name]: value }));
   };
 
-  // ★★★ ฟังก์ชันอัปโหลดรูป (เหมือนใน Dashboard) ★★★
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 1024 * 1024) {
-        alert("ไฟล์รูปใหญ่เกินไป! กรุณาใช้รูปขนาดไม่เกิน 1MB ครับ");
+        alert("File size too large! Please use image under 1MB.");
         return;
       }
       const reader = new FileReader();
@@ -138,13 +138,13 @@ const SetupProfile = () => {
   };
 
   const handleSubmit = () => {
-    if (!basicInfo.name || !basicInfo.studentId) return alert("กรุณากรอกชื่อและรหัสนักศึกษาครับ");
+    if (!basicInfo.name || !basicInfo.studentId) return alert("Please enter your Name and Student ID.");
     
     const passedCourses = Object.keys(courseStates).filter(id => courseStates[id] === 'passed');
     
     const userPayload = { 
-        ...basicInfo, // มี image รวมอยู่แล้ว
-        gpaHistory, 
+        ...basicInfo, 
+        gpaHistory,
         passedCourses, 
         learningCourses: Object.keys(courseStates).filter(id => courseStates[id] === 'learning'),
         courseStates, 
@@ -170,7 +170,7 @@ const SetupProfile = () => {
             <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 mb-2">
                 SETUP PROFILE
             </h1>
-            <p className="text-slate-500">คลิกที่วิชาเพื่อเปลี่ยนสถานะ (ผ่าน -> กำลังเรียน -> ไม่ผ่าน)</p>
+            <p className="text-slate-500">Tap course to change status (Passed -> Learning -> Not Started)</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -178,25 +178,21 @@ const SetupProfile = () => {
             {/* --- LEFT SIDEBAR --- */}
             <div className="lg:col-span-4 space-y-6 h-fit lg:sticky lg:top-8">
                 
-                {/* 1. Identity & Photo Upload (แก้ไขส่วนนี้) */}
+                {/* 1. Identity & Photo Upload */}
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl relative overflow-hidden">
-                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-cyan-400"><User size={20}/> ข้อมูลส่วนตัว</h2>
+                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-cyan-400"><User size={20}/> Personal Info</h2>
                     
-                    {/* Image Preview & Upload Button */}
                     <div className="flex flex-col items-center mb-6">
                         <div 
-                            className="relative w-28 h-28 rounded-full border-2 border-white/20 overflow-hidden cursor-pointer group hover:border-cyan-500 transition-all"
-                            onClick={() => fileInputRef.current.click()} // คลิกรูปก็เปิดไฟล์ได้
+                            className="relative w-28 h-28 rounded-full border-2 border-white/20 overflow-hidden cursor-pointer group hover:border-cyan-500 transition-all bg-white/5"
+                            onClick={() => fileInputRef.current.click()}
                         >
-                            <img src={basicInfo.image} alt="Profile" className="w-full h-full object-cover" />
-                            
-                            {/* Overlay ตอนเอาเมาส์ชี้ */}
-                            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <img src={basicInfo.image} alt="Profile" className="w-full h-full object-cover p-1 rounded-full" />
+                            <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
                                 <Camera size={24} className="text-white mb-1"/>
                                 <span className="text-[10px] text-white font-bold">Change</span>
                             </div>
                         </div>
-                        {/* Hidden Input */}
                         <input 
                             type="file" 
                             ref={fileInputRef} 
@@ -204,19 +200,19 @@ const SetupProfile = () => {
                             className="hidden" 
                             accept="image/png, image/jpeg, image/jpg"
                         />
-                        <p className="text-xs text-slate-500 mt-2">คลิกที่รูปเพื่อเปลี่ยน (Max 1MB)</p>
+                        <p className="text-xs text-slate-500 mt-2">Click image to upload (Max 1MB)</p>
                     </div>
 
                     <div className="space-y-3">
-                        <input name="name" onChange={handleInfoChange} placeholder="ชื่อ-นามสกุล (อังกฤษ)" className="w-full bg-black/40 border border-white/10 rounded-lg py-3 px-4 text-white focus:border-cyan-500 outline-none transition-colors" />
-                        <input name="studentId" onChange={handleInfoChange} placeholder="รหัสนักศึกษา (เช่น 660xxxx)" className="w-full bg-black/40 border border-white/10 rounded-lg py-3 px-4 text-white focus:border-cyan-500 outline-none transition-colors" />
-                        <input name="advisor" onChange={handleInfoChange} placeholder="อาจารย์ที่ปรึกษา (Optional)" className="w-full bg-black/40 border border-white/10 rounded-lg py-3 px-4 text-white focus:border-cyan-500 outline-none transition-colors" />
+                        <input name="name" onChange={handleInfoChange} placeholder="Full Name (English)" className="w-full bg-black/40 border border-white/10 rounded-lg py-3 px-4 text-white focus:border-cyan-500 outline-none transition-colors" />
+                        <input name="studentId" onChange={handleInfoChange} placeholder="Student ID (e.g. 660xxxx)" className="w-full bg-black/40 border border-white/10 rounded-lg py-3 px-4 text-white focus:border-cyan-500 outline-none transition-colors" />
+                        {/* Advisor input removed */}
                     </div>
                 </div>
 
                 {/* 2. Current Status Selector */}
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl">
-                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-purple-400"><Calendar size={20}/> ตอนนี้อยู่ปีไหน?</h2>
+                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-purple-400"><Calendar size={20}/> Current Study Year?</h2>
                     
                     <div className="space-y-4">
                          {/* Year */}
@@ -257,28 +253,55 @@ const SetupProfile = () => {
 
                 {/* 3. GPA */}
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl">
-                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-emerald-400"><GraduationCap size={20}/> เกรดเฉลี่ย (เฉพาะเทอมที่จบ)</h2>
+                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-emerald-400"><GraduationCap size={20}/> GPA History (Finished Terms)</h2>
                     <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                         {roadmapData.map((yearGroup, yearIdx) => 
                             yearGroup.semesters.map((sem, semIdx) => {
                                 const isPast = (yearIdx + 1 < basicInfo.currentYear) || 
                                                (yearIdx + 1 === basicInfo.currentYear && semIdx + 1 < basicInfo.currentTerm);
                                 
+                                // Key Format: Y1/1
+                                const uniqueTermKey = `Y${yearIdx + 1}/${semIdx + 1}`;
+
                                 if (isPast) {
                                      return (
-                                         <div key={sem.term} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 animate-fade-in-up">
-                                             <span className="text-slate-300 font-mono text-xs font-bold uppercase tracking-wider">{sem.term} GPA</span>
-                                             <input type="number" step="0.01" min="0" max="4.00" placeholder="0.00"
-                                                onChange={(e) => setGpaHistory(prev => ({...prev, [sem.term]: e.target.value}))}
-                                                className="w-20 bg-transparent text-right text-emerald-400 font-bold outline-none placeholder-slate-600 border-b border-white/10 focus:border-emerald-500 transition-colors" />
-                                         </div>
+                                       <div key={uniqueTermKey} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 animate-fade-in-up">
+                                            <span className="text-slate-300 font-mono text-xs font-bold uppercase tracking-wider">
+                                                {uniqueTermKey} GPA
+                                            </span>
+                                            <input 
+                                                type="number" step="0.01" min="0" max="4" placeholder="0.00"
+                                                value={gpaHistory[uniqueTermKey] || ''} 
+                                                
+                                                // ✅ FIX: Lock GPA between 0 - 4
+                                                onChange={(e) => {
+                                                    let val = e.target.value;
+                                                    // Allow empty string for backspace
+                                                    if (val === '') {
+                                                        setGpaHistory(prev => ({ ...prev, [uniqueTermKey]: '' }));
+                                                        return;
+                                                    }
+                                                    
+                                                    // Convert to number for checking
+                                                    const numVal = parseFloat(val);
+                                                    if (numVal > 4) val = 4;
+                                                    if (numVal < 0) val = 0;
+
+                                                    setGpaHistory(prev => ({
+                                                        ...prev, 
+                                                        [uniqueTermKey]: val
+                                                    }));
+                                                }}
+                                                className="w-20 bg-transparent text-right text-emerald-400 font-bold outline-none placeholder-slate-600 border-b border-white/10 focus:border-emerald-500 transition-colors" 
+                                            />
+                                       </div>
                                      )
                                 }
                                 return null;
                             })
                         )}
                         {basicInfo.currentYear === 1 && basicInfo.currentTerm === 1 && (
-                            <div className="text-center py-6 text-slate-600 text-xs border border-dashed border-white/10 rounded-xl">ยังไม่มีเกรดที่ต้องกรอก</div>
+                            <div className="text-center py-6 text-slate-600 text-xs border border-dashed border-white/10 rounded-xl">No grades to enter yet</div>
                         )}
                     </div>
                 </div>
@@ -289,11 +312,11 @@ const SetupProfile = () => {
                 {/* Banner Status Guide */}
                 <div className="bg-gradient-to-r from-slate-900 via-[#0a0a0a] to-slate-900 border border-white/10 p-6 rounded-2xl flex flex-col md:flex-row items-start md:items-center justify-between shadow-xl gap-4 sticky top-8 z-40 backdrop-blur-xl">
                     <div>
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2"><BookOpen className="text-pink-500"/> รายวิชา</h2>
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2"><BookOpen className="text-pink-500"/> Courses</h2>
                         <div className="flex flex-wrap gap-4 mt-2 text-xs">
-                            <span className="flex items-center gap-1 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded border border-emerald-400/20"><CheckCircle2 size={12}/> ผ่านแล้ว</span>
-                            <span className="flex items-center gap-1 text-blue-400 bg-blue-400/10 px-2 py-1 rounded border border-blue-400/20"><PlayCircle size={12}/> กำลังเรียน</span>
-                            <span className="flex items-center gap-1 text-slate-500 bg-white/5 px-2 py-1 rounded border border-white/10"><XCircle size={12}/> ยังไม่เรียน</span>
+                            <span className="flex items-center gap-1 text-emerald-400 bg-emerald-400/10 px-2 py-1 rounded border border-emerald-400/20"><CheckCircle2 size={12}/> Passed</span>
+                            <span className="flex items-center gap-1 text-blue-400 bg-blue-400/10 px-2 py-1 rounded border border-blue-400/20"><PlayCircle size={12}/> Learning</span>
+                            <span className="flex items-center gap-1 text-slate-500 bg-white/5 px-2 py-1 rounded border border-white/10"><XCircle size={12}/> Not Started</span>
                         </div>
                     </div>
                     <div className="text-right bg-white/5 p-3 rounded-xl border border-white/5 min-w-[120px]">
@@ -315,7 +338,7 @@ const SetupProfile = () => {
                                     ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' 
                                     : 'bg-white/10 backdrop-blur text-slate-300 border-white/10'
                                 }`}>
-                                    {yearGroup.year}
+                                    Year {yearGroup.year}
                                 </span>
                             </div>
 
@@ -336,7 +359,7 @@ const SetupProfile = () => {
                                                     <span className={`text-xs font-bold uppercase tracking-widest ${isTermCurrent ? 'text-white' : 'text-slate-400'}`}>
                                                         {sem.term}
                                                     </span>
-                                                    {isTermCurrent && <span className="text-[10px] bg-white text-black font-bold px-2 py-0.5 rounded-full">Current Term</span>}
+                                                    {isTermCurrent && <span className="text-[10px] bg-white text-black font-bold px-2 py-0.5 rounded-full">Current</span>}
                                                 </div>
                                             </div>
 
@@ -383,7 +406,7 @@ const SetupProfile = () => {
                                                                 </div>
                                                                 {isLocked && (
                                                                     <p className="text-[10px] text-orange-500 mt-1 flex items-center gap-1">
-                                                                        <AlertCircle size={10}/> ต้องผ่าน {course.prereq} ก่อน
+                                                                        <AlertCircle size={10}/> Prerequisite: {course.prereq}
                                                                     </p>
                                                                 )}
                                                             </div>
