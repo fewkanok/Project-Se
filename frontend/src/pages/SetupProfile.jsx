@@ -69,60 +69,74 @@ const SetupProfile = () => {
 
   const [totalCredits, setTotalCredits] = useState(0);
 
-  // --- 2. Auto-Select Logic (ปรับปรุงใหม่) ---
+  // --- 2. Auto-Select Logic (แก้ไขใหม่: ให้ทำงานทุกครั้งที่เปลี่ยนปี/เทอม) ---
   useEffect(() => {
     // ถ้าเป็นการโหลดครั้งแรกและมีข้อมูลเก่า -> ไม่ต้อง Auto (เคารพข้อมูล Save เดิม)
+    // แต่ถ้าเป็นการกดเปลี่ยน Year/Term เอง ให้คำนวณใหม่เสมอ
     if (isFirstRun.current) {
         isFirstRun.current = false;
         if (hasExistingData.current) return;
     }
 
-    // แปลงเป็นตัวเลขเพื่อให้ชัวร์
+    // แปลงค่าเป็นตัวเลขให้ชัวร์ก่อนคำนวณ
     const curYear = parseInt(basicInfo.currentYear);
     const curTerm = parseInt(basicInfo.currentTerm);
 
     setCourseStates(prevStates => {
         let nextStates = { ...prevStates };
 
-        // Helper: เช็คสถานะตาม Timeline
+        // ฟังก์ชันเช็คสถานะตามเวลา (Timeline)
         const getStatus = (y, t) => {
             if (y < curYear) return 'passed'; // ปีก่อนหน้า -> เขียว
             if (y === curYear) {
                 if (t < curTerm) return 'passed'; // ปีเดียวกัน เทอมก่อน -> เขียว
                 if (t === curTerm) return 'learning'; // เทอมปัจจุบัน -> ฟ้า
             }
-            return null; // อนาคต -> ปล่อยว่าง
+            return null; // อนาคต -> ล้างค่า (ว่าง)
         };
 
-        // วนลูปทุกวิชาใน roadmap
+        // 1. วนลูปเช็คทุกวิชาใน Roadmap (วิชาแกน)
         roadmapData.forEach((yearGroup, yearIdx) => {
             const y = yearIdx + 1;
             yearGroup.semesters.forEach((sem, semIdx) => {
                 const t = semIdx + 1;
                 const status = getStatus(y, t);
 
-                if (status) {
-                    // อัปเดตวิชาแกน
-                    sem.courses.forEach(course => {
+                sem.courses.forEach(course => {
+                    if (status) {
                         nextStates[course.id] = status;
-                    });
-
-                    // อัปเดตวิชาเสรี (ถ้ามีในเทอมนั้น)
-                    const termKey = `${y}-${t}`;
-                    if (customElectives[termKey]) {
-                        customElectives[termKey].forEach(elecId => {
-                            nextStates[elecId] = status;
-                        });
+                    } else {
+                        // ถ้าเป็นอนาคต ให้ลบสถานะออก (เพื่อให้กลับมาเป็นสีเทา)
+                        delete nextStates[course.id];
                     }
-                }
+                });
             });
+        });
+
+        // 2. วนลูปเช็ควิชาเลือก (Electives) ที่เพิ่มเข้ามาแล้ว
+        Object.keys(customElectives).forEach(termKey => {
+            const [yStr, tStr] = termKey.split('-');
+            const y = parseInt(yStr);
+            const t = parseInt(tStr);
+            const status = getStatus(y, t);
+            
+            const electivesInTerm = customElectives[termKey];
+            if (Array.isArray(electivesInTerm)) {
+                electivesInTerm.forEach(elecId => {
+                    if (status) {
+                        nextStates[elecId] = status;
+                    } else {
+                        delete nextStates[elecId];
+                    }
+                });
+            }
         });
 
         return nextStates;
     });
 
   }, [basicInfo.currentYear, basicInfo.currentTerm, customElectives]); 
-  // ✅ เพิ่ม dependencies ให้ทำงานทันทีที่เปลี่ยน Year/Term
+  // ✅ ใส่ Dependencies ครบ: เปลี่ยนปี/เทอม/วิชาเลือก เมื่อไหร่ คำนวณใหม่ทันที
 
 
   // --- 3. Calculate Credits ---
