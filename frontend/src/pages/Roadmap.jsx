@@ -5,6 +5,7 @@ import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
 import { useNavigate } from 'react-router-dom';
 
+
 const Roadmap = () => {
   const containerRef = useRef(null);
   const [lines, setLines] = useState([]);
