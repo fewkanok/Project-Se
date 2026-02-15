@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil, Plus, Trash2, Search } from 'lucide-react';
+import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil, Plus, Trash2, Search, Save } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 // ✅ Import ให้ตรงกับไฟล์จริง
 import { electiveCourses } from '../data/electiveCourses';
@@ -69,13 +69,78 @@ const SetupProfile = () => {
 
   const [totalCredits, setTotalCredits] = useState(0);
 
-  // --- 2. Auto-Select Logic (แก้ไขใหม่: ให้ทำงานทุกครั้งที่เปลี่ยนปี/เทอม) ---
+  // ✅ State สำหรับแสดงสถานะการบันทึก
+  const [saveStatus, setSaveStatus] = useState('saved'); // 'saving', 'saved', 'error'
+  const saveTimeoutRef = useRef(null);
+
+  // --- 2. Auto-Save Function ---
+  const autoSave = (dataToSave) => {
+    setSaveStatus('saving');
+    
+    // Clear timeout เดิมถ้ามี
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // ตั้ง timeout ใหม่ (debounce 500ms)
+    saveTimeoutRef.current = setTimeout(() => {
+      try {
+        const userPayload = {
+          basicInfo: dataToSave.basicInfo,
+          ...dataToSave.basicInfo,
+          gpaHistory: dataToSave.gpaHistory,
+          passedCourses: Object.keys(dataToSave.courseStates).filter(id => dataToSave.courseStates[id] === 'passed'),
+          learningCourses: Object.keys(dataToSave.courseStates).filter(id => dataToSave.courseStates[id] === 'learning'),
+          courseStates: dataToSave.courseStates,
+          customElectives: dataToSave.customElectives,
+          totalCredits: dataToSave.totalCredits,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        localStorage.setItem('userProfile', JSON.stringify(userPayload));
+        setSaveStatus('saved');
+        
+        // เปลี่ยนกลับเป็น saved หลัง 2 วินาที
+        setTimeout(() => setSaveStatus('saved'), 2000);
+      } catch (error) {
+        console.error('Auto-save error:', error);
+        setSaveStatus('error');
+      }
+    }, 500);
+  };
+
+  // --- 3. Auto-Save Effect (บันทึกทุกครั้งที่ state สำคัญเปลี่ยน) ---
   useEffect(() => {
-    // ถ้าเป็นการโหลดครั้งแรกและมีข้อมูลเก่า -> ไม่ต้อง Auto (เคารพข้อมูล Save เดิม)
-    // แต่ถ้าเป็นการกดเปลี่ยน Year/Term เอง ให้คำนวณใหม่เสมอ
+    // ข้ามการ save ในครั้งแรกที่ component mount
+    if (isFirstRun.current) {
+      return;
+    }
+
+    autoSave({
+      basicInfo,
+      courseStates,
+      customElectives,
+      gpaHistory,
+      totalCredits
+    });
+  }, [basicInfo, courseStates, customElectives, gpaHistory, totalCredits]);
+
+  // ✅ Track ว่า User มี Interaction หรือยัง
+  const hasUserInteracted = useRef(false);
+
+  // --- 4. Auto-Select Logic (แก้ไขใหม่: ทำงานเฉพาะเมื่อ User เปลี่ยนปี/เทอม เท่านั้น) ---
+  useEffect(() => {
+    // ✅ ถ้าเป็นการโหลดครั้งแรกและมีข้อมูลเก่า -> SKIP (เคารพข้อมูล Save เดิม 100%)
     if (isFirstRun.current) {
         isFirstRun.current = false;
-        if (hasExistingData.current) return;
+        if (hasExistingData.current) {
+            return; // ไม่ทำอะไรเลย ปล่อยให้ใช้ข้อมูลเก่า
+        }
+    }
+
+    // ✅ ถ้า User ยังไม่ได้กด (ไม่มี interaction) -> SKIP
+    if (!hasUserInteracted.current) {
+        return;
     }
 
     // แปลงค่าเป็นตัวเลขให้ชัวร์ก่อนคำนวณ
@@ -139,7 +204,7 @@ const SetupProfile = () => {
   // ✅ ใส่ Dependencies ครบ: เปลี่ยนปี/เทอม/วิชาเลือก เมื่อไหร่ คำนวณใหม่ทันที
 
 
-  // --- 3. Calculate Credits ---
+  // --- 5. Calculate Credits ---
   useEffect(() => {
     let credits = 0;
     
@@ -258,19 +323,28 @@ const SetupProfile = () => {
     const curTerm = parseInt(basicInfo.currentTerm);
     const [targetYear, targetTerm] = activeTermKey.split('-').map(Number);
     
-    let initialStatus = 'learning'; // ค่า default
+    let initialStatus = null; // ✅ เปลี่ยนเป็น null (ไม่ตั้งค่า)
 
-    // เช็ค Timeline
-    if (targetYear < curYear) initialStatus = 'passed';
-    else if (targetYear === curYear) {
-        if (targetTerm < curTerm) initialStatus = 'passed';
-        else if (targetTerm === curTerm) initialStatus = 'learning';
+    // เช็ค Timeline - ✅ ตั้งค่าเฉพาะเทอมที่ผ่านไปแล้ว หรือ เทอมปัจจุบัน
+    if (targetYear < curYear) {
+        initialStatus = 'passed';
+    } else if (targetYear === curYear) {
+        if (targetTerm < curTerm) {
+            initialStatus = 'passed';
+        } else if (targetTerm === curTerm) {
+            initialStatus = 'learning';
+        }
+        // ถ้า targetTerm > curTerm (อนาคต) → ไม่ตั้งค่า
     }
+    // ถ้า targetYear > curYear (อนาคต) → ไม่ตั้งค่า
     
-    setCourseStates(prev => ({
-        ...prev,
-        [electiveId]: initialStatus
-    }));
+    // ✅ ตั้งค่าเฉพาะเมื่อ initialStatus ไม่ใช่ null
+    if (initialStatus) {
+        setCourseStates(prev => ({
+            ...prev,
+            [electiveId]: initialStatus
+        }));
+    }
     
     setShowElectiveModal(false);
     setElectiveSearchTerm('');
@@ -319,6 +393,7 @@ const SetupProfile = () => {
         return;
     }
     
+    // บันทึกข้อมูลอีกครั้งก่อน navigate (เพื่อให้แน่ใจ)
     const userPayload = { 
         basicInfo,
         ...basicInfo,
@@ -352,6 +427,22 @@ const SetupProfile = () => {
       {/* Background */}
       <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="fixed bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-orange-600/10 rounded-full blur-[120px] pointer-events-none"></div>
+
+      {/* ✅ Save Status Indicator (ตัวแสดงสถานะการบันทึก) */}
+      <div className="fixed top-4 right-4 z-[200]">
+        <div className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl border transition-all duration-300 ${
+          saveStatus === 'saving' 
+            ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' 
+            : saveStatus === 'saved' 
+              ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300'
+              : 'bg-red-500/20 border-red-500/50 text-red-300'
+        }`}>
+          <Save size={16} className={saveStatus === 'saving' ? 'animate-pulse' : ''} />
+          <span className="text-xs font-bold">
+            {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Auto-saved' : 'Error saving'}
+          </span>
+        </div>
+      </div>
 
       {/* Modal เลือกวิชาเสรี */}
       {showElectiveModal && (
@@ -551,7 +642,10 @@ const SetupProfile = () => {
                             <div className="grid grid-cols-4 gap-2">
                                 {[1,2,3,4].map(y => (
                                     <button key={y} 
-                                        onClick={() => setBasicInfo(prev => ({...prev, currentYear: y}))}
+                                        onClick={() => {
+                                            hasUserInteracted.current = true; // ✅ ทำเครื่องหมายว่า User กดแล้ว
+                                            setBasicInfo(prev => ({...prev, currentYear: y}));
+                                        }}
                                         className={`py-2 rounded-lg font-bold transition-all border ${
                                             basicInfo.currentYear === y 
                                             ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-500/30' 
@@ -567,7 +661,10 @@ const SetupProfile = () => {
                             <div className="grid grid-cols-2 gap-2">
                                 {[1,2].map(t => (
                                     <button key={t} 
-                                        onClick={() => setBasicInfo(prev => ({...prev, currentTerm: t}))}
+                                        onClick={() => {
+                                            hasUserInteracted.current = true; // ✅ ทำเครื่องหมายว่า User กดแล้ว
+                                            setBasicInfo(prev => ({...prev, currentTerm: t}));
+                                        }}
                                         className={`py-2 rounded-lg font-bold transition-all border ${
                                             basicInfo.currentTerm === t 
                                             ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/30' 
