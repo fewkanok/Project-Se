@@ -361,28 +361,32 @@ const Roadmap = () => {
                 // ✅ เช็คว่าเส้นนี้เกี่ยวข้องกับวิชาที่ Hover หรือไม่
                 const isRelated = relatedCourses.has(line.start) && relatedCourses.has(line.end);
                 
+                // Default: hide lines visually (very low opacity) so the diagram is clean
                 let strokeColor = "#475569";
                 let strokeWidth = "2";
-                let strokeOpacity = "0.3";
+                let strokeOpacity = "0.04"; // mostly invisible
                 let marker = "url(#arrow-inactive)";
                 let useGlow = false;
 
+                // When hovering a course (active) or showing related chain, make the line visible and highlighted
                 if (active || isRelated) {
                   useGlow = true;
                   strokeColor = "url(#lineGradientActive)";
-                  strokeWidth = isRelated ? "6" : "4"; // ✅ เส้นที่เกี่ยวข้องหนากว่า
+                  strokeWidth = isRelated ? "6" : "4"; // related lines thicker
                   strokeOpacity = "1";
                   marker = "url(#arrow-active)";
                 } else if (bothPassed) {
-                  strokeColor = "url(#lineGradientPassed)";
-                  strokeWidth = "3";
-                  strokeOpacity = "0.7";
-                  marker = "url(#arrow-passed)";
-                } else if (line.prereqPassed) {
-                  strokeColor = "#10b981";
+                  // Passed prerequisites: keep subtle gray line by default (no green/bright color)
+                  strokeColor = "#94a3b8"; // slate-400
                   strokeWidth = "2.5";
-                  strokeOpacity = "0.5";
-                  marker = "url(#arrow-passed)";
+                  strokeOpacity = "0.08";
+                  marker = "url(#arrow-inactive)";
+                } else if (line.prereqPassed) {
+                  // If only prereq passed, keep a faint gray hint
+                  strokeColor = "#94a3b8";
+                  strokeWidth = "2";
+                  strokeOpacity = "0.06";
+                  marker = "url(#arrow-inactive)";
                 }
 
                 return (
