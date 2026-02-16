@@ -483,9 +483,11 @@ const Dashboard = () => {
                 {stats.activeCoursesList.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {stats.activeCoursesList.map((course, idx) => (
-                      <div 
+                      <button
                         key={`${course.id}-${idx}`}
-                        className="tech-card-hover p-5 rounded-xl group cursor-pointer"
+                        type="button"
+                        onClick={() => navigate(`/course/${course.id}`)}
+                        className="tech-card-hover p-5 rounded-xl group cursor-pointer text-left focus:outline-none"
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className={`px-3 py-1.5 rounded-lg font-mono font-bold text-xs ${
@@ -509,7 +511,7 @@ const Dashboard = () => {
                           </div>
                           <span className="text-[10px] text-slate-600 font-mono uppercase">{course.termLabel}</span>
                         </div>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 ) : (
