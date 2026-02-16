@@ -9,12 +9,25 @@ const SetupProfile = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   
-  // --- 1. Load Data ---
+  // --- 1. Load Data with Error Handling ---
   const getSavedData = () => {
       try {
           const saved = localStorage.getItem('userProfile');
-          return saved ? JSON.parse(saved) : null;
-      } catch (e) {
+          if (!saved) return null;
+          
+          const parsed = JSON.parse(saved);
+          
+          // Validate data structure
+          if (typeof parsed !== 'object') {
+              console.warn('Invalid saved data structure');
+              return null;
+          }
+          
+          return parsed;
+      } catch (error) {
+          console.error('Error loading saved profile:', error);
+          // Clear corrupted data
+          localStorage.removeItem('userProfile');
           return null;
       }
   };
@@ -27,34 +40,56 @@ const SetupProfile = () => {
 
   // State: Basic Info
   const [basicInfo, setBasicInfo] = useState(() => {
-    if (savedData) {
+    try {
+        if (savedData) {
+            return {
+                name: savedData.basicInfo?.name || savedData.name || '',
+                studentId: savedData.basicInfo?.studentId || savedData.studentId || '',
+                currentYear: parseInt(savedData.basicInfo?.currentYear || savedData.currentYear || 1),
+                currentTerm: parseInt(savedData.basicInfo?.currentTerm || savedData.currentTerm || 1),
+                image: savedData.basicInfo?.image || savedData.image || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+            };
+        }
+        
+        const sessionData = localStorage.getItem('active_session');
+        const user = sessionData ? JSON.parse(sessionData) : {};
         return {
-            name: savedData.basicInfo?.name || savedData.name || '',
-            studentId: savedData.basicInfo?.studentId || savedData.studentId || '',
-            currentYear: savedData.basicInfo?.currentYear || savedData.currentYear || 1,
-            currentTerm: savedData.basicInfo?.currentTerm || savedData.currentTerm || 1,
-            image: savedData.basicInfo?.image || savedData.image || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+            name: user.name || '',
+            studentId: user.studentId || '',
+            currentYear: 1,
+            currentTerm: 1,
+            image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+        };
+    } catch (error) {
+        console.error('Error initializing basic info:', error);
+        return {
+            name: '',
+            studentId: '',
+            currentYear: 1,
+            currentTerm: 1,
+            image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
         };
     }
-    const sessionData = localStorage.getItem('active_session');
-    const user = sessionData ? JSON.parse(sessionData) : {};
-    return {
-        name: user.name || '',
-        studentId: user.studentId || '',
-        currentYear: 1,
-        currentTerm: 1,
-        image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
-    };
   });
 
   // State: Course States
   const [courseStates, setCourseStates] = useState(() => {
-    return savedData?.courseStates || {};
+    try {
+        return savedData?.courseStates || {};
+    } catch (error) {
+        console.error('Error loading course states:', error);
+        return {};
+    }
   });
 
-  // ✅ ใช้ชื่อ state customElectives ตามที่คุณต้องการ
+  // State: Custom Electives
   const [customElectives, setCustomElectives] = useState(() => {
-    return savedData?.customElectives || {};
+    try {
+        return savedData?.customElectives || {};
+    } catch (error) {
+        console.error('Error loading custom electives:', error);
+        return {};
+    }
   });
 
   // State: Modal
@@ -64,362 +99,595 @@ const SetupProfile = () => {
 
   // State: GPA
   const [gpaHistory, setGpaHistory] = useState(() => {
-    return savedData?.gpaHistory || {};
+    try {
+        return savedData?.gpaHistory || {};
+    } catch (error) {
+        console.error('Error loading GPA history:', error);
+        return {};
+    }
   });
 
   const [totalCredits, setTotalCredits] = useState(0);
 
-  // ✅ State สำหรับแสดงสถานะการบันทึก
+  // State: Save Status
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saving', 'saved', 'error'
   const saveTimeoutRef = useRef(null);
 
-  // --- 2. Auto-Save Function ---
+  // --- 2. Auto-Save Function with Error Handling ---
   const autoSave = (dataToSave) => {
     setSaveStatus('saving');
     
-    // Clear timeout เดิมถ้ามี
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
 
-    // ตั้ง timeout ใหม่ (debounce 500ms)
     saveTimeoutRef.current = setTimeout(() => {
       try {
+        // Validate data before saving
+        if (!dataToSave.basicInfo || typeof dataToSave.basicInfo !== 'object') {
+            throw new Error('Invalid basic info data');
+        }
+        
+        if (!dataToSave.courseStates || typeof dataToSave.courseStates !== 'object') {
+            throw new Error('Invalid course states data');
+        }
+
         const userPayload = {
           basicInfo: dataToSave.basicInfo,
           ...dataToSave.basicInfo,
-          gpaHistory: dataToSave.gpaHistory,
+          gpaHistory: dataToSave.gpaHistory || {},
           passedCourses: Object.keys(dataToSave.courseStates).filter(id => dataToSave.courseStates[id] === 'passed'),
           learningCourses: Object.keys(dataToSave.courseStates).filter(id => dataToSave.courseStates[id] === 'learning'),
           courseStates: dataToSave.courseStates,
-          customElectives: dataToSave.customElectives,
-          totalCredits: dataToSave.totalCredits,
+          customElectives: dataToSave.customElectives || {},
+          totalCredits: dataToSave.totalCredits || 0,
           lastUpdated: new Date().toISOString()
         };
         
         localStorage.setItem('userProfile', JSON.stringify(userPayload));
         setSaveStatus('saved');
-        
-        // เปลี่ยนกลับเป็น saved หลัง 2 วินาที
         setTimeout(() => setSaveStatus('saved'), 2000);
       } catch (error) {
         console.error('Auto-save error:', error);
         setSaveStatus('error');
+        
+        // Show user-friendly error message
+        setTimeout(() => {
+            alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองอีกครั้ง');
+            setSaveStatus('saved');
+        }, 1000);
       }
     }, 500);
   };
 
-  // --- 3. Auto-Save Effect (บันทึกทุกครั้งที่ state สำคัญเปลี่ยน) ---
+  // --- 3. Auto-Save Effect ---
   useEffect(() => {
-    // ข้ามการ save ในครั้งแรกที่ component mount
     if (isFirstRun.current) {
       return;
     }
-
-    autoSave({
-      basicInfo,
-      courseStates,
-      customElectives,
-      gpaHistory,
-      totalCredits
-    });
+    
+    try {
+        autoSave({ basicInfo, courseStates, customElectives, gpaHistory, totalCredits });
+    } catch (error) {
+        console.error('Error in auto-save effect:', error);
+    }
   }, [basicInfo, courseStates, customElectives, gpaHistory, totalCredits]);
 
-  // ✅ Track ว่า User มี Interaction หรือยัง
   const hasUserInteracted = useRef(false);
 
-  // --- 4. Auto-Select Logic (แก้ไขใหม่: ทำงานเฉพาะเมื่อ User เปลี่ยนปี/เทอม เท่านั้น) ---
+  // --- 4. Auto-Select Logic (แก้ไขแล้ว) ---
   useEffect(() => {
-    // ✅ ถ้าเป็นการโหลดครั้งแรกและมีข้อมูลเก่า -> SKIP (เคารพข้อมูล Save เดิม 100%)
-    if (isFirstRun.current) {
-        isFirstRun.current = false;
-        if (hasExistingData.current) {
-            return; // ไม่ทำอะไรเลย ปล่อยให้ใช้ข้อมูลเก่า
-        }
-    }
-
-    // ✅ ถ้า User ยังไม่ได้กด (ไม่มี interaction) -> SKIP
-    if (!hasUserInteracted.current) {
-        return;
-    }
-
-    // แปลงค่าเป็นตัวเลขให้ชัวร์ก่อนคำนวณ
-    const curYear = parseInt(basicInfo.currentYear);
-    const curTerm = parseInt(basicInfo.currentTerm);
-
-    setCourseStates(prevStates => {
-        let nextStates = { ...prevStates };
-
-        // ฟังก์ชันเช็คสถานะตามเวลา (Timeline)
-        const getStatus = (y, t) => {
-            if (y < curYear) return 'passed'; // ปีก่อนหน้า -> เขียว
-            if (y === curYear) {
-                if (t < curTerm) return 'passed'; // ปีเดียวกัน เทอมก่อน -> เขียว
-                if (t === curTerm) return 'learning'; // เทอมปัจจุบัน -> ฟ้า
+    try {
+        if (isFirstRun.current) {
+            isFirstRun.current = false;
+            if (hasExistingData.current) {
+                return; 
             }
-            return null; // อนาคต -> ล้างค่า (ว่าง)
-        };
+        }
 
-        // 1. วนลูปเช็คทุกวิชาใน Roadmap (วิชาแกน)
-        roadmapData.forEach((yearGroup, yearIdx) => {
-            const y = yearIdx + 1;
-            yearGroup.semesters.forEach((sem, semIdx) => {
-                const t = semIdx + 1;
-                const status = getStatus(y, t);
+        if (!hasUserInteracted.current) {
+            return;
+        }
 
-                sem.courses.forEach(course => {
-                    if (status) {
-                        nextStates[course.id] = status;
-                    } else {
-                        // ถ้าเป็นอนาคต ให้ลบสถานะออก (เพื่อให้กลับมาเป็นสีเทา)
-                        delete nextStates[course.id];
+        const curYear = parseInt(basicInfo.currentYear);
+        const curTerm = parseInt(basicInfo.currentTerm);
+        
+        // Validate year and term
+        if (isNaN(curYear) || isNaN(curTerm) || curYear < 1 || curYear > 4 || curTerm < 1 || curTerm > 2) {
+            console.error('Invalid year or term values');
+            return;
+        }
+
+        setCourseStates(prevStates => {
+            let nextStates = { ...prevStates };
+
+            const getStatus = (y, t, currentState) => {
+                if (y < curYear) {
+                    // เทอมในอดีต: ถ้าเคยติก (passed/learning) ให้เป็น passed
+                    return currentState ? 'passed' : null;
+                }
+                if (y === curYear) {
+                    if (t < curTerm) {
+                        // เทอมในอดีตของปีปัจจุบัน: ถ้าเคยติก ให้เป็น passed
+                        return currentState ? 'passed' : null;
                     }
+                    if (t === curTerm) {
+                        // เทอมปัจจุบัน: 
+                        // - ถ้าเคย passed อยู่แล้ว ให้คงเป็น passed
+                        // - ถ้าไม่มีหรือเป็น learning ให้เป็น learning
+                        return currentState === 'passed' ? 'passed' : 'learning';
+                    }
+                }
+                // เทอมอนาคต: ลบออก
+                return null;
+            };
+
+            roadmapData.forEach((yearGroup, yearIdx) => {
+                const y = yearIdx + 1;
+                yearGroup.semesters.forEach((sem, semIdx) => {
+                    const t = semIdx + 1;
+
+                    sem.courses.forEach(course => {
+                        const currentState = prevStates[course.id];
+                        const newStatus = getStatus(y, t, currentState);
+                        
+                        if (newStatus) {
+                            nextStates[course.id] = newStatus;
+                        } else {
+                            delete nextStates[course.id];
+                        }
+                    });
                 });
             });
+
+            Object.keys(customElectives).forEach(termKey => {
+                const [yStr, tStr] = termKey.split('-');
+                const y = parseInt(yStr);
+                const t = parseInt(tStr);
+                
+                if (isNaN(y) || isNaN(t)) return;
+                
+                const electivesInTerm = customElectives[termKey];
+                if (Array.isArray(electivesInTerm)) {
+                    electivesInTerm.forEach(elecId => {
+                        const currentState = prevStates[elecId];
+                        const newStatus = getStatus(y, t, currentState);
+                        
+                        if (newStatus) {
+                            nextStates[elecId] = newStatus;
+                        } else {
+                            delete nextStates[elecId];
+                        }
+                    });
+                }
+            });
+
+            return nextStates;
         });
-
-        // 2. วนลูปเช็ควิชาเลือก (Electives) ที่เพิ่มเข้ามาแล้ว
-        Object.keys(customElectives).forEach(termKey => {
-            const [yStr, tStr] = termKey.split('-');
-            const y = parseInt(yStr);
-            const t = parseInt(tStr);
-            const status = getStatus(y, t);
-            
-            const electivesInTerm = customElectives[termKey];
-            if (Array.isArray(electivesInTerm)) {
-                electivesInTerm.forEach(elecId => {
-                    if (status) {
-                        nextStates[elecId] = status;
-                    } else {
-                        delete nextStates[elecId];
-                    }
-                });
-            }
-        });
-
-        return nextStates;
-    });
-
+    } catch (error) {
+        console.error('Error in auto-select logic:', error);
+    }
   }, [basicInfo.currentYear, basicInfo.currentTerm]); 
-  // 👆👆👆 แก้ไขแล้ว: เอา customElectives ออกจาก Dependency Array 
-  // เพื่อให้ Logic นี้ทำงานเฉพาะตอนเปลี่ยน ปี/เทอม เท่านั้น ไม่ทำงานตอนเพิ่มวิชา
 
 
-  // --- 5. Calculate Credits ---
+  // --- 5. Calculate Credits (Only Passed Courses) with Error Handling ---
   useEffect(() => {
-    let credits = 0;
-    
-    // วิชาแกน
-    roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => {
-        if (courseStates[c.id] === 'passed') credits += c.credits;
-    })));
-    
-    // วิชาเสรี
-    Object.values(customElectives).forEach(electives => {
-        if (Array.isArray(electives)) {
-            electives.forEach(electiveId => {
-                const elective = electiveCourses.find(e => e.id === electiveId);
-                if (elective && courseStates[electiveId] === 'passed') {
-                    credits += elective.credits;
+    try {
+        let credits = 0;
+        
+        // นับหน่วยกิตจากวิชาบังคับที่ผ่านแล้วเท่านั้น
+        if (Array.isArray(roadmapData)) {
+            roadmapData.forEach(y => {
+                if (y.semesters && Array.isArray(y.semesters)) {
+                    y.semesters.forEach(s => {
+                        if (s.courses && Array.isArray(s.courses)) {
+                            s.courses.forEach(c => {
+                                // ✅ นับเฉพาะวิชาที่ผ่านแล้ว (status === 'passed')
+                                if (courseStates[c.id] === 'passed' && typeof c.credits === 'number' && !isNaN(c.credits)) {
+                                    credits += c.credits;
+                                }
+                            });
+                        }
+                    });
                 }
             });
         }
-    });
-    
-    setTotalCredits(credits);
+        
+        // นับหน่วยกิตจากวิชาเลือกที่ผ่านแล้วเท่านั้น
+        if (customElectives && typeof customElectives === 'object') {
+            Object.values(customElectives).forEach(electives => {
+                if (Array.isArray(electives)) {
+                    electives.forEach(electiveId => {
+                        if (typeof electiveId === 'string') {
+                            const elective = electiveCourses.find(e => e.id === electiveId);
+                            // ✅ นับเฉพาะวิชาที่ผ่านแล้ว (status === 'passed')
+                            if (elective && courseStates[electiveId] === 'passed' && typeof elective.credits === 'number' && !isNaN(elective.credits)) {
+                                credits += elective.credits;
+                            }
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Validate final credit count
+        if (credits < 0 || credits > 200 || isNaN(credits)) {
+            console.error('Invalid credit calculation:', credits);
+            setTotalCredits(0);
+        } else {
+            setTotalCredits(credits);
+        }
+    } catch (error) {
+        console.error('Error calculating credits:', error);
+        setTotalCredits(0);
+    }
   }, [courseStates, customElectives]);
 
 
-  // --- Helper Functions ---
+  // --- Helper Functions with Error Handling ---
   const getDependentCourses = (parentId) => {
-      let dependents = [];
-      
-      roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => {
-          if (c.prereq === parentId) {
-              dependents.push(c.id);
-              dependents = [...dependents, ...getDependentCourses(c.id)];
-          }
-      })));
-      
-      electiveCourses.forEach(elective => {
-          if (elective.prereq === parentId && courseStates[elective.id]) {
-              dependents.push(elective.id);
-              dependents = [...dependents, ...getDependentCourses(elective.id)];
-          }
-      });
-      
-      return dependents;
+      try {
+          let dependents = [];
+          
+          if (!parentId || typeof parentId !== 'string') return dependents;
+          
+          roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => {
+              if (c.prereq === parentId) {
+                  dependents.push(c.id);
+                  dependents = [...dependents, ...getDependentCourses(c.id)];
+              }
+          })));
+          
+          electiveCourses.forEach(elective => {
+              if (elective.prereq === parentId && courseStates[elective.id]) {
+                  dependents.push(elective.id);
+                  dependents = [...dependents, ...getDependentCourses(elective.id)];
+              }
+          });
+          
+          return dependents;
+      } catch (error) {
+          console.error('Error getting dependent courses:', error);
+          return [];
+      }
   };
 
   const findCourseById = (id) => {
-      let found = null;
-      roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => {
-          if (c.id === id) found = c;
-      })));
-      return found;
+      try {
+          if (!id || typeof id !== 'string') return null;
+          
+          let found = null;
+          roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => {
+              if (c.id === id) found = c;
+          })));
+          return found;
+      } catch (error) {
+          console.error('Error finding course:', error);
+          return null;
+      }
   };
 
-  // --- Click Handlers ---
+  // --- Click Handlers with Error Handling ---
   const handleCourseClick = (courseId) => {
-      const currentState = courseStates[courseId];
-      const courseObj = findCourseById(courseId) || electiveCourses.find(e => e.id === courseId);
-      
-      // ✅ แก้ไขลำดับ: ว่าง -> เขียว (Passed) -> ฟ้า (Learning) -> ว่าง
-      let nextState = '';
-      if (!currentState) nextState = 'passed';     // คลิกครั้งแรกเป็น เขียว
-      else if (currentState === 'passed') nextState = 'learning'; // คลิกอีกทีเป็น ฟ้า
-      else if (currentState === 'learning') nextState = undefined; // คลิกอีกที ล้างค่า
+      try {
+          if (!courseId || typeof courseId !== 'string') {
+              console.error('Invalid course ID');
+              return;
+          }
+          
+          const currentState = courseStates[courseId];
+          const courseObj = findCourseById(courseId) || electiveCourses.find(e => e.id === courseId);
+          
+          if (!courseObj) {
+              console.error('Course not found:', courseId);
+              return;
+          }
+          
+          let nextState = '';
+          if (!currentState) nextState = 'passed';     
+          else if (currentState === 'passed') nextState = 'learning'; 
+          else if (currentState === 'learning') nextState = undefined; 
 
-      // เช็ค Prerequisite (ถ้าจะเลือก Passed หรือ Learning)
-      if (nextState === 'passed' || nextState === 'learning') {
-          if (courseObj?.prereq) {
-              const prereqState = courseStates[courseObj.prereq];
-              if (prereqState !== 'passed') {
-                  const prereqCourse = findCourseById(courseObj.prereq) || electiveCourses.find(e => e.id === courseObj.prereq);
-                  alert(`Cannot select this course! You must pass "${prereqCourse?.name || courseObj.prereq}" first.`);
-                  return;
+          if (nextState === 'passed' || nextState === 'learning') {
+              if (courseObj?.prereq) {
+                  const prereqState = courseStates[courseObj.prereq];
+                  if (prereqState !== 'passed') {
+                      const prereqCourse = findCourseById(courseObj.prereq) || electiveCourses.find(e => e.id === courseObj.prereq);
+                      alert(`Cannot select this course! You must pass "${prereqCourse?.name || courseObj.prereq}" first.`);
+                      return;
+                  }
               }
           }
+
+          setCourseStates(prev => {
+              const updated = { ...prev };
+              if (nextState) {
+                  updated[courseId] = nextState;
+              } else {
+                  delete updated[courseId];
+                  const children = getDependentCourses(courseId);
+                  children.forEach(childId => delete updated[childId]);
+              }
+              return updated;
+          });
+      } catch (error) {
+          console.error('Error handling course click:', error);
+          alert('เกิดข้อผิดพลาดในการเลือกวิชา กรุณาลองอีกครั้ง');
       }
-
-      setCourseStates(prev => {
-          const updated = { ...prev };
-          if (nextState) {
-              updated[courseId] = nextState;
-          } else {
-              delete updated[courseId];
-              const children = getDependentCourses(courseId);
-              children.forEach(childId => delete updated[childId]);
-          }
-          return updated;
-      });
   };
 
-  // เปิด Modal
   const openElectiveModal = (yearIdx, semIdx) => {
-    const termKey = `${yearIdx + 1}-${semIdx + 1}`;
-    setActiveTermKey(termKey);
-    setShowElectiveModal(true);
-    setElectiveSearchTerm('');
-  };
-
-  // เลือกวิชาเสรี
-  const handleSelectElective = (electiveId) => {
-    const alreadySelected = Object.values(customElectives || {}).some(electives => 
-        Array.isArray(electives) && electives.includes(electiveId)
-    );
-    
-    if (alreadySelected) {
-        alert('วิชานี้ถูกเลือกไปแล้วในเทอมอื่น!');
-        return;
-    }
-    
-    setCustomElectives(prev => ({
-        ...prev,
-        [activeTermKey]: [...(prev[activeTermKey] || []), electiveId]
-    }));
-    
-    // ✅ Logic Auto-Status สำหรับวิชาเสรีที่เพิ่มใหม่
-    const curYear = parseInt(basicInfo.currentYear);
-    const curTerm = parseInt(basicInfo.currentTerm);
-    const [targetYear, targetTerm] = activeTermKey.split('-').map(Number);
-    
-    let initialStatus = null; // ✅ เปลี่ยนเป็น null (ไม่ตั้งค่า)
-
-    // เช็ค Timeline - ✅ ตั้งค่าเฉพาะเทอมที่ผ่านไปแล้ว หรือ เทอมปัจจุบัน
-    if (targetYear < curYear) {
-        initialStatus = 'passed';
-    } else if (targetYear === curYear) {
-        if (targetTerm < curTerm) {
-            initialStatus = 'passed';
-        } else if (targetTerm === curTerm) {
-            initialStatus = 'learning';
+    try {
+        if (typeof yearIdx !== 'number' || typeof semIdx !== 'number') {
+            console.error('Invalid year or semester index');
+            return;
         }
-        // ถ้า targetTerm > curTerm (อนาคต) → ไม่ตั้งค่า
+        
+        const termKey = `${yearIdx + 1}-${semIdx + 1}`;
+        setActiveTermKey(termKey);
+        setShowElectiveModal(true);
+        setElectiveSearchTerm('');
+    } catch (error) {
+        console.error('Error opening elective modal:', error);
     }
-    // ถ้า targetYear > curYear (อนาคต) → ไม่ตั้งค่า
-    
-    // ✅ ตั้งค่าเฉพาะเมื่อ initialStatus ไม่ใช่ null
-    if (initialStatus) {
-        setCourseStates(prev => ({
-            ...prev,
-            [electiveId]: initialStatus
-        }));
-    }
-    
-    setShowElectiveModal(false);
-    setElectiveSearchTerm('');
   };
 
-  // ลบวิชาเสรี
+  const handleSelectElective = (electiveId) => {
+    try {
+        if (!electiveId || typeof electiveId !== 'string') {
+            console.error('Invalid elective ID');
+            return;
+        }
+        
+        const alreadySelected = Object.values(customElectives || {}).some(electives => 
+            Array.isArray(electives) && electives.includes(electiveId)
+        );
+        
+        if (alreadySelected) {
+            alert('วิชานี้ถูกเลือกไปแล้วในเทอมอื่น!');
+            return;
+        }
+        
+        setCustomElectives(prev => ({
+            ...prev,
+            [activeTermKey]: [...(prev[activeTermKey] || []), electiveId]
+        }));
+        
+        const curYear = parseInt(basicInfo.currentYear);
+        const curTerm = parseInt(basicInfo.currentTerm);
+        const [targetYear, targetTerm] = activeTermKey.split('-').map(Number);
+        
+        if (isNaN(targetYear) || isNaN(targetTerm)) {
+            throw new Error('Invalid term key');
+        }
+        
+        let initialStatus = null; 
+
+        if (targetYear < curYear) {
+            initialStatus = 'passed';
+        } else if (targetYear === curYear) {
+            if (targetTerm < curTerm) {
+                initialStatus = 'passed';
+            } else if (targetTerm === curTerm) {
+                initialStatus = 'learning';
+            }
+        }
+        
+        if (initialStatus) {
+            setCourseStates(prev => ({
+                ...prev,
+                [electiveId]: initialStatus
+            }));
+        }
+        
+        setShowElectiveModal(false);
+        setElectiveSearchTerm('');
+    } catch (error) {
+        console.error('Error selecting elective:', error);
+        alert('เกิดข้อผิดพลาดในการเลือกวิชาเสรี กรุณาลองอีกครั้ง');
+    }
+  };
+
   const handleRemoveElective = (termKey, electiveId) => {
-    const children = getDependentCourses(electiveId);
-    
-    setCustomElectives(prev => ({
-        ...prev,
-        [termKey]: (prev[termKey] || []).filter(id => id !== electiveId)
-    }));
-    
-    setCourseStates(prev => {
-        const updated = { ...prev };
-        delete updated[electiveId];
-        children.forEach(childId => delete updated[childId]);
-        return updated;
-    });
+    try {
+        if (!termKey || !electiveId) {
+            console.error('Invalid term key or elective ID');
+            return;
+        }
+        
+        const children = getDependentCourses(electiveId);
+        
+        setCustomElectives(prev => ({
+            ...prev,
+            [termKey]: (prev[termKey] || []).filter(id => id !== electiveId)
+        }));
+        
+        setCourseStates(prev => {
+            const updated = { ...prev };
+            delete updated[electiveId];
+            children.forEach(childId => delete updated[childId]);
+            return updated;
+        });
+    } catch (error) {
+        console.error('Error removing elective:', error);
+        alert('เกิดข้อผิดพลาดในการลบวิชาเสรี กรุณาลองอีกครั้ง');
+    }
   };
 
   const handleInfoChange = (e) => {
-    const { name, value } = e.target;
-    setBasicInfo(prev => ({ ...prev, [name]: value }));
+    try {
+        const { name, value } = e.target;
+        
+        if (!name) {
+            console.error('Input name is missing');
+            return;
+        }
+        
+        setBasicInfo(prev => ({ ...prev, [name]: value }));
+    } catch (error) {
+        console.error('Error handling info change:', error);
+    }
   };
 
   const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (file.size > 1024 * 1024) {
-        alert("File size too large! Please use image under 1MB.");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setBasicInfo(prev => ({ ...prev, image: reader.result }));
-      };
-      reader.readAsDataURL(file);
+    try {
+        const file = e.target.files?.[0];
+        
+        if (!file) return;
+        
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            alert("Invalid file type! Please use JPG, PNG, or WebP image.");
+            return;
+        }
+        
+        // Validate file size (1MB = 1048576 bytes)
+        if (file.size > 1048576) {
+            alert("File size too large! Please use image under 1MB.");
+            return;
+        }
+        
+        const reader = new FileReader();
+        
+        reader.onerror = () => {
+            console.error('File reading failed');
+            alert('เกิดข้อผิดพลาดในการอ่านไฟล์ กรุณาลองอีกครั้ง');
+        };
+        
+        reader.onloadend = () => {
+            if (typeof reader.result === 'string') {
+                setBasicInfo(prev => ({ ...prev, image: reader.result }));
+            }
+        };
+        
+        reader.readAsDataURL(file);
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        alert('เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ กรุณาลองอีกครั้ง');
     }
   };
 
+  // ✅✅✅ แก้ไขส่วนนี้: เพิ่มการเช็ค GPA with Enhanced Error Handling
   const handleSubmit = () => {
-    if (!basicInfo.name || !basicInfo.studentId) {
-        alert("Please enter your Name and Student ID.");
-        return;
+    try {
+        // 1. เช็คชื่อและรหัสนิสิต
+        if (!basicInfo.name || basicInfo.name.trim() === '') {
+            alert("กรุณากรอก ชื่อ (Name) ให้ครบถ้วน");
+            return;
+        }
+        
+        if (!basicInfo.studentId || basicInfo.studentId.trim() === '') {
+            alert("กรุณากรอก รหัสนิสิต (Student ID) ให้ครบถ้วน");
+            return;
+        }
+        
+        // Validate student ID format (optional - adjust as needed)
+        if (!/^\d{7,10}$/.test(basicInfo.studentId.trim())) {
+            const confirmProceed = window.confirm(
+                "รหัสนิสิตไม่ตรงตามรูปแบบทั่วไป (7-10 หลัก)\nต้องการดำเนินการต่อหรือไม่?"
+            );
+            if (!confirmProceed) return;
+        }
+
+        // 2. เช็คเกรด (GPA) ย้อนหลังให้ครบ
+        const curYear = parseInt(basicInfo.currentYear);
+        const curTerm = parseInt(basicInfo.currentTerm);
+        
+        if (isNaN(curYear) || isNaN(curTerm)) {
+            alert("ข้อมูลปีและเทอมไม่ถูกต้อง");
+            return;
+        }
+        
+        let missingGpaTerm = null;
+
+        // วนลูปเช็คเทอมที่ผ่านมาทั้งหมด
+        for (let y = 1; y <= 4; y++) {
+            for (let t = 1; t <= 2; t++) {
+                // เงื่อนไข: ถ้าเป็นเทอมในอดีต (Past)
+                const isPast = (y < curYear) || (y === curYear && t < curTerm);
+                
+                if (isPast) {
+                    const termKey = `Y${y}/${t}`;
+                    const gpaValue = gpaHistory[termKey];
+                    
+                    // ถ้าไม่มีค่าใน gpaHistory หรือเป็นค่าว่าง
+                    if (!gpaValue || gpaValue.toString().trim() === '') {
+                        missingGpaTerm = termKey;
+                        break;
+                    }
+                    
+                    // Validate GPA range
+                    const gpaNum = parseFloat(gpaValue);
+                    if (isNaN(gpaNum) || gpaNum < 0 || gpaNum > 4) {
+                        alert(`เกรดเฉลี่ยของเทอม ${termKey} ไม่ถูกต้อง (ต้องอยู่ระหว่าง 0-4)`);
+                        return;
+                    }
+                }
+            }
+            if (missingGpaTerm) break;
+        }
+
+        // ถ้ามีเทอมไหนขาดเกรด ให้แจ้งเตือนและหยุดการทำงาน
+        if (missingGpaTerm) {
+            alert(`กรุณากรอกเกรดเฉลี่ย (GPA) ของเทอม ${missingGpaTerm} ให้เรียบร้อยก่อนดำเนินการต่อ`);
+            return;
+        }
+        
+        // 3. ถ้าผ่านหมด บันทึกและไปหน้าถัดไป
+        const passedCourses = Object.keys(courseStates).filter(id => courseStates[id] === 'passed');
+        const learningCourses = Object.keys(courseStates).filter(id => courseStates[id] === 'learning');
+        
+        const userPayload = { 
+            basicInfo,
+            ...basicInfo,
+            gpaHistory,
+            passedCourses, 
+            learningCourses,
+            courseStates,
+            customElectives,
+            totalCredits, 
+            lastUpdated: new Date().toISOString() 
+        };
+        
+        // Validate payload before saving
+        const payloadString = JSON.stringify(userPayload);
+        if (payloadString.length > 5000000) { // 5MB limit
+            alert('ข้อมูลมีขนาดใหญ่เกินไป กรุณาติดต่อผู้ดูแลระบบ');
+            return;
+        }
+        
+        localStorage.setItem('userProfile', payloadString);
+        
+        // Navigate with error handling
+        navigate('/dashboard');
+    } catch (error) {
+        console.error('Error in handleSubmit:', error);
+        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองอีกครั้ง หรือติดต่อผู้ดูแลระบบ');
     }
-    
-    // บันทึกข้อมูลอีกครั้งก่อน navigate (เพื่อให้แน่ใจ)
-    const userPayload = { 
-        basicInfo,
-        ...basicInfo,
-        gpaHistory,
-        passedCourses: Object.keys(courseStates).filter(id => courseStates[id] === 'passed'), 
-        learningCourses: Object.keys(courseStates).filter(id => courseStates[id] === 'learning'),
-        courseStates,
-        customElectives,
-        totalCredits, 
-        lastUpdated: new Date().toISOString() 
-    };
-    
-    localStorage.setItem('userProfile', JSON.stringify(userPayload));
-    navigate('/dashboard');
   };
 
   const getFilteredElectives = () => {
-    return electiveCourses.filter(elective => {
-        const searchLower = electiveSearchTerm.toLowerCase().trim();
-        const matchesSearch = !searchLower || 
-            elective.name.toLowerCase().includes(searchLower) || 
-            elective.code.toLowerCase().includes(searchLower);
+    try {
+        if (!Array.isArray(electiveCourses)) {
+            console.error('Elective courses data is invalid');
+            return [];
+        }
         
-        return matchesSearch;
-    });
+        return electiveCourses.filter(elective => {
+            if (!elective || typeof elective !== 'object') return false;
+            
+            const searchLower = electiveSearchTerm.toLowerCase().trim();
+            const matchesSearch = !searchLower || 
+                (elective.name && elective.name.toLowerCase().includes(searchLower)) || 
+                (elective.code && elective.code.toLowerCase().includes(searchLower));
+            
+            return matchesSearch;
+        });
+    } catch (error) {
+        console.error('Error filtering electives:', error);
+        return [];
+    }
   };
 
   return (
@@ -429,7 +697,7 @@ const SetupProfile = () => {
       <div className="fixed top-[-10%] left-[-10%] w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-[120px] pointer-events-none"></div>
       <div className="fixed bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-orange-600/10 rounded-full blur-[120px] pointer-events-none"></div>
 
-      {/* ✅ Save Status Indicator (ตัวแสดงสถานะการบันทึก) */}
+      {/* Save Status */}
       <div className="fixed top-4 right-4 z-[200]">
         <div className={`flex items-center gap-2 px-4 py-2 rounded-full backdrop-blur-xl border transition-all duration-300 ${
           saveStatus === 'saving' 
@@ -445,12 +713,11 @@ const SetupProfile = () => {
         </div>
       </div>
 
-      {/* Modal เลือกวิชาเสรี */}
+      {/* Modal */}
       {showElectiveModal && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4 animate-fade-in">
           <div className="bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a] border border-white/20 rounded-3xl max-w-4xl w-full max-h-[85vh] overflow-hidden shadow-2xl shadow-orange-500/20">
             
-            {/* Header */}
             <div className="p-6 border-b border-white/10 bg-gradient-to-r from-orange-500/10 via-transparent to-purple-500/10">
               <div className="flex justify-between items-center mb-4">
                 <div>
@@ -473,7 +740,6 @@ const SetupProfile = () => {
                 </button>
               </div>
               
-              {/* Search Bar */}
               <div className="relative">
                 <input 
                   type="text"
@@ -486,7 +752,6 @@ const SetupProfile = () => {
               </div>
             </div>
             
-            {/* Course Grid */}
             <div className="p-6 overflow-y-auto max-h-[calc(85vh-180px)] custom-scrollbar">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {getFilteredElectives().map(elective => {
@@ -578,7 +843,7 @@ const SetupProfile = () => {
             {/* --- LEFT SIDEBAR --- */}
             <div className="lg:col-span-4 space-y-6 h-fit lg:sticky lg:top-8">
                 
-                {/* 1. Identity & Photo */}
+                {/* 1. Identity */}
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl relative overflow-hidden">
                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-orange-400"><User size={20}/> Survivor Info</h2>
                     
@@ -598,7 +863,7 @@ const SetupProfile = () => {
                             ref={fileInputRef} 
                             onChange={handleImageUpload} 
                             className="hidden" 
-                            accept="image/png, image/jpeg, image/jpg"
+                            accept="image/png, image/jpeg, image/jpg, image/webp"
                         />
                         <p className="text-xs text-slate-500 mt-2">Click image to upload (Max 1MB)</p>
                     </div>
@@ -634,7 +899,7 @@ const SetupProfile = () => {
                     </div>
                 </div>
 
-                {/* 2. Current Timeline */}
+                {/* 2. Timeline */}
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl">
                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-purple-400"><Calendar size={20}/> Current Timeline</h2>
                     
@@ -644,7 +909,7 @@ const SetupProfile = () => {
                                 {[1,2,3,4].map(y => (
                                     <button key={y} 
                                         onClick={() => {
-                                            hasUserInteracted.current = true; // ✅ ทำเครื่องหมายว่า User กดแล้ว
+                                            hasUserInteracted.current = true;
                                             setBasicInfo(prev => ({...prev, currentYear: y}));
                                         }}
                                         className={`py-2 rounded-lg font-bold transition-all border ${
@@ -663,7 +928,7 @@ const SetupProfile = () => {
                                 {[1,2].map(t => (
                                     <button key={t} 
                                         onClick={() => {
-                                            hasUserInteracted.current = true; // ✅ ทำเครื่องหมายว่า User กดแล้ว
+                                            hasUserInteracted.current = true;
                                             setBasicInfo(prev => ({...prev, currentTerm: t}));
                                         }}
                                         className={`py-2 rounded-lg font-bold transition-all border ${
@@ -738,8 +1003,9 @@ const SetupProfile = () => {
                         </div>
                     </div>
                     <div className="text-right bg-white/5 p-3 rounded-xl border border-white/5 min-w-[120px]">
-                        <span className="text-[10px] text-slate-500 uppercase block font-bold tracking-wider">Credits Collected</span>
+                        <span className="text-[10px] text-slate-500 uppercase block font-bold tracking-wider">Credits Passed </span>
                         <span className="text-3xl font-mono font-black text-orange-400">{totalCredits}</span>
+                        <span className="text-[9px] text-slate-600 block mt-1">(Learning courses not counted)</span>
                     </div>
                 </div>
 
