@@ -1,14 +1,34 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlayCircle, Award, BookOpen, Zap, TrendingUp, Calendar, Clock, AlertCircle, LogOut, Settings, Target, Trophy, Star, Sparkles, ArrowUpRight, ChevronRight, Activity, Flame, BarChart3, Cpu, Layers, Grid3x3 } from 'lucide-react';
+import { PlayCircle, Award, BookOpen, Zap, TrendingUp, Calendar, Clock, AlertCircle, LogOut, Settings, Target, Trophy, Star, Sparkles, ArrowUpRight, ChevronRight, Activity, Flame, BarChart3, Cpu, Layers, Grid3x3, CheckCircle2, XCircle, AlertTriangle, X, Check, FileText } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
+import CoopEligibilityModal from '../components/Coopeligibilitymodal';
+
+// --- Configuration: Co-op Requirements ---
+const COOP_REQUIREMENTS = {
+  minCredits: 90,
+  minGPA: 2.75,
+  targetCourses: [
+    "040613203", // Structured Programming
+    "040613205", // Data Structure
+    "040613204", // Object-oriented Programming
+    "040613302", // System Analysis and Design
+    "040613501", // Computer Organization and OS
+    "040613306", // Software Engineering
+    "040613502", // Computer Network
+    "040613301", // Database System
+    "040613601", // Computer System Security
+    "040613701"  // Intelligent System
+  ]
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [animatedGPA, setAnimatedGPA] = useState(0);
   const [animatedCredits, setAnimatedCredits] = useState(0);
+  const [showCoopModal, setShowCoopModal] = useState(false);
 
   // --- 1. Load Data ---
   const [profile] = useState(() => {
@@ -60,6 +80,9 @@ const Dashboard = () => {
     let totalPoints = 0;           
     let totalGradedCredits = 0;    
     let graphData = [];
+    
+    // Co-op Logic Variables
+    let passedCourseCodes = new Set();
 
     const currentYearNum = parseInt(profile.basicInfo?.currentYear || profile.currentYear) || 1;
     const currentTermNum = parseInt(profile.basicInfo?.currentTerm || profile.currentTerm) || 1;
@@ -103,6 +126,8 @@ const Dashboard = () => {
                     if (status === 'passed') {
                         earnedCredits += c.credits;
                         termPassedCredits += c.credits;
+                        passedCourseCodes.add(c.code);
+                        passedCourseCodes.add(c.id);
                     }
                 });
 
@@ -139,6 +164,27 @@ const Dashboard = () => {
     const progressPercent = totalStructureCredits > 0 
         ? Math.round((earnedCredits / totalStructureCredits) * 100) 
         : 0;
+    
+    // Co-op Detail Calculation
+    const coopCourseDetails = COOP_REQUIREMENTS.targetCourses.map(code => {
+        let courseName = "Unknown Course";
+        roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => {
+            if(c.code === code) courseName = c.name;
+        })));
+        
+        return {
+            code,
+            name: courseName,
+            isPassed: passedCourseCodes.has(code)
+        };
+    });
+
+    const coopCoursesPassedCount = coopCourseDetails.filter(c => c.isPassed).length;
+    const coopCoursesTotal = COOP_REQUIREMENTS.targetCourses.length;
+
+    const isCreditReady = earnedCredits >= COOP_REQUIREMENTS.minCredits;
+    const isGPAReady = calculatedGPAX >= COOP_REQUIREMENTS.minGPA;
+    const isCoursesReady = coopCoursesPassedCount === coopCoursesTotal;
 
     return { 
       totalCredits: totalStructureCredits, 
@@ -146,7 +192,16 @@ const Dashboard = () => {
       activeCoursesList, 
       calculatedGPAX, 
       graphData, 
-      progressPercent 
+      progressPercent,
+      coopStats: {
+        isCreditReady,
+        isGPAReady,
+        isCoursesReady,
+        passedCount: coopCoursesPassedCount,
+        totalCount: coopCoursesTotal,
+        courseDetails: coopCourseDetails,
+        isFullyEligible: isCreditReady && isGPAReady && isCoursesReady
+      }
     };
   }, [profile]);
 
@@ -202,35 +257,27 @@ const Dashboard = () => {
 
   const handleEditSetup = () => navigate('/setup');
 
-  // Grade System
   const getGradeInfo = (gpa) => {
-    if (gpa >= 3.5) return { 
-      gradient: 'from-emerald-400 via-teal-400 to-cyan-400',
-      bg: 'from-emerald-500/20 via-teal-500/15 to-cyan-500/10',
-      label: 'EXCELLENT',
-      icon: '🏆'
-    };
-    if (gpa >= 3.0) return { 
-      gradient: 'from-blue-400 via-cyan-400 to-sky-400',
-      bg: 'from-blue-500/20 via-cyan-500/15 to-sky-500/10',
-      label: 'VERY GOOD',
-      icon: '⭐'
-    };
-    if (gpa >= 2.5) return { 
-      gradient: 'from-amber-400 via-yellow-400 to-orange-400',
-      bg: 'from-amber-500/20 via-yellow-500/15 to-orange-500/10',
-      label: 'GOOD',
-      icon: '👍'
-    };
-    return { 
-      gradient: 'from-rose-400 via-pink-400 to-fuchsia-400',
-      bg: 'from-rose-500/20 via-pink-500/15 to-fuchsia-500/10',
-      label: 'KEEP GOING',
-      icon: '📈'
-    };
+    if (gpa >= 3.5) return { gradient: 'from-emerald-400 via-teal-400 to-cyan-400', bg: 'from-emerald-500/20 via-teal-500/15 to-cyan-500/10', label: 'EXCELLENT', icon: '🏆' };
+    if (gpa >= 3.0) return { gradient: 'from-blue-400 via-cyan-400 to-sky-400', bg: 'from-blue-500/20 via-cyan-500/15 to-sky-500/10', label: 'VERY GOOD', icon: '⭐' };
+    if (gpa >= 2.5) return { gradient: 'from-amber-400 via-yellow-400 to-orange-400', bg: 'from-amber-500/20 via-yellow-500/15 to-orange-500/10', label: 'GOOD', icon: '👍' };
+    return { gradient: 'from-rose-400 via-pink-400 to-fuchsia-400', bg: 'from-rose-500/20 via-pink-500/15 to-fuchsia-500/10', label: 'KEEP GOING', icon: '📈' };
   };
 
   const gradeInfo = getGradeInfo(stats.calculatedGPAX);
+
+  const CoopStatusItem = ({ label, value, passed, subtext }) => (
+    <div className="flex items-center justify-between p-3 rounded-lg bg-slate-800/40 border border-slate-700/50">
+        <div>
+            <p className="text-slate-400 text-xs font-mono uppercase">{label}</p>
+            <p className="text-white font-bold">{value}</p>
+            {subtext && <p className="text-[10px] text-slate-500">{subtext}</p>}
+        </div>
+        <div className={`p-2 rounded-full ${passed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
+            {passed ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+        </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen p-4 md:p-8">
@@ -272,19 +319,11 @@ const Dashboard = () => {
             </div>
             
             <div className="flex items-center gap-3">
-              <button 
-                onClick={handleEditSetup}
-                className="tech-button px-6 py-3 rounded-xl text-white font-semibold flex items-center gap-2 text-sm"
-              >
-                <Settings size={18}/>
-                <span className="hidden md:inline">Settings</span>
+              <button onClick={handleEditSetup} className="tech-button px-6 py-3 rounded-xl text-white font-semibold flex items-center gap-2 text-sm">
+                <Settings size={18}/> <span className="hidden md:inline">Settings</span>
               </button>
-              <button 
-                onClick={handleLogout}
-                className="tech-button px-6 py-3 rounded-xl text-red-400 font-semibold flex items-center gap-2 text-sm border-red-500/20"
-              >
-                <LogOut size={18}/>
-                <span className="hidden md:inline">Logout</span>
+              <button onClick={handleLogout} className="tech-button px-6 py-3 rounded-xl text-red-400 font-semibold flex items-center gap-2 text-sm border-red-500/20">
+                <LogOut size={18}/> <span className="hidden md:inline">Logout</span>
               </button>
             </div>
           </div>
@@ -302,7 +341,6 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-
             <div className="tech-card p-4 rounded-xl group hover:scale-105 transition-transform">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
@@ -314,7 +352,6 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-
             <div className="tech-card p-4 rounded-xl group hover:scale-105 transition-transform">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center">
@@ -326,7 +363,6 @@ const Dashboard = () => {
                 </div>
               </div>
             </div>
-
             <div className="tech-card p-4 rounded-xl group hover:scale-105 transition-transform">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 flex items-center justify-center">
@@ -352,30 +388,17 @@ const Dashboard = () => {
               <div className="flex items-start gap-4 mb-6">
                 <div className="relative">
                   <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/50 to-purple-500/50 rounded-xl blur-lg"></div>
-                  <img 
-                    src={profile.basicInfo?.image || profile.image || 'https://via.placeholder.com/150'} 
-                    alt="Profile" 
-                    className="relative w-16 h-16 rounded-xl object-cover border-2 border-white/20"
-                  />
-                  <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-emerald-500 rounded-lg border-2 border-slate-900/50 flex items-center justify-center">
-                    <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
-                  </div>
+                  <img src={profile.basicInfo?.image || profile.image || 'https://via.placeholder.com/150'} alt="Profile" className="relative w-16 h-16 rounded-xl object-cover border-2 border-white/20"/>
                 </div>
-                
                 <div className="flex-1 min-w-0">
-                  <h2 className="text-xl font-black text-white mb-1 truncate">
-                    {profile.basicInfo?.name || profile.name || 'User'}
-                  </h2>
-                  <p className="text-xs text-slate-500 font-mono mb-2">
-                    ID: {profile.basicInfo?.studentId || profile.studentId || '-'}
-                  </p>
+                  <h2 className="text-xl font-black text-white mb-1 truncate">{profile.basicInfo?.name || profile.name || 'User'}</h2>
+                  <p className="text-xs text-slate-500 font-mono mb-2">ID: {profile.basicInfo?.studentId || profile.studentId || '-'}</p>
                   <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg tech-card">
                     <Layers size={11} className="text-cyan-400"/>
                     <span className="text-[10px] font-bold text-cyan-400 uppercase">CS</span>
                   </div>
                 </div>
               </div>
-
               <div className="space-y-3">
                 <div className="tech-card p-3 rounded-lg">
                   <div className="flex items-center justify-between">
@@ -383,22 +406,7 @@ const Dashboard = () => {
                       <Calendar size={14} className="text-purple-400"/>
                       <span className="text-xs text-slate-400 font-mono">TERM</span>
                     </div>
-                    <span className="text-sm font-black text-white">
-                      Y{profile.basicInfo?.currentYear || profile.currentYear}/{profile.basicInfo?.currentTerm || profile.currentTerm}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="tech-card p-3 rounded-lg text-center">
-                    <p className="text-[10px] text-slate-500 font-mono mb-1">COMPLETED</p>
-                    <p className="text-2xl font-black text-white">
-                      {Object.keys(profile.courseStates || {}).filter(k => profile.courseStates[k] === 'passed').length}
-                    </p>
-                  </div>
-                  <div className="tech-card p-3 rounded-lg text-center">
-                    <p className="text-[10px] text-slate-500 font-mono mb-1">TOTAL</p>
-                    <p className="text-2xl font-black text-white">{stats.totalCredits}</p>
+                    <span className="text-sm font-black text-white">Y{profile.basicInfo?.currentYear || profile.currentYear}/{profile.basicInfo?.currentTerm || profile.currentTerm}</span>
                   </div>
                 </div>
               </div>
@@ -407,7 +415,6 @@ const Dashboard = () => {
             {/* GPAX Meter */}
             <div className={`tech-card p-6 rounded-2xl relative overflow-hidden`}>
               <div className={`absolute inset-0 bg-gradient-to-br ${gradeInfo.bg} opacity-50`}></div>
-              
               <div className="relative">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -421,46 +428,58 @@ const Dashboard = () => {
                   </div>
                   <div className="text-2xl">{gradeInfo.icon}</div>
                 </div>
-
                 <div className="text-center mb-4">
-                  <div className={`text-7xl font-black bg-gradient-to-r ${gradeInfo.gradient} bg-clip-text text-transparent mb-1`}>
-                    {animatedGPA.toFixed(2)}
-                  </div>
+                  <div className={`text-7xl font-black bg-gradient-to-r ${gradeInfo.gradient} bg-clip-text text-transparent mb-1`}>{animatedGPA.toFixed(2)}</div>
                   <p className="text-xs text-slate-500 font-mono">OUT OF 4.00</p>
                 </div>
-
                 <div className="flex justify-center">
                   <div className={`px-4 py-2 rounded-full bg-gradient-to-r ${gradeInfo.gradient}`}>
-                    <span className="text-xs font-black text-white tracking-wider">
-                      {gradeInfo.label}
-                    </span>
+                    <span className="text-xs font-black text-white tracking-wider">{gradeInfo.label}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Progress Tracker */}
-            <div className="tech-card p-6 rounded-2xl">
-              <div className="flex items-center gap-2 mb-4">
-                <Target size={16} className="text-violet-400"/>
-                <p className="text-xs text-slate-500 font-mono uppercase">Credit Progress</p>
-              </div>
+            {/* Co-op Eligibility Card (Clickable) */}
+            <div 
+              onClick={() => setShowCoopModal(true)}
+              className={`tech-card p-6 rounded-2xl border-l-4 ${stats.coopStats.isFullyEligible ? 'border-emerald-500' : 'border-orange-500'} cursor-pointer hover:bg-white/5 transition-all group relative overflow-hidden`}
+            >
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ArrowUpRight size={16} className="text-slate-400" />
+                </div>
 
-              <div className="flex items-baseline gap-2 mb-4">
-                <span className="text-5xl font-black text-white">
-                  {Math.round(animatedCredits)}
-                </span>
-                <span className="text-2xl text-slate-500 font-bold">/ {stats.totalCredits}</span>
-              </div>
-
-              <div className="relative h-3 bg-white/5 rounded-full overflow-hidden border border-white/10 mb-2">
-                <div 
-                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-violet-500 via-purple-500 to-fuchsia-500 rounded-full transition-all duration-1000"
-                  style={{ width: `${stats.progressPercent}%` }}
-                />
-              </div>
-              <p className="text-xs text-slate-500 text-right font-mono">{stats.progressPercent}% COMPLETE</p>
+                <div className="flex items-center gap-2 mb-4">
+                    <Award size={20} className={stats.coopStats.isFullyEligible ? "text-emerald-400" : "text-orange-400"} />
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wide">Co-op Eligibility</h3>
+                </div>
+                
+                <div className="space-y-3 pointer-events-none">
+                    <CoopStatusItem 
+                        label="Total Credits" 
+                        value={`${Math.round(stats.earnedCredits)} / 90`} 
+                        passed={stats.coopStats.isCreditReady}
+                    />
+                    <CoopStatusItem 
+                        label="GPAX (5 Terms)" 
+                        value={`${stats.calculatedGPAX.toFixed(2)} / 2.75`} 
+                        passed={stats.coopStats.isGPAReady}
+                    />
+                    <CoopStatusItem 
+                        label="Core Courses" 
+                        value={`${stats.coopStats.passedCount} / 10`} 
+                        passed={stats.coopStats.isCoursesReady}
+                        subtext="Requires GPA_10 ≥ 2.50"
+                    />
+                </div>
+                
+                <div className="mt-4 pt-4 border-t border-white/10 text-center pointer-events-none">
+                     <p className="text-[10px] text-slate-400 group-hover:text-cyan-400 transition-colors flex items-center justify-center gap-1">
+                        Click for Details <ChevronRight size={12} />
+                     </p>
+                </div>
             </div>
+
           </div>
 
           {/* Middle - Active Courses */}
@@ -600,10 +619,7 @@ const Dashboard = () => {
                 Quick Access
               </h3>
               <div className="space-y-3">
-                <button 
-                  onClick={() => navigate('/roadmap')}
-                  className="w-full tech-button p-4 rounded-xl text-left group"
-                >
+                <button onClick={() => navigate('/roadmap')} className="w-full tech-button p-4 rounded-xl text-left group">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -618,10 +634,7 @@ const Dashboard = () => {
                   </div>
                 </button>
 
-                <button 
-                  onClick={handleEditSetup}
-                  className="w-full tech-button p-4 rounded-xl text-left group"
-                >
+                <button onClick={handleEditSetup} className="w-full tech-button p-4 rounded-xl text-left group">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -639,6 +652,14 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* Co-op Eligibility Modal */}
+        <CoopEligibilityModal 
+          isOpen={showCoopModal} 
+          onClose={() => setShowCoopModal(false)} 
+          stats={stats}
+        />
+
       </div>
 
       <style jsx>{`
@@ -646,7 +667,6 @@ const Dashboard = () => {
           0% { transform: translateY(0); }
           100% { transform: translateY(50px); }
         }
-
         .tech-card {
           background: rgba(15, 23, 42, 0.4);
           backdrop-filter: blur(20px);
@@ -654,7 +674,6 @@ const Dashboard = () => {
           border: 1px solid rgba(255, 255, 255, 0.05);
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
         }
-
         .tech-card-hover {
           background: rgba(15, 23, 42, 0.4);
           backdrop-filter: blur(20px);
@@ -663,14 +682,12 @@ const Dashboard = () => {
           box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
         .tech-card-hover:hover {
           background: rgba(15, 23, 42, 0.6);
           border: 1px solid rgba(6, 182, 212, 0.3);
           transform: translateY(-2px);
           box-shadow: 0 16px 48px rgba(6, 182, 212, 0.1);
         }
-
         .tech-button {
           background: rgba(15, 23, 42, 0.4);
           backdrop-filter: blur(20px);
@@ -678,20 +695,17 @@ const Dashboard = () => {
           border: 1px solid rgba(255, 255, 255, 0.08);
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
-
         .tech-button:hover {
           background: rgba(15, 23, 42, 0.6);
           border: 1px solid rgba(6, 182, 212, 0.3);
           transform: scale(1.02);
         }
-
         .tech-gradient {
           background: linear-gradient(90deg, #fff 0%, #06b6d4 50%, #8b5cf6 100%);
           background-clip: text;
           -webkit-background-clip: text;
           -webkit-text-fill-color: transparent;
         }
-
         .custom-scrollbar::-webkit-scrollbar {
           width: 4px;
         }
