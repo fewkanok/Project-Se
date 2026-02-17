@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, CheckCircle2, XCircle, GraduationCap, Info } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle2, XCircle, GraduationCap, Info, BookOpen, Lock, ChevronDown, ChevronUp } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
 
@@ -144,6 +144,7 @@ const OUTCOME_STYLES = {
 const AcademicCriteriaPage = () => {
   const navigate = useNavigate();
   const [selectedRow, setSelectedRow] = useState(null);
+  const [showCoreCourses, setShowCoreCourses] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
   const [userSemData, setUserSemData] = useState({}); // { 1: gpax, 2: gpax, ... } keyed by sem index
 
@@ -450,14 +451,6 @@ const AcademicCriteriaPage = () => {
             onMouseLeave={e => e.currentTarget.style.borderColor = '#2d3748'}
           >
             <ArrowLeft size={20} />
-          </button>
-          <button
-            onClick={() => navigate('/setup')}
-            style={{ padding: '8px 16px', borderRadius: '12px', background: '#1a202c', border: '1px solid #2d3748', color: '#a0aec0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = '#ed8936'; e.currentTarget.style.color = '#ed8936'; }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#2d3748'; e.currentTarget.style.color = '#a0aec0'; }}
-          >
-            ⚙️ Setup
           </button>
           <div>
             <div className="flex items-center gap-3">
@@ -788,6 +781,177 @@ const AcademicCriteriaPage = () => {
 
           </div>
         )}
+
+        {/* ── Core Courses Checklist ── */}
+        {userProfile && (() => {
+          const courseStates = userProfile.courseStates || {};
+          
+          // รวบรวมวิชาแกนทั้งหมดจาก roadmapData
+          const allCoreCourses = [];
+          roadmapData.forEach((yearGroup, yIdx) => {
+            yearGroup.semesters.forEach((sem, sIdx) => {
+              sem.courses.forEach(course => {
+                allCoreCourses.push({
+                  ...course,
+                  year: yIdx + 1,
+                  term: sIdx + 1,
+                  termLabel: sem.term,
+                });
+              });
+            });
+          });
+
+          const passedCount  = allCoreCourses.filter(c => courseStates[c.id] === 'passed').length;
+          const total        = allCoreCourses.length;
+          const percent      = total > 0 ? Math.round((passedCount / total) * 100) : 0;
+          const allPassed    = passedCount === total;
+
+          // group by year
+          const byYear = {};
+          allCoreCourses.forEach(c => {
+            if (!byYear[c.year]) byYear[c.year] = {};
+            if (!byYear[c.year][c.term]) byYear[c.year][c.term] = { label: c.termLabel, courses: [] };
+            byYear[c.year][c.term].courses.push(c);
+          });
+
+          return (
+            <div style={{
+              background: allPassed ? 'linear-gradient(135deg, #052e16 0%, #0f2820 100%)' : '#0d1117',
+              border: `1.5px solid ${allPassed ? '#16a34a' : '#1f2937'}`,
+              borderRadius: 18,
+              marginBottom: 20,
+              overflow: 'hidden',
+              boxShadow: allPassed ? '0 0 40px #22c55e15' : 'none',
+            }}>
+              {/* Header row */}
+              <div
+                onClick={() => setShowCoreCourses(p => !p)}
+                style={{
+                  padding: '18px 24px',
+                  display: 'flex', alignItems: 'center', gap: 16,
+                  cursor: 'pointer',
+                  borderBottom: showCoreCourses ? `1px solid ${allPassed ? '#16a34a40' : '#1f2937'}` : 'none',
+                  userSelect: 'none',
+                }}
+              >
+                <div style={{
+                  width: 42, height: 42, borderRadius: 11, flexShrink: 0,
+                  background: allPassed ? '#22c55e20' : '#1e293b',
+                  border: `1.5px solid ${allPassed ? '#16a34a' : '#2d3748'}`,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <BookOpen size={20} color={allPassed ? '#22c55e' : '#94a3b8'} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 900, fontSize: '16px', color: allPassed ? '#22c55e' : '#fff', marginBottom: 2 }}>
+                    วิชาแกนหลักสูตร (Core Courses)
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                    ต้องผ่านทุกวิชาแกน จึงจะสำเร็จการศึกษาได้
+                  </div>
+                </div>
+                {/* Progress badge */}
+                <div style={{ textAlign: 'right', marginRight: 8 }}>
+                  <div style={{ fontSize: '24px', fontWeight: 900, fontFamily: 'monospace', color: allPassed ? '#22c55e' : percent >= 70 ? '#facc15' : '#f87171', lineHeight: 1 }}>
+                    {passedCount}<span style={{ fontSize: '14px', color: '#4b5563', fontWeight: 700 }}>/{total}</span>
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#6b7280', marginTop: 2 }}>ผ่านแล้ว</div>
+                </div>
+                {/* Progress bar */}
+                <div style={{ width: 80, flexShrink: 0 }}>
+                  <div style={{ height: 6, background: '#1e293b', borderRadius: 99, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${percent}%`,
+                      background: allPassed ? '#22c55e' : percent >= 70 ? '#facc15' : '#f87171',
+                      borderRadius: 99,
+                      transition: 'width 0.5s ease',
+                    }}/>
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#6b7280', marginTop: 4, textAlign: 'center' }}>{percent}%</div>
+                </div>
+                {showCoreCourses ? <ChevronUp size={16} color="#4b5563"/> : <ChevronDown size={16} color="#4b5563"/>}
+              </div>
+
+              {/* Course list */}
+              {showCoreCourses && (
+                <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
+                  {Object.entries(byYear).map(([year, terms]) => (
+                    <div key={year}>
+                      {/* Year label */}
+                      <div style={{
+                        fontSize: '11px', fontWeight: 900, color: '#6b7280',
+                        letterSpacing: '0.1em', textTransform: 'uppercase',
+                        marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8,
+                      }}>
+                        <div style={{ height: 1, width: 16, background: '#2d3748' }}/>
+                        ปีที่ {year}
+                        <div style={{ height: 1, flex: 1, background: '#2d3748' }}/>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {Object.entries(terms).map(([term, { label, courses }]) => (
+                          <div key={term}>
+                            {/* Term label */}
+                            <div style={{ fontSize: '10px', color: '#4b5563', fontWeight: 700, marginBottom: 6, marginLeft: 4 }}>
+                              {label}
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 6 }}>
+                              {courses.map(course => {
+                                const status = courseStates[course.id];
+                                const passed  = status === 'passed';
+                                const learning = status === 'learning';
+                                const prereqOk = !course.prereq || courseStates[course.prereq] === 'passed';
+
+                                return (
+                                  <div key={course.id} style={{
+                                    display: 'flex', alignItems: 'center', gap: 10,
+                                    padding: '8px 12px',
+                                    borderRadius: 10,
+                                    background: passed   ? '#052e1680'
+                                              : learning ? '#0c1a2e80'
+                                              : '#111827',
+                                    border: `1px solid ${passed ? '#16a34a50' : learning ? '#2563eb40' : '#1f2937'}`,
+                                    transition: 'all 0.2s',
+                                  }}>
+                                    {/* Status icon */}
+                                    <div style={{ flexShrink: 0 }}>
+                                      {passed   ? <CheckCircle2 size={16} color="#22c55e"/>
+                                       : learning ? <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6' }}/></div>
+                                       : !prereqOk ? <Lock size={14} color="#6b7280"/>
+                                       : <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #374151' }}/>}
+                                    </div>
+                                    {/* Course info */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{ fontSize: '12px', fontWeight: 700, color: passed ? '#86efac' : learning ? '#93c5fd' : '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                        {course.name}
+                                      </div>
+                                      <div style={{ fontSize: '10px', color: '#4b5563', marginTop: 1 }}>
+                                        {course.code} · {course.credits} หน่วยกิต
+                                      </div>
+                                    </div>
+                                    {/* Status badge */}
+                                    <div style={{
+                                      fontSize: '9px', fontWeight: 700, padding: '2px 7px', borderRadius: 99, flexShrink: 0,
+                                      background: passed ? '#22c55e20' : learning ? '#3b82f620' : '#1f293760',
+                                      color: passed ? '#22c55e' : learning ? '#60a5fa' : '#4b5563',
+                                      border: `1px solid ${passed ? '#16a34a40' : learning ? '#2563eb40' : '#1f2937'}`,
+                                    }}>
+                                      {passed ? 'ผ่าน' : learning ? 'กำลังเรียน' : 'ยังไม่ผ่าน'}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── Legend ── */}
         <div style={{ background: '#1a202c', border: '1px solid #2d3748', borderRadius: 14, padding: '12px 16px', marginBottom: 20 }}>

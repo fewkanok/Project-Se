@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil, Plus, Trash2, Search, Save, LayoutDashboard, FileText, LogIn } from 'lucide-react';
+import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil, Plus, Trash2, Search, Save } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 // ✅ Import ให้ตรงกับไฟล์จริง
 import { electiveCourses } from '../data/electiveCourses';
@@ -107,6 +107,14 @@ const SetupProfile = () => {
     }
   });
 
+  // State: maxYear (ปีสูงสุดที่แสดงปุ่ม — ขยายได้เกิน 4)
+  const [maxYear, setMaxYear] = useState(() => {
+    try {
+      const saved = savedData?.basicInfo?.currentYear || savedData?.currentYear || 1;
+      return Math.max(4, parseInt(saved) || 4);
+    } catch { return 4; }
+  });
+
   const [totalCredits, setTotalCredits] = useState(0);
 
   // State: Save Status
@@ -140,6 +148,7 @@ const SetupProfile = () => {
           learningCourses: Object.keys(dataToSave.courseStates).filter(id => dataToSave.courseStates[id] === 'learning'),
           courseStates: dataToSave.courseStates,
           customElectives: dataToSave.customElectives || {},
+          maxYear: dataToSave.maxYear || 4,
           totalCredits: dataToSave.totalCredits || 0,
           lastUpdated: new Date().toISOString()
         };
@@ -167,7 +176,7 @@ const SetupProfile = () => {
     }
     
     try {
-        autoSave({ basicInfo, courseStates, customElectives, gpaHistory, totalCredits });
+        autoSave({ basicInfo, courseStates, customElectives, gpaHistory, maxYear, totalCredits });
     } catch (error) {
         console.error('Error in auto-save effect:', error);
     }
@@ -193,7 +202,7 @@ const SetupProfile = () => {
         const curTerm = parseInt(basicInfo.currentTerm);
         
         // Validate year and term
-        if (isNaN(curYear) || isNaN(curTerm) || curYear < 1 || curYear > 5 || curTerm < 1 || curTerm > 2) {
+        if (isNaN(curYear) || isNaN(curTerm) || curYear < 1 || curYear > 4 || curTerm < 1 || curTerm > 2) {
             console.error('Invalid year or term values');
             return;
         }
@@ -601,24 +610,14 @@ const SetupProfile = () => {
         
         let missingGpaTerm = null;
 
-        // วนลูปเช็คเทอมที่ผ่านมาทั้งหมด (Y5 = จบแล้ว = ทุกเทอมเป็น past)
-        for (let y = 1; y <= 4; y++) {
+        // วนลูปเช็คทุกเทอมที่ผ่านแล้ว (Y1 ถึง currentYear/currentTerm)
+        outer: for (let y = 1; y <= curYear; y++) {
             for (let t = 1; t <= 2; t++) {
-                const isPast = curYear === 5
-                    ? true
-                    : (y < curYear) || (y === curYear && t < curTerm);
-                
+                const isPast = (y < curYear) || (y === curYear && t < curTerm);
                 if (isPast) {
                     const termKey = `Y${y}/${t}`;
                     const gpaValue = gpaHistory[termKey];
-                    
-                    // ถ้าไม่มีค่าใน gpaHistory หรือเป็นค่าว่าง
-                    if (!gpaValue || gpaValue.toString().trim() === '') {
-                        missingGpaTerm = termKey;
-                        break;
-                    }
-                    
-                    // Validate GPA range
+                    if (!gpaValue || gpaValue.toString().trim() === '') { missingGpaTerm = termKey; break outer; }
                     const gpaNum = parseFloat(gpaValue);
                     if (isNaN(gpaNum) || gpaNum < 0 || gpaNum > 4) {
                         alert(`เกรดเฉลี่ยของเทอม ${termKey} ไม่ถูกต้อง (ต้องอยู่ระหว่าง 0-4)`);
@@ -626,10 +625,8 @@ const SetupProfile = () => {
                     }
                 }
             }
-            if (missingGpaTerm) break;
         }
 
-        // ถ้ามีเทอมไหนขาดเกรด ให้แจ้งเตือนและหยุดการทำงาน
         if (missingGpaTerm) {
             alert(`กรุณากรอกเกรดเฉลี่ย (GPA) ของเทอม ${missingGpaTerm} ให้เรียบร้อยก่อนดำเนินการต่อ`);
             return;
@@ -647,6 +644,7 @@ const SetupProfile = () => {
             learningCourses,
             courseStates,
             customElectives,
+            maxYear,
             totalCredits, 
             lastUpdated: new Date().toISOString() 
         };
@@ -829,7 +827,7 @@ const SetupProfile = () => {
       <div className="max-w-7xl mx-auto p-6 relative z-10">
         
         {/* Header */}
-        <div className="mt-8 mb-6 flex flex-col items-center justify-center text-center">
+        <div className="mt-8 mb-10 flex flex-col items-center justify-center text-center">
             <div className="flex items-center gap-3 mb-2">
                 <Terminal className="text-orange-500" size={32}/>
                 <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-purple-400">
@@ -837,27 +835,6 @@ const SetupProfile = () => {
                 </h1>
             </div>
             <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Profile Setup & Course Planning</p>
-        </div>
-
-        {/* Navigation Links */}
-        <div className="flex items-center justify-center gap-3 mb-10 flex-wrap">
-            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/20 border border-orange-500/40 text-orange-300 text-xs font-bold uppercase tracking-wider">
-                <User size={14}/> Setup (Current)
-            </div>
-            <ChevronRight size={14} className="text-slate-600"/>
-            <button 
-                onClick={() => navigate('/dashboard')}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:bg-blue-500/20 hover:border-blue-500/40 hover:text-blue-300 text-xs font-bold uppercase tracking-wider transition-all"
-            >
-                <LayoutDashboard size={14}/> Dashboard
-            </button>
-            <ChevronRight size={14} className="text-slate-600"/>
-            <button 
-                onClick={() => navigate('/academic-criteria')}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:text-emerald-300 text-xs font-bold uppercase tracking-wider transition-all"
-            >
-                <FileText size={14}/> Academic Criteria
-            </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -922,114 +899,162 @@ const SetupProfile = () => {
                 </div>
 
                 {/* 2. Timeline */}
-                <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl">
-                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-purple-400"><Calendar size={20}/> Current Timeline</h2>
-                    
-                    <div className="space-y-4">
-                         <div>
-                            <div className="grid grid-cols-4 gap-2">
-                                {[1,2,3,4].map(y => (
-                                    <button key={y} 
+                <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl overflow-hidden relative">
+                    {/* bg glow */}
+                    <div className="absolute -top-8 -right-8 w-32 h-32 bg-purple-600/10 rounded-full blur-2xl pointer-events-none"/>
+                    <h2 className="text-lg font-bold mb-5 flex items-center gap-2 text-purple-400 relative z-10"><Calendar size={20}/> Current Timeline</h2>
+
+                    <div className="space-y-5 relative z-10">
+                        {/* ── Year selector ── */}
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 ml-1">ปีการศึกษา</p>
+                            <div className="flex flex-wrap gap-2 items-center">
+                                {Array.from({length: maxYear}, (_, i) => i + 1).map(y => {
+                                    const isActive = basicInfo.currentYear === y;
+                                    const isExtra = y > 4;
+                                    return (
+                                        <button key={y}
+                                            onClick={() => {
+                                                hasUserInteracted.current = true;
+                                                setBasicInfo(prev => ({...prev, currentYear: y}));
+                                            }}
+                                            className="relative group"
+                                            style={{outline:'none'}}
+                                        >
+                                            <div className={`
+                                                relative px-4 py-2.5 rounded-xl font-black text-sm transition-all duration-200 select-none
+                                                ${isActive
+                                                    ? isExtra
+                                                        ? 'bg-gradient-to-br from-fuchsia-600 to-purple-700 text-white shadow-lg shadow-fuchsia-500/30 scale-105'
+                                                        : 'bg-gradient-to-br from-purple-500 to-violet-700 text-white shadow-lg shadow-purple-500/30 scale-105'
+                                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200 hover:scale-105'
+                                                }
+                                            `}>
+                                                {isActive && (
+                                                    <span className="absolute inset-0 rounded-xl ring-2 ring-white/20 ring-offset-0 pointer-events-none"/>
+                                                )}
+                                                <span className="text-[9px] block leading-none mb-0.5 opacity-60 font-medium">{isExtra ? 'EXT' : 'YEAR'}</span>
+                                                <span>{y}</span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+
+                                {/* ── Add year ── */}
+                                <button
+                                    onClick={() => {
+                                        const next = maxYear + 1;
+                                        setMaxYear(next);
+                                        hasUserInteracted.current = true;
+                                        setBasicInfo(prev => ({...prev, currentYear: next}));
+                                    }}
+                                    className="group relative px-3 py-2.5 rounded-xl border border-dashed border-purple-500/40 text-purple-400 hover:border-purple-400 hover:bg-purple-500/10 hover:scale-105 transition-all duration-200"
+                                    title="เพิ่มปี"
+                                >
+                                    <span className="text-[9px] block leading-none mb-0.5 opacity-50 font-medium">ADD</span>
+                                    <Plus size={14} className="mx-auto"/>
+                                </button>
+
+                                {/* ── Remove extra year ── */}
+                                {maxYear > 4 && (
+                                    <button
                                         onClick={() => {
-                                            hasUserInteracted.current = true;
-                                            setBasicInfo(prev => ({...prev, currentYear: y}));
+                                            const prev = maxYear - 1;
+                                            setMaxYear(prev);
+                                            if (basicInfo.currentYear > prev) {
+                                                hasUserInteracted.current = true;
+                                                setBasicInfo(p => ({...p, currentYear: prev}));
+                                            }
                                         }}
-                                        className={`py-2 rounded-lg font-bold transition-all border ${
-                                            basicInfo.currentYear === y 
-                                            ? 'bg-purple-600 border-purple-500 text-white shadow-lg shadow-purple-500/30' 
-                                            : 'bg-white/5 border-transparent text-slate-400 hover:bg-white/10'
-                                        }`}>
-                                        Y{y}
+                                        className="group relative px-3 py-2.5 rounded-xl border border-dashed border-red-500/30 text-red-400/50 hover:border-red-400/60 hover:bg-red-500/10 hover:text-red-400 hover:scale-105 transition-all duration-200"
+                                        title="ลบปีสุดท้าย"
+                                    >
+                                        <span className="text-[9px] block leading-none mb-0.5 opacity-50 font-medium">DEL</span>
+                                        <Trash2 size={14} className="mx-auto"/>
                                     </button>
-                                ))}
+                                )}
                             </div>
-                            {/* Graduated button */}
-                            <button
-                                onClick={() => {
-                                    hasUserInteracted.current = true;
-                                    setBasicInfo(prev => ({...prev, currentYear: 5, currentTerm: 1}));
-                                }}
-                                className={`w-full mt-2 py-2 rounded-lg font-bold transition-all border text-sm flex items-center justify-center gap-2 ${
-                                    basicInfo.currentYear === 5
-                                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/30'
-                                    : 'bg-white/5 border-transparent text-slate-400 hover:bg-white/10'
-                                }`}>
-                                🎓 Graduated (จบการศึกษาแล้ว)
-                            </button>
-                         </div>
-                         
-                         {basicInfo.currentYear !== 5 && (
-                         <div>
+                        </div>
+
+                        {/* ── Term selector ── */}
+                        <div>
+                            <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest mb-2 ml-1">เทอม</p>
                             <div className="grid grid-cols-2 gap-2">
-                                {[1,2].map(t => (
-                                    <button key={t} 
-                                        onClick={() => {
-                                            hasUserInteracted.current = true;
-                                            setBasicInfo(prev => ({...prev, currentTerm: t}));
-                                        }}
-                                        className={`py-2 rounded-lg font-bold transition-all border ${
-                                            basicInfo.currentTerm === t 
-                                            ? 'bg-orange-500 border-orange-500 text-white shadow-lg shadow-orange-500/30' 
-                                            : 'bg-white/5 border-transparent text-slate-400 hover:bg-white/10'
-                                        }`}>
-                                        Term {t}
-                                    </button>
-                                ))}
+                                {[1, 2].map(t => {
+                                    const isActive = basicInfo.currentTerm === t;
+                                    return (
+                                        <button key={t}
+                                            onClick={() => {
+                                                hasUserInteracted.current = true;
+                                                setBasicInfo(prev => ({...prev, currentTerm: t}));
+                                            }}
+                                            className="relative group"
+                                        >
+                                            <div className={`
+                                                py-3 rounded-xl font-black text-sm transition-all duration-200 text-center select-none
+                                                ${isActive
+                                                    ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg shadow-orange-500/30 scale-[1.02]'
+                                                    : 'bg-white/5 text-slate-400 hover:bg-white/10 hover:text-slate-200'
+                                                }
+                                            `}>
+                                                {isActive && <span className="absolute inset-0 rounded-xl ring-2 ring-white/20 pointer-events-none"/>}
+                                                <span className="text-[9px] block leading-none mb-1 opacity-60 font-medium">TERM</span>
+                                                <span>{t}</span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
-                         </div>
-                         )}
+                        </div>
+
+                        {/* ── Current label ── */}
+                        <div className="flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2.5 border border-white/5">
+                            <div className="relative flex h-2 w-2 shrink-0">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"/>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-400"/>
+                            </div>
+                            <span className="text-xs text-slate-400">กำลังเรียน</span>
+                            <span className="ml-auto font-black text-white font-mono text-sm">
+                                Y{basicInfo.currentYear} / Term {basicInfo.currentTerm}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
-                {/* 3. GPA */}
+                {/* 3. GPA — วนทุกปีที่ผ่านแล้ว (Y1 ถึง currentYear/currentTerm) */}
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl">
                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-emerald-400"><GraduationCap size={20}/> Previous GPA</h2>
                     <div className="space-y-2 overflow-visible pr-2">
-                        {/* GPA inputs for all 8 semesters (Y1-Y4, T1-T2) */}
-                        {[1,2,3,4].map(y => [1,2].map(t => {
-                                // Y5 = Graduated → ทุกเทอมเป็น past
-                                const isPast = basicInfo.currentYear === 5
-                                    ? true
-                                    : (y < basicInfo.currentYear) || 
-                                      (y === basicInfo.currentYear && t < basicInfo.currentTerm);
-                                
-                                const uniqueTermKey = `Y${y}/${t}`;
-
-                                if (isPast) {
-                                     return (
-                                       <div key={uniqueTermKey} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
-                                            <span className="text-slate-300 font-mono text-xs font-bold uppercase tracking-wider">
-                                                {uniqueTermKey} GPA
-                                            </span>
-                                            <input 
-                                                type="number" step="0.01" min="0" max="4" placeholder="0.00"
-                                                value={gpaHistory[uniqueTermKey] || ''} 
-                                                onChange={(e) => {
-                                                    let val = e.target.value;
-                                                    if (val === '') {
-                                                        setGpaHistory(prev => ({ ...prev, [uniqueTermKey]: '' }));
-                                                        return;
-                                                    }
-                                                    const numVal = parseFloat(val);
-                                                    if (numVal > 4) val = 4;
-                                                    if (numVal < 0) val = 0;
-                                                    setGpaHistory(prev => ({ ...prev, [uniqueTermKey]: val }));
-                                                }}
-                                                className="w-20 bg-transparent text-right text-emerald-400 font-bold outline-none placeholder-slate-600 border-b border-white/10 focus:border-emerald-500 transition-colors" 
-                                            />
-                                       </div>
-                                     )
-                                }
-                                return null;
+                        {Array.from({length: basicInfo.currentYear}, (_, yi) => yi + 1).flatMap(y =>
+                            [1, 2].map(t => {
+                                const isPast = (y < basicInfo.currentYear) ||
+                                               (y === basicInfo.currentYear && t < basicInfo.currentTerm);
+                                if (!isPast) return null;
+                                const termKey = `Y${y}/${t}`;
+                                return (
+                                    <div key={termKey} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5">
+                                        <span className="text-slate-300 font-mono text-xs font-bold uppercase tracking-wider">
+                                            {termKey} GPA
+                                        </span>
+                                        <input
+                                            type="number" step="0.01" min="0" max="4" placeholder="0.00"
+                                            value={gpaHistory[termKey] || ''}
+                                            onChange={(e) => {
+                                                let val = e.target.value;
+                                                if (val === '') { setGpaHistory(prev => ({ ...prev, [termKey]: '' })); return; }
+                                                const numVal = parseFloat(val);
+                                                if (numVal > 4) val = '4';
+                                                if (numVal < 0) val = '0';
+                                                setGpaHistory(prev => ({ ...prev, [termKey]: val }));
+                                            }}
+                                            className="w-20 bg-transparent text-right text-emerald-400 font-bold outline-none placeholder-slate-600 border-b border-white/10 focus:border-emerald-500 transition-colors"
+                                        />
+                                    </div>
+                                );
                             })
                         )}
                         {basicInfo.currentYear === 1 && basicInfo.currentTerm === 1 && (
                             <div className="text-center py-6 text-slate-600 text-xs border border-dashed border-white/10 rounded-xl">No grades to enter yet</div>
-                        )}
-                        {basicInfo.currentYear === 5 && (
-                            <div className="text-center py-3 text-emerald-500/70 text-xs border border-dashed border-emerald-500/20 rounded-xl flex items-center justify-center gap-2">
-                                🎓 กรอกเกรดครบทั้ง 8 เทอม
-                            </div>
                         )}
                     </div>
                 </div>
