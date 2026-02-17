@@ -11,7 +11,8 @@ const TABLE_ROWS = [
     outcome: 'retired',
     outcomeText: 'พ้นสภาพ : เกรดเฉลี่ยสะสม ต่ำกว่า 1.25 ในภาคการเรียนที่ 1',
     cells: [
-      { sem: 1, gpa: '1.24', status: 'retired' },
+      { sem: 1, gpa: '1.24', status: 'probation-low' },
+      { sem: 2, status: 'retired' },
     ]
   },
   {
@@ -20,7 +21,8 @@ const TABLE_ROWS = [
     outcomeText: 'พ้นสภาพ : เกรดเฉลี่ยสะสม ต่ำกว่า 1.50 ในภาคการเรียนที่ 2',
     cells: [
       { sem: 1, gpa: '1.25', status: 'warning' },
-      { sem: 2, gpa: '1.49', status: 'retired' },
+      { sem: 2, gpa: '1.49', status: 'probation-low' },
+      { sem: 3, status: 'retired' },
     ]
   },
   {
@@ -31,7 +33,8 @@ const TABLE_ROWS = [
       { sem: 1, gpa: '1.25', status: 'warning' },
       { sem: 2, gpa: '1.50', status: 'warning' },
       { sem: 3, gpa: '1.74', status: 'probation-low', note: 'โปร\nต่ำ' },
-      { sem: 4, gpa: '1.74', status: 'retired' },
+      { sem: 4, gpa: '1.74', status: 'probation-low', note: 'โปร\nต่ำ' },
+      { sem: 5, status: 'retired' },
     ]
   },
   {
@@ -44,7 +47,8 @@ const TABLE_ROWS = [
       { sem: 3, gpa: '1.99', status: 'probation-high', note: 'โปร\nสูง' },
       { sem: 4, gpa: '1.99', status: 'probation-high', note: 'โปร\nสูง' },
       { sem: 5, gpa: '1.99', status: 'probation-high', note: 'โปร\nสูง' },
-      { sem: 6, gpa: '1.99', status: 'retired' },
+      { sem: 6, gpa: '1.99', status: 'probation-high', note: 'โปร\nสูง' },
+      { sem: 7, status: 'retired' },
     ]
   },
   {
@@ -58,7 +62,8 @@ const TABLE_ROWS = [
       { sem: 4, gpa: '2.00', status: 'safe' },
       { sem: 5, gpa: '1.99', status: 'probation-high', note: 'โปร\nสูง' },
       { sem: 6, gpa: '1.74', status: 'probation-low', note: 'โปร\nต่ำ' },
-      { sem: 7, gpa: '1.74', status: 'retired' },
+      { sem: 7, gpa: '1.74', status: 'probation-low', note: 'โปร\nต่ำ' },
+      { sem: 8, status: 'retired' },
     ]
   },
   {
@@ -73,7 +78,8 @@ const TABLE_ROWS = [
       { sem: 5, gpa: '2.00', status: 'safe' },
       { sem: 6, gpa: '1.79', status: 'probation-low', note: 'โปร\nต่ำ' },
       { sem: 7, gpa: '1.79', status: 'probation-low', note: 'โปร\nต่ำ' },
-      { sem: 8, gpa: '1.79', status: 'retired' },
+      { sem: 8, gpa: '1.79', status: 'probation-low', note: 'โปร\nต่ำ' },
+      { sem: 9, status: 'retired' },
     ]
   },
   {
@@ -166,48 +172,95 @@ const AcademicCriteriaPage = () => {
     }
   }, []);
 
-  const currentYear = userProfile?.basicInfo?.currentYear || userProfile?.currentYear || null;
-  const currentTerm = userProfile?.basicInfo?.currentTerm || userProfile?.currentTerm || null;
+  const currentYear = parseInt(userProfile?.basicInfo?.currentYear || userProfile?.currentYear) || null;
+  const currentTerm = parseInt(userProfile?.basicInfo?.currentTerm || userProfile?.currentTerm) || null;
   const currentSem  = currentYear && currentTerm ? (currentYear - 1) * 2 + currentTerm : null;
   const userName    = userProfile?.basicInfo?.name || userProfile?.name || null;
 
   // ── Determine which case row the user best matches ────────────────────────
   const getUserMatchedCase = () => {
     if (!currentSem || Object.keys(userSemData).length === 0) return null;
-    // Simple heuristic: check most recent known GPAX and probation count
-    const gpaxValues = Object.entries(userSemData)
-      .filter(([sem]) => parseInt(sem) <= (currentSem - 1))
-      .sort(([a], [b]) => parseInt(a) - parseInt(b));
-    
-    if (gpaxValues.length === 0) return null;
-    const latestGpax = parseFloat(gpaxValues[gpaxValues.length - 1]?.[1]) || 0;
 
-    if (currentSem === 1 && latestGpax < 1.25) return 'A';
-    if (currentSem === 2 && latestGpax < 1.50) return 'B';
-    
-    // Count consecutive low probations (< 1.75)
-    let consecutiveLow = 0, maxConsLow = 0;
+    const pastSems = currentSem - 1; // เทอมที่ผ่านมาแล้ว (ไม่รวมปัจจุบัน)
+    const g1 = userSemData[1];
+    const g2 = userSemData[2];
+
+    // ── Case A ─────────────────────────────────────────────────────────────
+    if (g1 != null && g1 < 1.25) return 'A';
+
+    // ── Case B ─────────────────────────────────────────────────────────────
+    if (g2 != null && g2 < 1.50) return 'B';
+
+    // ── วิเคราะห์เทอม 3+ (3 zone mutually exclusive) ───────────────────────
+    //   LOW  < 1.75           → รีเซ็ต HIGH counter
+    //   HIGH 1.75 ≤ g < 2.00 → รีเซ็ต LOW counter
+    //   SAFE ≥ 2.00           → รีเซ็ตทั้งคู่
+    let consecutiveLow = 0,  maxConsLow  = 0;
     let consecutiveHigh = 0, maxConsHigh = 0;
-    for (let i = 3; i <= currentSem - 1; i++) {
+    let totalLowCount = 0;
+    let hadSafeBeforeLow = false; // มี SAFE คั่นระหว่าง LOW สองช่วง = กระจาย
+    let prevWasSafe = false;
+
+    for (let i = 3; i <= pastSems; i++) {
       const g = userSemData[i];
-      if (g !== undefined && g !== null) {
-        if (g < 1.75) { consecutiveLow++; maxConsLow = Math.max(maxConsLow, consecutiveLow); }
-        else consecutiveLow = 0;
-        if (g < 2.00) { consecutiveHigh++; maxConsHigh = Math.max(maxConsHigh, consecutiveHigh); }
-        else consecutiveHigh = 0;
+      if (g != null) {
+        if (g < 1.75) {
+          if (prevWasSafe) hadSafeBeforeLow = true;
+          consecutiveLow++;
+          totalLowCount++;
+          maxConsLow  = Math.max(maxConsLow, consecutiveLow);
+          consecutiveHigh = 0;
+          prevWasSafe = false;
+        } else if (g < 2.00) {
+          consecutiveHigh++;
+          maxConsHigh = Math.max(maxConsHigh, consecutiveHigh);
+          consecutiveLow = 0;
+          prevWasSafe = false;
+        } else {
+          consecutiveLow  = 0;
+          consecutiveHigh = 0;
+          prevWasSafe = true;
+        }
       }
     }
-    if (maxConsLow >= 2) return 'C';
-    if (maxConsHigh >= 4) return 'D';
-    return 'H'; // on track
+
+    // หา GPAX ล่าสุดที่มี (ก่อนเทอมปัจจุบัน)
+    const latestGpa = (() => {
+      for (let i = pastSems; i >= 1; i--) {
+        if (userSemData[i] != null) return userSemData[i];
+      }
+      return null;
+    })();
+
+    // ── Case C: เคยติดกัน ≥2  หรือ  กำลัง low ครั้งแรกต่อเนื่อง (ไม่มี safe คั่น) ──
+    if (maxConsLow >= 2 || (consecutiveLow >= 1 && !hadSafeBeforeLow)) return 'C';
+
+    // ── Case D: เคยติดกัน ≥4  หรือ  กำลังสะสม ≥3 ติด (ใกล้พ้น) ─────────────
+    if (maxConsHigh >= 4 || consecutiveHigh >= 3) return 'D';
+
+    // ── Case H ก่อน E: GPAX ล่าสุด ≥ 2.00 = ปรับตัวสำเร็จ ──────────────────
+    if (latestGpa != null && latestGpa >= 2.00) return 'H';
+
+    // ── Case E: low กระจาย ≥2 ครั้ง (มี safe คั่น แล้วกลับมา low) ───────────
+    if (totalLowCount >= 2 && hadSafeBeforeLow) return 'E';
+
+    // ── Case F: เรียนจบแล้ว แต่ GPAX < 1.80 ──────────────────────────────────
+    if (latestGpa != null && latestGpa < 1.80 && pastSems >= 6) return 'F';
+
+    // ── Case G: GPAX คาบเส้น 1.80–1.99 ───────────────────────────────────────
+    if (latestGpa != null && latestGpa >= 1.80 && latestGpa < 2.00) return 'G';
+
+    // ── Case H: fall-through ───────────────────────────────────────────────────
+    return 'H';
   };
 
   const matchedCase = getUserMatchedCase();
 
   // ── GPA to status (used for user's personal row) ──────────────────────────
   const gpaxToStatus = (gpax, semIdx) => {
-    if (semIdx === 1) return gpax < 1.25 ? 'retired' : 'warning';
-    if (semIdx === 2) return gpax < 1.50 ? 'retired' : gpax < 2.00 ? 'warning' : 'safe';
+    if (semIdx === 1) return gpax < 1.25 ? 'probation-low' : 'warning';
+    if (semIdx === 2) return gpax < 1.50 ? 'probation-low' : gpax < 2.00 ? 'warning' : 'safe';
+    // เทอม 3 เป็นต้นไป
     if (gpax >= 2.00) return 'safe';
     if (gpax >= 1.75) return 'probation-high';
     return 'probation-low';
@@ -356,17 +409,39 @@ const AcademicCriteriaPage = () => {
                 </div>
               </div>
             </div>
-            {matchedCase && (
-              <div style={{ background: matchedCase === 'H' ? '#27674922' : '#e53e3e22', border: `1px solid ${matchedCase === 'H' ? '#276749' : '#e53e3e'}`, borderRadius: 10, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                {matchedCase === 'H'
-                  ? <CheckCircle2 size={16} color="#68d391" />
-                  : <AlertTriangle size={16} color="#fc8181" />
-                }
-                <span style={{ fontSize: '13px', fontWeight: 700, color: matchedCase === 'H' ? '#68d391' : '#fc8181' }}>
-                  แนวโน้มใกล้เคียง Case {matchedCase}
-                </span>
-              </div>
-            )}
+            {matchedCase && (() => {
+              const safeCase = matchedCase === 'H';
+              const warnCase = matchedCase === 'G';
+              const bgColor = safeCase ? '#27674922' : warnCase ? '#2b6cb022' : '#e53e3e22';
+              const borderColor = safeCase ? '#276749' : warnCase ? '#2b6cb0' : '#e53e3e';
+              const textColor = safeCase ? '#68d391' : warnCase ? '#90cdf4' : '#fc8181';
+              const caseLabels = {
+                A: 'GPAX ต่ำกว่า 1.25 ในเทอม 1',
+                B: 'GPAX ต่ำกว่า 1.50 ในเทอม 2',
+                C: 'โปรต่ำ ใกล้พ้นสภาพ',
+                D: 'โปรสูง ใกล้พ้นสภาพ',
+                E: 'โปรกระจาย เฝ้าระวัง',
+                F: 'GPAX ต่ำกว่า 1.80 ใกล้จบ',
+                G: 'GPAX คาบเส้น 1.80–1.99',
+                H: 'ปรับตัวได้ ดีมาก',
+              };
+              return (
+                <div style={{ background: bgColor, border: `1px solid ${borderColor}`, borderRadius: 10, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {safeCase
+                    ? <CheckCircle2 size={16} color={textColor} />
+                    : <AlertTriangle size={16} color={textColor} />
+                  }
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 800, color: textColor }}>
+                      แนวโน้มใกล้เคียง Case {matchedCase}
+                    </div>
+                    <div style={{ fontSize: '11px', color: textColor, opacity: 0.8 }}>
+                      {caseLabels[matchedCase]}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -500,14 +575,9 @@ const AcademicCriteriaPage = () => {
                           const semNum = i + 1;
                           const cell = row.cells.find(c => c.sem === semNum);
 
-                          // If the row ends with 'retired', show X mark at the cell AFTER the last filled cell
-                          const maxFilledSem = row.cells[row.cells.length - 1]?.sem || 0;
-                          const isRetiredCell = row.outcome === 'retired' && semNum === maxFilledSem + 1;
-
-                          if (isRetiredCell) return <RetiredCell key={i} />;
                           if (!cell) return <EmptyCell key={i} />;
 
-                          // For 'retired' outcome, the last cell with status='retired' = the X mark
+                          // The cell marked 'retired' = the X mark
                           if (cell.status === 'retired') return <RetiredCell key={i} />;
 
                           return (
