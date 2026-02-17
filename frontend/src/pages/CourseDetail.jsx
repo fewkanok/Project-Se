@@ -248,50 +248,7 @@ const CourseDetail = () => {
             )}
           </section>
 
-          {/* ✅ Course Topics Section */}
-          <section className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
-            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-              <CheckCircle className="text-cyan-400"/> Course Topics
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Midterm Topics */}
-              <div className="bg-orange-500/10 border border-orange-500/30 rounded-xl p-6">
-                <h4 className="text-lg font-bold text-orange-300 mb-4 flex items-center gap-2">
-                  📚 Midterm Coverage
-                </h4>
-                <ul className="space-y-2.5">
-                  {courseDetails.topics.midterm.map((topic, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-orange-400 font-bold mt-0.5">•</span>
-                      <span>{topic}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Final Topics */}
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6">
-                <h4 className="text-lg font-bold text-red-300 mb-4 flex items-center gap-2">
-                  🔥 Final Coverage
-                </h4>
-                <ul className="space-y-2.5">
-                  {courseDetails.topics.final.map((topic, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-sm text-slate-300">
-                      <span className="text-red-400 font-bold mt-0.5">•</span>
-                      <span>{topic}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">
-              <p className="text-sm text-blue-200">
-                💡 <span className="font-bold">Pro Tip:</span> Final exam is cumulative and covers all topics from Midterm + Final sections.
-              </p>
-            </div>
-          </section>
+          
 
           {/* Grading */}
           <section className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
