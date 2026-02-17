@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlayCircle, Award, BookOpen, Zap, TrendingUp, Calendar, Clock, AlertCircle, LogOut, Settings, Target, Trophy, Star, Sparkles, ArrowUpRight, ChevronRight, Activity, Flame, BarChart3, Cpu, Layers, Grid3x3, CheckCircle2, XCircle, AlertTriangle, X, Check, FileText } from 'lucide-react';
+import { PlayCircle, Award, BookOpen, Zap, TrendingUp, Calendar, Clock, AlertCircle, LogOut, Settings, Target, Trophy, Star, Sparkles, ArrowUpRight, ChevronRight, Activity, Flame, BarChart3, Cpu, Layers, Grid3x3, CheckCircle2, XCircle, AlertTriangle, X, Check, FileText, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
@@ -145,6 +145,8 @@ const Dashboard = () => {
 
                         graphData.push({
                             term: gpaKey, 
+                            year: yearNum,
+                            semester: termNum,
                             gpa: parseFloat(termGPA.toFixed(2)),
                             fullTerm: sem.term,
                             credits: weight
@@ -205,6 +207,135 @@ const Dashboard = () => {
     };
   }, [profile]);
 
+// --- 3. Academic Status Analysis Logic (With Prediction) ---
+  const academicStatus = useMemo(() => {
+    // Sort history chronologically
+    const sortedHistory = [...stats.graphData].sort((a, b) => {
+        if (a.year !== b.year) return a.year - b.year;
+        return a.semester - b.semester;
+    });
+
+    // Default State
+    let statusState = { 
+        status: 'NORMAL', 
+        message: 'สถานะปกติ', 
+        detail: 'รอผลการเรียน', 
+        color: 'emerald', 
+        riskLevel: 0,
+        prediction: null // New Field
+    };
+
+    if (sortedHistory.length === 0) return statusState;
+
+    // Running Accumulators
+    let accumulatedPoints = 0;
+    let accumulatedCredits = 0;
+    
+    // Probation Counters
+    let lowProCount = 0; // < 1.75
+    let highProCount = 0; // < 2.00
+
+    // 1. Re-run history to find current status
+    for (let termData of sortedHistory) {
+        const { year, semester, gpa, credits } = termData;
+        
+        accumulatedPoints += (gpa * credits);
+        accumulatedCredits += credits;
+        
+        if (accumulatedCredits === 0) continue;
+        const currentGPAX = accumulatedPoints / accumulatedCredits;
+
+        // Year 1 Checks
+        if (year === 1) {
+            if (semester === 1 && currentGPAX < 1.25) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'GPAX ปี 1 เทอม 1 ต่ำกว่า 1.25', color: 'red', riskLevel: 100 };
+            if (semester === 2 && currentGPAX < 1.50) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'GPAX ปี 1 เทอม 2 ต่ำกว่า 1.50', color: 'red', riskLevel: 100 };
+        } 
+        // Year 2+ Checks
+        else if (year >= 2) {
+            if (currentGPAX < 1.75) lowProCount++; else lowProCount = 0;
+            if (currentGPAX < 2.00) highProCount++; else highProCount = 0;
+
+            if (lowProCount >= 2) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'โปรต่ำ (GPAX < 1.75) 2 ครั้ง', color: 'red', riskLevel: 100 };
+            if (highProCount >= 4) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'โปรสูง (GPAX < 2.00) 4 ครั้ง', color: 'red', riskLevel: 100 };
+        }
+    }
+
+    // 2. Determine Final Status & Calculate Prediction
+    const latestGPAX = accumulatedCredits > 0 ? (accumulatedPoints / accumulatedCredits) : 0;
+    
+    // Prediction Logic: How much GPA needed next term (assume 19 credits) to reach 2.00?
+    const nextTermCredits = 19; 
+    const targetGPAX = 2.00;
+    const totalCreditsNext = accumulatedCredits + nextTermCredits;
+    const requiredPoints = targetGPAX * totalCreditsNext;
+    const missingPoints = requiredPoints - accumulatedPoints;
+    let neededGPA = missingPoints / nextTermCredits;
+    
+    // Cap min/max for display logic
+    let predictionText = "";
+    if (neededGPA > 4.00) {
+        predictionText = "ยากมาก (ต้องได้เกิน 4.00)";
+    } else if (neededGPA <= 0) {
+        predictionText = "รอดแน่นอน (เพียงแค่ผ่าน)";
+    } else {
+        predictionText = neededGPA.toFixed(2);
+    }
+
+    if (highProCount > 0) {
+        // In Probation
+        if (lowProCount === 1) {
+            statusState = {
+                status: 'CRITICAL',
+                message: 'ภาวะวิกฤต (โปรต่ำ)',
+                detail: `เกรดเฉลี่ย ${latestGPAX.toFixed(2)} ต่ำกว่า 1.75 ต้องเร่งแก้ไขด่วน`,
+                color: 'red',
+                riskLevel: 90,
+                prediction: { label: 'เป้าหมายเทอมหน้า (เพื่อหลุดโปร)', value: predictionText, credits: nextTermCredits }
+            };
+        } else if (highProCount === 3) {
+            statusState = {
+                status: 'CRITICAL',
+                message: 'โปรสูง (ครั้งสุดท้าย)',
+                detail: `เหลือโอกาสเดียว! ต้องทำให้ GPAX ถึง 2.00`,
+                color: 'orange',
+                riskLevel: 80,
+                prediction: { label: 'ต้องทำเกรดเทอมหน้า', value: predictionText, credits: nextTermCredits }
+            };
+        } else {
+            statusState = {
+                status: 'PROBATION',
+                message: `ติดวิทยาทัณฑ์ (ครั้งที่ ${highProCount})`,
+                detail: `GPAX ${latestGPAX.toFixed(2)} ต่ำกว่า 2.00`,
+                color: 'orange',
+                riskLevel: 40 + (highProCount * 15),
+                prediction: { label: 'เกรดที่ต้องทำเพื่อหลุดโปร', value: predictionText, credits: nextTermCredits }
+            };
+        }
+    } else {
+        // Safe but check logic
+        if (latestGPAX < 2.00) {
+             statusState = {
+                 status: 'WARNING',
+                 message: 'เฝ้าระวัง',
+                 detail: `GPAX ${latestGPAX.toFixed(2)} ยังไม่ถึง 2.00`,
+                 color: 'yellow',
+                 riskLevel: 30,
+                 prediction: { label: 'ทำเกรดให้ถึง 2.00', value: predictionText, credits: nextTermCredits }
+             };
+        } else {
+             statusState = {
+                status: 'NORMAL',
+                message: 'สถานะปกติ',
+                detail: `GPAX ${latestGPAX.toFixed(2)} ปลอดภัย`,
+                color: 'emerald',
+                riskLevel: 10,
+                prediction: null
+            };
+        }
+    }
+
+    return statusState;
+  }, [stats.graphData]);
   // Animated Counter Effect
   useEffect(() => {
     const duration = 2000;
@@ -278,6 +409,16 @@ const Dashboard = () => {
         </div>
     </div>
   );
+
+  // Status Icon Helper
+  const getStatusIcon = (color) => {
+      switch(color) {
+          case 'emerald': return <ShieldCheck size={24} className="text-emerald-400" />;
+          case 'orange': return <AlertTriangle size={24} className="text-orange-400" />;
+          case 'red': return <ShieldAlert size={24} className="text-red-400" />;
+          default: return <Shield size={24} className="text-slate-400" />;
+      }
+  };
 
   return (
     <div className="min-h-screen p-4 md:p-8">
@@ -549,6 +690,64 @@ const Dashboard = () => {
           {/* Right - Chart & Actions */}
           <div className="lg:col-span-3 space-y-6">
             
+            {/* NEW: Academic Status Card (Updated with Prediction) */}
+            <div className={`tech-card p-6 rounded-2xl relative overflow-hidden group`}>
+                {/* Background Glow */}
+                <div className={`absolute top-0 right-0 w-40 h-40 bg-${academicStatus.color}-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2`}></div>
+                
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4 relative z-10">
+                    <div className="flex items-center gap-2">
+                        {getStatusIcon(academicStatus.color)}
+                        <h3 className="text-white font-bold text-sm uppercase tracking-wide">Academic Status</h3>
+                    </div>
+                    <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase bg-${academicStatus.color}-500/10 text-${academicStatus.color}-400 border border-${academicStatus.color}-500/20`}>
+                        {academicStatus.status}
+                    </div>
+                </div>
+
+                {/* Status Message */}
+                <div className="relative mb-4 z-10">
+                    <p className={`text-xl font-black text-${academicStatus.color}-400 mb-1`}>{academicStatus.message}</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">{academicStatus.detail}</p>
+                </div>
+
+                {/* PREDICTION BOX (NEW) */}
+                {academicStatus.prediction && (
+                    <div className="relative z-10 mt-4 mb-4 p-3 rounded-lg bg-slate-900/50 border border-slate-700/50 flex items-center justify-between">
+                        <div>
+                            <p className="text-[10px] text-slate-500 uppercase font-mono mb-0.5">
+                                {academicStatus.prediction.label}
+                            </p>
+                            <p className="text-[10px] text-slate-600">
+                                (คำนวณที่ {academicStatus.prediction.credits} หน่วยกิต)
+                            </p>
+                        </div>
+                        <div className="text-right">
+                            <span className={`text-2xl font-black ${parseFloat(academicStatus.prediction.value) > 4.0 ? 'text-red-500' : 'text-white'}`}>
+                                {academicStatus.prediction.value}
+                            </span>
+                        </div>
+                    </div>
+                )}
+
+                {/* Risk Bar */}
+                <div className="relative pt-2 z-10">
+                    <div className="flex justify-between text-[10px] text-slate-500 font-mono mb-1">
+                        <span>SAFE</span>
+                        <span>RISK</span>
+                        <span>RETIRE</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
+                        <div 
+                            className={`h-full bg-gradient-to-r from-emerald-500 via-orange-500 to-red-500 transition-all duration-1000 relative`}
+                            style={{ width: `${Math.max(5, academicStatus.riskLevel)}%` }}
+                        >
+                            <div className="absolute right-0 top-0 bottom-0 w-1 bg-white/50 animate-pulse"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             {/* Performance Chart */}
             <div className="tech-card p-6 rounded-2xl">
               <div className="flex items-center justify-between mb-6">
@@ -564,7 +763,7 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="h-[300px]">
+              <div className="h-[220px]">
                 {stats.graphData.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={stats.graphData} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
