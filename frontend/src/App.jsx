@@ -6,8 +6,8 @@ import SetupProfile from './pages/SetupProfile';
 import Dashboard from './pages/Dashboard';
 import Roadmap from './pages/Roadmap';
 import CourseDetail from './pages/CourseDetail';
-// ✅ Import ไฟล์ GradeCalculator
 import GradeCalculator from './pages/GradeCalculator';
+import CoopEligibilityModal from './pages/CoopEligibilityModal';
 
 const ProtectedRoute = () => {
   const user = localStorage.getItem('userProfile');
@@ -18,18 +18,19 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/login" element={<Login />} />
+        <Route path="/login"    element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/setup" element={<SetupProfile />} />
+        <Route path="/setup"    element={<SetupProfile />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/roadmap" element={<Roadmap />} />
-            {/* ✅ เพิ่ม Route ตรงนี้ */}
-            <Route path="/grade-calculator" element={<GradeCalculator />} />
-            <Route path="/course/:id" element={<CourseDetail />} />
+            <Route path="/"                  element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard"         element={<Dashboard />} />
+            <Route path="/roadmap"           element={<Roadmap />} />
+            <Route path="/grade-calculator"  element={<GradeCalculator />} />
+            <Route path="/course/:id"        element={<CourseDetail />} />
+            {/* ✅ Co-op Eligibility Page */}
+            <Route path="/coop"              element={<CoopEligibilityModal />} />
           </Route>
         </Route>
       </Routes>

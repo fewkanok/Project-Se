@@ -4,7 +4,6 @@ import { PlayCircle, Award, BookOpen, Zap, TrendingUp, Calendar, Clock, AlertCir
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
-import CoopEligibilityModal from '../components/Coopeligibilitymodal';
 
 // --- Configuration: Co-op Requirements ---
 const COOP_REQUIREMENTS = {
@@ -28,7 +27,6 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [animatedGPA, setAnimatedGPA] = useState(0);
   const [animatedCredits, setAnimatedCredits] = useState(0);
-  const [showCoopModal, setShowCoopModal] = useState(false);
 
   // --- 1. Load Data ---
   const [profile] = useState(() => {
@@ -87,6 +85,17 @@ const Dashboard = () => {
     const currentYearNum = parseInt(profile.basicInfo?.currentYear || profile.currentYear) || 1;
     const currentTermNum = parseInt(profile.basicInfo?.currentTerm || profile.currentTerm) || 1;
     const customElectives = profile.customElectives || {};
+
+    // โหลดเกรดจาก Coop Modal
+    let coopGrades = {};
+    try {
+      const saved = localStorage.getItem('coopGradeStates');
+      if (saved) {
+        coopGrades = JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error('Error loading coop grades:', e);
+    }
 
     if (roadmapData) {
         roadmapData.forEach((yearGroup, yIdx) => {
@@ -174,19 +183,34 @@ const Dashboard = () => {
             if(c.code === code) courseName = c.name;
         })));
         
+        const isPassed = passedCourseCodes.has(code);
+        const grade = coopGrades[code];
+        
         return {
             code,
             name: courseName,
-            isPassed: passedCourseCodes.has(code)
+            isPassed,
+            grade: grade !== null && grade !== undefined ? grade : null
         };
     });
 
     const coopCoursesPassedCount = coopCourseDetails.filter(c => c.isPassed).length;
     const coopCoursesTotal = COOP_REQUIREMENTS.targetCourses.length;
 
+    // คำนวณ GPA_10
+    let gpa10Sum = 0;
+    let gpa10Count = 0;
+    coopCourseDetails.forEach(c => {
+      if (c.isPassed && c.grade !== null && c.grade !== undefined) {
+        gpa10Sum += c.grade;
+        gpa10Count++;
+      }
+    });
+    const gpa10 = gpa10Count > 0 ? gpa10Sum / gpa10Count : null;
+
     const isCreditReady = earnedCredits >= COOP_REQUIREMENTS.minCredits;
     const isGPAReady = calculatedGPAX >= COOP_REQUIREMENTS.minGPA;
-    const isCoursesReady = coopCoursesPassedCount === coopCoursesTotal;
+    const isCoursesReady = coopCoursesPassedCount === coopCoursesTotal && gpa10 !== null && gpa10 >= 2.5;
 
     return { 
       totalCredits: totalStructureCredits, 
@@ -202,40 +226,36 @@ const Dashboard = () => {
         passedCount: coopCoursesPassedCount,
         totalCount: coopCoursesTotal,
         courseDetails: coopCourseDetails,
+        gpa10: gpa10,
+        gpa10Count: gpa10Count,
         isFullyEligible: isCreditReady && isGPAReady && isCoursesReady
       }
     };
   }, [profile]);
 
-// --- 3. Academic Status Analysis Logic (With Prediction) ---
+  // --- 3. Academic Status Analysis Logic (With Prediction) ---
   const academicStatus = useMemo(() => {
-    // Sort history chronologically
     const sortedHistory = [...stats.graphData].sort((a, b) => {
         if (a.year !== b.year) return a.year - b.year;
         return a.semester - b.semester;
     });
 
-    // Default State
     let statusState = { 
         status: 'NORMAL', 
         message: 'สถานะปกติ', 
         detail: 'รอผลการเรียน', 
         color: 'emerald', 
         riskLevel: 0,
-        prediction: null // New Field
+        prediction: null
     };
 
     if (sortedHistory.length === 0) return statusState;
 
-    // Running Accumulators
     let accumulatedPoints = 0;
     let accumulatedCredits = 0;
-    
-    // Probation Counters
-    let lowProCount = 0; // < 1.75
-    let highProCount = 0; // < 2.00
+    let lowProCount = 0;
+    let highProCount = 0;
 
-    // 1. Re-run history to find current status
     for (let termData of sortedHistory) {
         const { year, semester, gpa, credits } = termData;
         
@@ -245,12 +265,10 @@ const Dashboard = () => {
         if (accumulatedCredits === 0) continue;
         const currentGPAX = accumulatedPoints / accumulatedCredits;
 
-        // Year 1 Checks
         if (year === 1) {
             if (semester === 1 && currentGPAX < 1.25) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'GPAX ปี 1 เทอม 1 ต่ำกว่า 1.25', color: 'red', riskLevel: 100 };
             if (semester === 2 && currentGPAX < 1.50) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'GPAX ปี 1 เทอม 2 ต่ำกว่า 1.50', color: 'red', riskLevel: 100 };
         } 
-        // Year 2+ Checks
         else if (year >= 2) {
             if (currentGPAX < 1.75) lowProCount++; else lowProCount = 0;
             if (currentGPAX < 2.00) highProCount++; else highProCount = 0;
@@ -260,10 +278,8 @@ const Dashboard = () => {
         }
     }
 
-    // 2. Determine Final Status & Calculate Prediction
     const latestGPAX = accumulatedCredits > 0 ? (accumulatedPoints / accumulatedCredits) : 0;
     
-    // Prediction Logic: How much GPA needed next term (assume 19 credits) to reach 2.00?
     const nextTermCredits = 19; 
     const targetGPAX = 2.00;
     const totalCreditsNext = accumulatedCredits + nextTermCredits;
@@ -271,7 +287,6 @@ const Dashboard = () => {
     const missingPoints = requiredPoints - accumulatedPoints;
     let neededGPA = missingPoints / nextTermCredits;
     
-    // Cap min/max for display logic
     let predictionText = "";
     if (neededGPA > 4.00) {
         predictionText = "ยากมาก (ต้องได้เกิน 4.00)";
@@ -282,7 +297,6 @@ const Dashboard = () => {
     }
 
     if (highProCount > 0) {
-        // In Probation
         if (lowProCount === 1) {
             statusState = {
                 status: 'CRITICAL',
@@ -312,7 +326,6 @@ const Dashboard = () => {
             };
         }
     } else {
-        // Safe but check logic
         if (latestGPAX < 2.00) {
              statusState = {
                  status: 'WARNING',
@@ -336,6 +349,7 @@ const Dashboard = () => {
 
     return statusState;
   }, [stats.graphData]);
+
   // Animated Counter Effect
   useEffect(() => {
     const duration = 2000;
@@ -410,7 +424,6 @@ const Dashboard = () => {
     </div>
   );
 
-  // Status Icon Helper
   const getStatusIcon = (color) => {
       switch(color) {
           case 'emerald': return <ShieldCheck size={24} className="text-emerald-400" />;
@@ -581,9 +594,9 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Co-op Eligibility Card (Clickable) */}
+            {/* ✅ Co-op Eligibility Card — navigate ไปหน้า /coop */}
             <div 
-              onClick={() => setShowCoopModal(true)}
+              onClick={() => navigate('/coop')}
               className={`tech-card p-6 rounded-2xl border-l-4 ${stats.coopStats.isFullyEligible ? 'border-emerald-500' : 'border-orange-500'} cursor-pointer hover:bg-white/5 transition-all group relative overflow-hidden`}
             >
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -592,26 +605,104 @@ const Dashboard = () => {
 
                 <div className="flex items-center gap-2 mb-4">
                     <Award size={20} className={stats.coopStats.isFullyEligible ? "text-emerald-400" : "text-orange-400"} />
-                    <h3 className="text-white font-bold text-sm uppercase tracking-wide">Co-op Eligibility</h3>
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wide">Co-op Status</h3>
                 </div>
                 
                 <div className="space-y-3 pointer-events-none">
+                    {/* หน่วยกิต */}
                     <CoopStatusItem 
-                        label="Total Credits" 
+                        label="Credits" 
                         value={`${Math.round(stats.earnedCredits)} / 90`} 
                         passed={stats.coopStats.isCreditReady}
                     />
+                    
+                    {/* GPA */}
                     <CoopStatusItem 
-                        label="GPAX (5 Terms)" 
+                        label="GPAX" 
                         value={`${stats.calculatedGPAX.toFixed(2)} / 2.75`} 
                         passed={stats.coopStats.isGPAReady}
                     />
-                    <CoopStatusItem 
-                        label="Core Courses" 
-                        value={`${stats.coopStats.passedCount} / 10`} 
-                        passed={stats.coopStats.isCoursesReady}
-                        subtext="Requires GPA_10 ≥ 2.50"
-                    />
+                    
+                    {/* GPA_10 พร้อมสถิติ */}
+                    <div className="space-y-2">
+                      <CoopStatusItem 
+                          label="GPA_10" 
+                          value={stats.coopStats.gpa10 !== null ? `${stats.coopStats.gpa10.toFixed(2)} / 2.50` : '— / 2.50'} 
+                          passed={stats.coopStats.isCoursesReady}
+                          subtext={`${stats.coopStats.passedCount}/10 passed • ${stats.coopStats.gpa10Count}/10 graded`}
+                      />
+                      
+                      {/* แสดงสรุปเกรดแบบ progress */}
+                      {stats.coopStats.gpa10Count > 0 && (
+                        <div className="mt-2 p-3 rounded-lg bg-slate-900/50 border border-slate-700/30">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-[10px] text-slate-400 font-mono">GRADE DISTRIBUTION</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{stats.coopStats.gpa10Count}/10</span>
+                          </div>
+                          
+                          {/* Progress bar แสดงจำนวนเกรดแต่ละช่วง */}
+                          <div className="flex gap-1 h-2 rounded-full overflow-hidden bg-slate-800/50">
+                            {(() => {
+                              const gradeRanges = {
+                                A: 0,  // >= 3.5
+                                B: 0,  // >= 3.0
+                                C: 0,  // >= 2.5
+                                D: 0,  // >= 1.0
+                                F: 0   // < 1.0
+                              };
+                              
+                              stats.coopStats.courseDetails.forEach(c => {
+                                if (c.isPassed && c.grade !== null && c.grade !== undefined) {
+                                  if (c.grade >= 3.5) gradeRanges.A++;
+                                  else if (c.grade >= 3.0) gradeRanges.B++;
+                                  else if (c.grade >= 2.5) gradeRanges.C++;
+                                  else if (c.grade >= 1.0) gradeRanges.D++;
+                                  else gradeRanges.F++;
+                                }
+                              });
+                              
+                              return (
+                                <>
+                                  {gradeRanges.A > 0 && <div className="bg-emerald-500 flex-shrink-0" style={{width: `${(gradeRanges.A / stats.coopStats.gpa10Count) * 100}%`}} title={`A: ${gradeRanges.A}`}></div>}
+                                  {gradeRanges.B > 0 && <div className="bg-cyan-500 flex-shrink-0" style={{width: `${(gradeRanges.B / stats.coopStats.gpa10Count) * 100}%`}} title={`B: ${gradeRanges.B}`}></div>}
+                                  {gradeRanges.C > 0 && <div className="bg-yellow-500 flex-shrink-0" style={{width: `${(gradeRanges.C / stats.coopStats.gpa10Count) * 100}%`}} title={`C: ${gradeRanges.C}`}></div>}
+                                  {gradeRanges.D > 0 && <div className="bg-orange-500 flex-shrink-0" style={{width: `${(gradeRanges.D / stats.coopStats.gpa10Count) * 100}%`}} title={`D: ${gradeRanges.D}`}></div>}
+                                  {gradeRanges.F > 0 && <div className="bg-red-500 flex-shrink-0" style={{width: `${(gradeRanges.F / stats.coopStats.gpa10Count) * 100}%`}} title={`F: ${gradeRanges.F}`}></div>}
+                                </>
+                              );
+                            })()}
+                          </div>
+                          
+                          {/* Legend */}
+                          <div className="flex gap-3 mt-2 justify-center">
+                            {(() => {
+                              const counts = {
+                                A: 0, B: 0, C: 0, D: 0, F: 0
+                              };
+                              stats.coopStats.courseDetails.forEach(c => {
+                                if (c.isPassed && c.grade !== null && c.grade !== undefined) {
+                                  if (c.grade >= 3.5) counts.A++;
+                                  else if (c.grade >= 3.0) counts.B++;
+                                  else if (c.grade >= 2.5) counts.C++;
+                                  else if (c.grade >= 1.0) counts.D++;
+                                  else counts.F++;
+                                }
+                              });
+                              
+                              return (
+                                <>
+                                  {counts.A > 0 && <span className="text-[9px] text-emerald-400 font-bold">A:{counts.A}</span>}
+                                  {counts.B > 0 && <span className="text-[9px] text-cyan-400 font-bold">B:{counts.B}</span>}
+                                  {counts.C > 0 && <span className="text-[9px] text-yellow-400 font-bold">C:{counts.C}</span>}
+                                  {counts.D > 0 && <span className="text-[9px] text-orange-400 font-bold">D:{counts.D}</span>}
+                                  {counts.F > 0 && <span className="text-[9px] text-red-400 font-bold">F:{counts.F}</span>}
+                                </>
+                              );
+                            })()}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                 </div>
                 
                 <div className="mt-4 pt-4 border-t border-white/10 text-center pointer-events-none">
@@ -625,7 +716,7 @@ const Dashboard = () => {
 
           {/* Middle - Active Courses */}
           <div className="lg:col-span-6">
-            <div className="tech-card p-6 rounded-2xl h-full">
+            <div className="tech-card p-6 rounded-2xl h-full flex flex-col">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h3 className="text-2xl font-black text-white flex items-center gap-3 mb-1">
@@ -639,17 +730,17 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="h-[calc(100vh-280px)] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="flex-1 min-h-0">
                 {stats.activeCoursesList.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {stats.activeCoursesList.map((course, idx) => (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full content-start">
+                    {stats.activeCoursesList.slice(0, 6).map((course, idx) => (
                       <button
                         key={`${course.id}-${idx}`}
                         type="button"
                         onClick={() => navigate(`/course/${course.id}`)}
-                        className="tech-card-hover p-5 rounded-xl group cursor-pointer text-left focus:outline-none"
+                        className="tech-card-hover p-5 rounded-xl group cursor-pointer text-left focus:outline-none h-fit"
                       >
-                        <div className="flex items-start justify-between mb-4">
+                        <div className="flex items-start justify-between mb-3">
                           <div className={`px-3 py-1.5 rounded-lg font-mono font-bold text-xs ${
                             course.isElective 
                               ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' 
@@ -660,19 +751,36 @@ const Dashboard = () => {
                           <ArrowUpRight size={16} className="text-slate-600 group-hover:text-cyan-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-all"/>
                         </div>
                         
-                        <h4 className="font-bold text-base text-white mb-4 leading-relaxed line-clamp-2 min-h-[3rem]">
+                        <h4 className="font-bold text-sm text-white mb-3 leading-relaxed line-clamp-2">
                           {course.name}
                         </h4>
                         
-                        <div className="flex items-center justify-between pt-4 border-t border-white/10">
+                        <div className="flex items-center justify-between pt-3 border-t border-white/10">
                           <div className="flex items-center gap-2">
                             <Grid3x3 size={12} className="text-slate-500"/>
                             <span className="text-xs text-slate-400 font-mono">{course.credits} CR</span>
                           </div>
-                          <span className="text-[10px] text-slate-600 font-mono uppercase">{course.termLabel}</span>
+                          <span className="text-[10px] text-slate-600 font-mono uppercase tracking-wide">{course.termLabel}</span>
                         </div>
                       </button>
                     ))}
+                    
+                    {/* Show "more" indicator if there are more than 6 courses */}
+                    {stats.activeCoursesList.length > 6 && (
+                      <div className="col-span-1 md:col-span-2 flex items-center justify-center p-4 tech-card rounded-xl border-2 border-dashed border-slate-700/50">
+                        <div className="text-center">
+                          <p className="text-sm font-bold text-slate-400 mb-1">
+                            +{stats.activeCoursesList.length - 6} more courses
+                          </p>
+                          <button
+                            onClick={() => navigate('/setup')}
+                            className="text-xs text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1 mx-auto"
+                          >
+                            View All in Setup <ChevronRight size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center">
@@ -690,12 +798,10 @@ const Dashboard = () => {
           {/* Right - Chart & Actions */}
           <div className="lg:col-span-3 space-y-6">
             
-            {/* NEW: Academic Status Card (Updated with Prediction) */}
+            {/* Academic Status Card */}
             <div className={`tech-card p-6 rounded-2xl relative overflow-hidden group`}>
-                {/* Background Glow */}
                 <div className={`absolute top-0 right-0 w-40 h-40 bg-${academicStatus.color}-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2`}></div>
                 
-                {/* Header */}
                 <div className="flex items-center justify-between mb-4 relative z-10">
                     <div className="flex items-center gap-2">
                         {getStatusIcon(academicStatus.color)}
@@ -706,13 +812,11 @@ const Dashboard = () => {
                     </div>
                 </div>
 
-                {/* Status Message */}
                 <div className="relative mb-4 z-10">
                     <p className={`text-xl font-black text-${academicStatus.color}-400 mb-1`}>{academicStatus.message}</p>
                     <p className="text-xs text-slate-400 leading-relaxed">{academicStatus.detail}</p>
                 </div>
 
-                {/* PREDICTION BOX (NEW) */}
                 {academicStatus.prediction && (
                     <div className="relative z-10 mt-4 mb-4 p-3 rounded-lg bg-slate-900/50 border border-slate-700/50 flex items-center justify-between">
                         <div>
@@ -731,7 +835,6 @@ const Dashboard = () => {
                     </div>
                 )}
 
-                {/* Risk Bar */}
                 <div className="relative pt-2 z-10">
                     <div className="flex justify-between text-[10px] text-slate-500 font-mono mb-1">
                         <span>SAFE</span>
@@ -748,6 +851,7 @@ const Dashboard = () => {
                     </div>
                 </div>
             </div>
+
             {/* Performance Chart */}
             <div className="tech-card p-6 rounded-2xl">
               <div className="flex items-center justify-between mb-6">
@@ -851,13 +955,6 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
-
-        {/* Co-op Eligibility Modal */}
-        <CoopEligibilityModal 
-          isOpen={showCoopModal} 
-          onClose={() => setShowCoopModal(false)} 
-          stats={stats}
-        />
 
       </div>
 
