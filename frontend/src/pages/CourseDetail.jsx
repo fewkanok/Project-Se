@@ -26,6 +26,8 @@ const CourseDetail = () => {
   };
 
   const course = findCourse(id);
+  // Current signed-in user (adjust to your auth system as needed)
+  const currentUser = "Me (You)";
 
   // --- State สำหรับระบบรีวิว + Reply แบบ Pantip ---
   const [reviews, setReviews] = useState([
@@ -127,6 +129,13 @@ const CourseDetail = () => {
 
   // ฟังก์ชันลบรีวิว
   const handleDeleteReview = (reviewId) => {
+    // Allow deletion only if the review belongs to current user
+    const target = reviews.find(r => r.id === reviewId);
+    if (!target) return;
+    if (target.user !== currentUser) {
+      alert('คุณสามารถลบได้เฉพาะคอมเมนต์ของตัวเองเท่านั้น');
+      return;
+    }
     setReviews(reviews.filter((review) => review.id !== reviewId));
   };
   
@@ -134,6 +143,12 @@ const CourseDetail = () => {
   const handleDeleteReply = (reviewId, replyId) => {
     setReviews(reviews.map(review => {
       if (review.id === reviewId) {
+        const reply = review.replies.find(r => r.id === replyId);
+        if (!reply) return review;
+        if (reply.user !== currentUser) {
+          alert('คุณสามารถลบได้เฉพาะการตอบของตัวเองเท่านั้น');
+          return review;
+        }
         return {
           ...review,
           replies: review.replies.filter(reply => reply.id !== replyId)
@@ -355,14 +370,15 @@ const CourseDetail = () => {
                                     ))}
                                 </div>
 
-                                {/* ปุ่มลบ */}
-                                <button 
+                                {review.user === currentUser && (
+                                  <button 
                                     onClick={() => handleDeleteReview(review.id)}
                                     className="text-slate-600 hover:text-red-400 p-1.5 rounded-full hover:bg-red-500/10 transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100"
                                     title="Delete Review"
-                                >
+                                  >
                                     <Trash2 size={16} />
-                                </button>
+                                  </button>
+                                )}
                             </div>
                         </div>
                         
@@ -442,13 +458,15 @@ const CourseDetail = () => {
                                       <span className="text-[10px] text-slate-500">{reply.date}</span>
                                     </div>
                                   </div>
-                                  <button
-                                    onClick={() => handleDeleteReply(review.id, reply.id)}
-                                    className="text-slate-600 hover:text-red-400 p-1 rounded-full hover:bg-red-500/10 transition-colors opacity-0 group-hover/reply:opacity-100"
-                                    title="Delete Reply"
-                                  >
-                                    <Trash2 size={12} />
-                                  </button>
+                                  {reply.user === currentUser && (
+                                    <button
+                                      onClick={() => handleDeleteReply(review.id, reply.id)}
+                                      className="text-slate-600 hover:text-red-400 p-1 rounded-full hover:bg-red-500/10 transition-colors opacity-0 group-hover/reply:opacity-100"
+                                      title="Delete Reply"
+                                    >
+                                      <Trash2 size={12} />
+                                    </button>
+                                  )}
                                 </div>
                                 <p className="text-slate-300 text-xs leading-relaxed ml-9">
                                   {reply.comment}
