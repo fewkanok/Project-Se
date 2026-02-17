@@ -7,7 +7,7 @@ import { ArrowLeft, AlertTriangle, CheckCircle2, XCircle, GraduationCap, Info, B
 // status: 'warning' | 'probation-low' | 'probation-high' | 'retired' | 'safe' | 'regrade' | 'graduated' | 'empty' | 'note'
 const TABLE_ROWS = [
   {
-    id: 'A', icon: '😱', label: 'A',
+    id: 'A', icon: null, label: 'A',
     outcome: 'retired',
     outcomeText: 'พ้นสภาพ : เกรดเฉลี่ยสะสม ต่ำกว่า 1.25 ในภาคการเรียนที่ 1',
     cells: [
@@ -15,7 +15,7 @@ const TABLE_ROWS = [
     ]
   },
   {
-    id: 'B', icon: '😰', label: 'B',
+    id: 'B', icon: null, label: 'B',
     outcome: 'retired',
     outcomeText: 'พ้นสภาพ : เกรดเฉลี่ยสะสม ต่ำกว่า 1.50 ในภาคการเรียนที่ 2',
     cells: [
@@ -24,7 +24,7 @@ const TABLE_ROWS = [
     ]
   },
   {
-    id: 'C', icon: '😨', label: 'C',
+    id: 'C', icon: null, label: 'C',
     outcome: 'retired',
     outcomeText: 'พ้นสภาพ : โปร เกรดเฉลี่ยสะสม ต่ำกว่า 1.75 ติดกัน 2 ภาค นับแต่ภาคที่ 3 เป็นต้นไป',
     cells: [
@@ -35,7 +35,7 @@ const TABLE_ROWS = [
     ]
   },
   {
-    id: 'D', icon: '😟', label: 'D',
+    id: 'D', icon: null, label: 'D',
     outcome: 'retired',
     outcomeText: 'พ้นสภาพ : โปร เกรดเฉลี่ยสะสม ต่ำกว่า 2.00 ติดกัน 4 ภาค นับแต่ภาคที่ 3 เป็นต้นไป',
     cells: [
@@ -48,7 +48,7 @@ const TABLE_ROWS = [
     ]
   },
   {
-    id: 'E', icon: '😥', label: 'E',
+    id: 'E', icon: null, label: 'E',
     outcome: 'retired',
     outcomeText: 'พ้นสภาพ : โปร เกรดเฉลี่ยสะสม ต่ำกว่า 1.75 ติดกัน 2 ภาค นับแต่ภาคที่ 3 เป็นต้นไป',
     cells: [
@@ -62,7 +62,7 @@ const TABLE_ROWS = [
     ]
   },
   {
-    id: 'F', icon: '😢', label: 'F',
+    id: 'F', icon: null, label: 'F',
     outcome: 'retired',
     outcomeText: 'พ้นสภาพ : เรียนครบหน่วยกิต แต่เกรดเฉลี่ยสะสม ต่ำกว่า 1.80',
     cells: [
@@ -77,7 +77,7 @@ const TABLE_ROWS = [
     ]
   },
   {
-    id: 'G', icon: '😰', label: 'G',
+    id: 'G', icon: null, label: 'G',
     outcome: 'regrade',
     outcomeText: 'กรณี เรียนครบหน่วยกิตตามหลักสูตร และได้เกรดเฉลี่ยสะสมไม่ต่ำกว่า 1.80 จะให้นิสิตให้ลงเรียนวิชาที่อยู่ในหลักสูตรต่อต่อเพื่อดึงเกรดเฉลี่ยสะสมให้ถึง 2.00 ถึงจะสามารถสำเร็จการศึกษาได้',
     cells: [
@@ -94,7 +94,7 @@ const TABLE_ROWS = [
     ]
   },
   {
-    id: 'H', icon: '😊', label: 'H',
+    id: 'H', icon: null, label: 'H',
     outcome: 'graduated',
     outcomeText: 'สำเร็จการศึกษา',
     cells: [
@@ -482,7 +482,6 @@ const AcademicCriteriaPage = () => {
                       style={{ padding: '8px 6px', borderRight: '1px solid #1f2937', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}
                       onClick={() => setSelectedRow(isSelected ? null : row.id)}
                     >
-                      <div style={{ fontSize: '24px', lineHeight: 1 }}>{row.icon}</div>
                       <div style={{ width: 26, height: 26, borderRadius: 7, background: isSelected ? '#2d3748' : '#1a202c', border: '2px solid #2d3748', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <span style={{ fontSize: '13px', fontWeight: 900, color: isSelected ? '#fff' : '#a0aec0' }}>{row.id}</span>
                       </div>
@@ -544,8 +543,8 @@ const AcademicCriteriaPage = () => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           <OutcomeIcon size={14} color={outcomeStyle.text} strokeWidth={2.5} />
                           <span style={{ fontSize: '11px', fontWeight: 800, color: outcomeStyle.text }}>
-                            {row.outcome === 'graduated' ? '🎓 สำเร็จการศึกษา' :
-                             row.outcome === 'regrade' ? '📚 รีเกรดได้' : '❌ พ้นสภาพ'}
+                            {row.outcome === 'graduated' ? 'สำเร็จการศึกษา' :
+                             row.outcome === 'regrade' ? 'รีเกรดได้' : 'พ้นสภาพ'}
                           </span>
                         </div>
                         <p style={{ fontSize: '11px', color: '#e2e8f080', lineHeight: 1.5, margin: 0 }}>
@@ -567,7 +566,6 @@ const AcademicCriteriaPage = () => {
           return (
             <div style={{ marginTop: 20, background: '#111827', border: '2px solid #2d3748', borderRadius: 16, padding: '20px 24px', animation: 'fadeUp 0.25s ease-out' }}>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 16 }}>
-                <div style={{ fontSize: '40px' }}>{row.icon}</div>
                 <div>
                   <h3 style={{ fontSize: '20px', fontWeight: 900, color: '#fff', margin: 0 }}>Case {row.id}</h3>
                   <p style={{ color: '#a0aec0', fontSize: '13px', marginTop: 4 }}>{row.outcomeText}</p>
@@ -613,24 +611,23 @@ const AcademicCriteriaPage = () => {
         <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
           {[
             {
-              color: '#e53e3e', icon: '⚡',
+              color: '#e53e3e', icon: null,
               title: 'ปี 1 — เกณฑ์ขั้นต่ำ',
               text: 'GPAX < 1.25 ในเทอม 1 = พ้นสภาพทันที\nGPAX < 1.50 ในเทอม 2 = พ้นสภาพ'
             },
             {
-              color: '#dd6b20', icon: '⚠️',
+              color: '#dd6b20', icon: null,
               title: 'ปี 2+ — วิทยาทัณฑ์',
               text: 'โปรต่ำ (< 1.75) ติดกัน 2 ภาค = พ้นสภาพ\nโปรสูง (< 2.00) ติดกัน 4 ภาค = พ้นสภาพ'
             },
             {
-              color: '#553c9a', icon: '🎓',
+              color: '#553c9a', icon: null,
               title: 'เงื่อนไขจบการศึกษา',
               text: 'ต้องมี GPAX ≥ 2.00\nถ้า 1.80–1.99 → รีเกรดได้\nต่ำกว่า 1.80 หลังเรียนจบ → ไม่ได้ปริญญา'
             },
           ].map(({ color, icon, title, text }) => (
             <div key={title} style={{ background: '#111827', border: `1px solid ${color}40`, borderLeft: `3px solid ${color}`, borderRadius: 12, padding: '14px 16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <span style={{ fontSize: '18px' }}>{icon}</span>
                 <span style={{ fontSize: '13px', fontWeight: 800, color: '#fff' }}>{title}</span>
               </div>
               <pre style={{ fontFamily: 'inherit', fontSize: '12px', color: '#a0aec0', lineHeight: 1.7, margin: 0, whiteSpace: 'pre-wrap' }}>{text}</pre>
