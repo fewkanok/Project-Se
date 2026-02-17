@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle, CheckCircle2, XCircle, GraduationCap, Info } from 'lucide-react';
+import { roadmapData } from '../data/courses';
+import { electiveCourses } from '../data/electiveCourses';
 
 // ─── TABLE DATA — mirrors the infographic exactly ───────────────────────────
 // Each "case row" = one example student trajectory
@@ -177,19 +179,91 @@ const AcademicCriteriaPage = () => {
   const currentSem  = currentYear && currentTerm ? (currentYear - 1) * 2 + currentTerm : null;
   const userName    = userProfile?.basicInfo?.name || userProfile?.name || null;
 
+  // ── Weighted GPAX — copy logic จาก Dashboard ทุกบรรทัด ────────────────────
+  // รวม customElectives เหมือน Dashboard เพื่อให้ตัวเลขตรงกัน
+  const gpaxStats = useMemo(() => {
+    if (!userProfile || !roadmapData) return { gpax: null, totalGradedCredits: 0, semCount: 0 };
+
+    const currentYearNum = parseInt(userProfile.basicInfo?.currentYear || userProfile.currentYear) || 1;
+    const currentTermNum = parseInt(userProfile.basicInfo?.currentTerm || userProfile.currentTerm) || 1;
+    const customElectives = userProfile.customElectives || {};
+
+    // โหลด coopGrades เหมือน Dashboard
+    let coopGrades = {};
+    try {
+      const saved = localStorage.getItem('coopGradeStates');
+      if (saved) coopGrades = JSON.parse(saved);
+    } catch (e) {}
+
+    let totalPoints = 0;
+    let totalGradedCredits = 0;
+    let semCount = 0;
+
+    roadmapData.forEach((yearGroup, yIdx) => {
+      const yearNum = yIdx + 1;
+      yearGroup.semesters.forEach((sem, sIdx) => {
+        const termNum = sIdx + 1;
+        const termKey = `${yearNum}-${termNum}`;
+        const gpaKey  = `Y${yearNum}/${termNum}`;
+
+        const isPastTerm = (yearNum < currentYearNum) ||
+                           (yearNum === currentYearNum && termNum < currentTermNum);
+        if (!isPastTerm) return;
+
+        const historyGradeStr = userProfile.gpaHistory?.[gpaKey];
+        if (!historyGradeStr || isNaN(parseFloat(historyGradeStr))) return;
+
+        const termGPA = parseFloat(historyGradeStr);
+
+        // รวม customElectives เหมือน Dashboard บรรทัดต่อบรรทัด
+        let displayCourses = [...sem.courses];
+        if (customElectives[termKey]) {
+          customElectives[termKey].forEach(elecId => {
+            const elecInfo = electiveCourses.find(c => c.id === elecId);
+            if (elecInfo) displayCourses.push({ ...elecInfo, isElective: true });
+          });
+        }
+
+        // credits ที่ passed จริง (รวม elective ที่ user mark passed) — เหมือน Dashboard
+        const termPassedCredits = displayCourses.reduce((sum, c) => {
+          const status = userProfile.courseStates?.[c.id];
+          return status === 'passed' ? sum + c.credits : sum;
+        }, 0);
+
+        // fallback = sum credits ของ sem courses เท่านั้น (ไม่รวม elective) — เหมือน Dashboard
+        const semDefaultCredits = sem.courses.reduce((a, b) => a + b.credits, 0);
+        const weight = termPassedCredits > 0 ? termPassedCredits : semDefaultCredits;
+
+        totalPoints        += termGPA * weight;
+        totalGradedCredits += weight;
+        semCount++;
+      });
+    });
+
+    const rawGPA = totalGradedCredits > 0 ? totalPoints / totalGradedCredits : 0;
+    const gpax   = totalGradedCredits > 0 ? Math.floor(rawGPA * 100) / 100 : null;
+
+    return { gpax, totalGradedCredits, semCount };
+  }, [userProfile]);
+
+  const { gpax: calculatedGPAX, totalGradedCredits, semCount: gradedSemCount } = gpaxStats;
+
   // ── Determine which case row the user best matches ────────────────────────
   const getUserMatchedCase = () => {
     if (!currentSem || Object.keys(userSemData).length === 0) return null;
 
     const pastSems = currentSem - 1; // เทอมที่ผ่านมาแล้ว (ไม่รวมปัจจุบัน)
-    const g1 = userSemData[1];
-    const g2 = userSemData[2];
 
-    // ── Case A ─────────────────────────────────────────────────────────────
-    if (g1 != null && g1 < 1.25) return 'A';
+    // อ่านเฉพาะเทอมที่ผ่านมาจริงๆ เทอมที่ยังไม่ผ่านถือว่าไม่มีข้อมูล
+    const getSem = (idx) => (idx <= pastSems ? (userSemData[idx] ?? null) : null);
+    const g1 = getSem(1);
+    const g2 = getSem(2);
 
-    // ── Case B ─────────────────────────────────────────────────────────────
-    if (g2 != null && g2 < 1.50) return 'B';
+    // ── Case A: ผ่านเทอม 1 มาแล้ว และ GPAX < 1.25 ─────────────────────────
+    if (pastSems >= 1 && g1 != null && g1 < 1.25) return 'A';
+
+    // ── Case B: ผ่านเทอม 2 มาแล้ว และ GPAX < 1.50 ─────────────────────────
+    if (pastSems >= 2 && g2 != null && g2 < 1.50) return 'B';
 
     // ── วิเคราะห์เทอม 3+ (3 zone mutually exclusive) ───────────────────────
     //   LOW  < 1.75           → รีเซ็ต HIGH counter
@@ -224,31 +298,26 @@ const AcademicCriteriaPage = () => {
       }
     }
 
-    // หา GPAX ล่าสุดที่มี (ก่อนเทอมปัจจุบัน)
-    const latestGpa = (() => {
-      for (let i = pastSems; i >= 1; i--) {
-        if (userSemData[i] != null) return userSemData[i];
-      }
-      return null;
-    })();
-
     // ── Case C: เคยติดกัน ≥2  หรือ  กำลัง low ครั้งแรกต่อเนื่อง (ไม่มี safe คั่น) ──
     if (maxConsLow >= 2 || (consecutiveLow >= 1 && !hadSafeBeforeLow)) return 'C';
 
     // ── Case D: เคยติดกัน ≥4  หรือ  กำลังสะสม ≥3 ติด (ใกล้พ้น) ─────────────
     if (maxConsHigh >= 4 || consecutiveHigh >= 3) return 'D';
 
-    // ── Case H ก่อน E: GPAX ล่าสุด ≥ 2.00 = ปรับตัวสำเร็จ ──────────────────
-    if (latestGpa != null && latestGpa >= 2.00) return 'H';
+    // ── ใช้ weighted GPAX (เดียวกับ Dashboard) สำหรับ H / E / F / G ──────────
+    const gpax = calculatedGPAX;
+
+    // ── Case H ก่อน E: weighted GPAX ≥ 2.00 = แนวโน้มดี/ปรับตัวสำเร็จ ──────
+    if (gpax != null && gpax >= 2.00) return 'H';
 
     // ── Case E: low กระจาย ≥2 ครั้ง (มี safe คั่น แล้วกลับมา low) ───────────
     if (totalLowCount >= 2 && hadSafeBeforeLow) return 'E';
 
-    // ── Case F: เรียนจบแล้ว แต่ GPAX < 1.80 ──────────────────────────────────
-    if (latestGpa != null && latestGpa < 1.80 && pastSems >= 6) return 'F';
+    // ── Case F: เรียนจบแล้ว แต่ weighted GPAX < 1.80 ─────────────────────────
+    if (gpax != null && gpax < 1.80 && pastSems >= 6) return 'F';
 
-    // ── Case G: GPAX คาบเส้น 1.80–1.99 ───────────────────────────────────────
-    if (latestGpa != null && latestGpa >= 1.80 && latestGpa < 2.00) return 'G';
+    // ── Case G: weighted GPAX คาบเส้น 1.80–1.99 ──────────────────────────────
+    if (gpax != null && gpax >= 1.80 && gpax < 2.00) return 'G';
 
     // ── Case H: fall-through ───────────────────────────────────────────────────
     return 'H';
@@ -271,33 +340,33 @@ const AcademicCriteriaPage = () => {
     const s = CELL_STYLES[status] || CELL_STYLES.empty;
     return (
       <div
-        className="relative flex flex-col items-center justify-center rounded-md border-2 text-center transition-all"
+        className="relative flex flex-col items-center justify-center rounded-lg border-2 text-center transition-all"
         style={{
-          background: dimmed ? '#1a202c30' : s.bg,
-          borderColor: dimmed ? '#2d374850' : s.border,
-          color: dimmed ? '#4a5568' : s.text,
-          opacity: dimmed ? 0.3 : 1,
-          outline: isCurrent ? '2.5px solid #63b3ed' : isUser ? '2px solid #68d391' : '',
+          background: dimmed ? '#0d111820' : s.bg,
+          borderColor: dimmed ? '#1f293740' : s.border,
+          color: dimmed ? '#374151' : s.text,
+          opacity: dimmed ? 0.25 : 1,
+          outline: isCurrent ? '2px solid #3b82f6' : isUser ? '2px solid #22c55e' : 'none',
           outlineOffset: '2px',
-          minHeight: '62px',
-          padding: '4px 2px',
+          minHeight: '82px',
+          padding: '5px 3px',
         }}
       >
         {note && (
-          <div style={{ fontSize: '8px', lineHeight: 1.2, opacity: 0.85, marginBottom: '1px', whiteSpace: 'pre-line' }}>
+          <div style={{ fontSize: '10px', lineHeight: 1.2, opacity: 0.9, marginBottom: '2px', whiteSpace: 'pre-line', fontWeight: 700 }}>
             {note}
           </div>
         )}
         {gpa != null && (
-          <div style={{ fontSize: '15px', fontWeight: 900, fontFamily: 'monospace', lineHeight: 1 }}>
+          <div style={{ fontSize: '18px', fontWeight: 900, fontFamily: 'monospace', lineHeight: 1 }}>
             {typeof gpa === 'number' ? gpa.toFixed(2) : gpa}
           </div>
         )}
         {isCurrent && (
-          <div style={{ fontSize: '8px', fontWeight: 700, marginTop: '2px', color: '#63b3ed' }}>◀ ปัจจุบัน</div>
+          <div style={{ fontSize: '9px', fontWeight: 700, marginTop: '3px', color: '#60a5fa' }}>◀ ตอนนี้</div>
         )}
         {isUser && !isCurrent && gpa != null && (
-          <div style={{ fontSize: '8px', fontWeight: 700, marginTop: '1px', color: '#68d391' }}>● ของคุณ</div>
+          <div style={{ fontSize: '9px', fontWeight: 700, marginTop: '2px', color: '#22c55e' }}>● ของคุณ</div>
         )}
       </div>
     );
@@ -306,20 +375,18 @@ const AcademicCriteriaPage = () => {
   // ── Render the X (retired marker) cell ───────────────────────────────────
   const RetiredCell = () => (
     <div
-      className="flex items-center justify-center rounded-md border-2"
-      style={{ background: '#e53e3e22', borderColor: '#e53e3e80', minHeight: '62px' }}
+      className="flex items-center justify-center rounded-lg border-2"
+      style={{ background: '#e53e3e18', borderColor: '#e53e3e60', minHeight: '82px' }}
     >
-      <XCircle size={22} color="#fc8181" strokeWidth={2.5} />
+      <XCircle size={24} color="#f87171" strokeWidth={2.5} />
     </div>
   );
 
-  // ── Render an empty placeholder ───────────────────────────────────────────
   const EmptyCell = () => (
     <div
-      className="rounded-md border-dashed border-2 flex items-center justify-center"
-      style={{ borderColor: '#2d374850', minHeight: '62px', background: '#1a202c15' }}
+      className="rounded-lg flex items-center justify-center"
+      style={{ borderColor: 'transparent', minHeight: '82px', background: '#0d111830' }}
     >
-      <span style={{ color: '#2d3748', fontSize: '11px' }}>—</span>
     </div>
   );
 
@@ -327,7 +394,7 @@ const AcademicCriteriaPage = () => {
   const renderUserRow = () => {
     if (!userProfile || Object.keys(userSemData).length === 0) return null;
     const cells = [];
-    for (let sem = 1; sem <= 16; sem++) {
+    for (let sem = 1; sem <= 12; sem++) {
       const gpa = userSemData[sem];
       const isCurrent = sem === currentSem;
       const isFuture  = sem > (currentSem || 0);
@@ -360,8 +427,11 @@ const AcademicCriteriaPage = () => {
     return cells;
   };
 
-  // Total semesters visible in the table = 16
-  const TOTAL_SEMS = 16;
+  // Total semesters visible in the table = 12 (6 ปี)
+  const TOTAL_SEMS = 12;
+
+  // มีเกรดเทอมปัจจุบันจริงๆ ไหม (= user กรอก GPA ของเทอมนี้มาด้วย)
+  const hasCurrentSemGrade = currentSem != null && userSemData[currentSem] != null;
 
   return (
     <div style={{ minHeight: '100vh', background: 'transparent', color: '#e2e8f0', fontFamily: 'system-ui, sans-serif' }} className="p-4 md:p-6">
@@ -395,53 +465,316 @@ const AcademicCriteriaPage = () => {
 
         {/* ── User status banner (if logged in) ── */}
         {userProfile && (
-          <div style={{ background: '#1a202c', border: '1px solid #2d3748', borderRadius: 14, padding: '14px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <div className="flex items-center gap-3">
-              <img
-                src={userProfile?.basicInfo?.image || userProfile?.image || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
-                alt="profile"
-                style={{ width: 42, height: 42, borderRadius: '50%', border: '2px solid #2d3748', objectFit: 'cover' }}
-              />
-              <div>
-                <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>{userName || 'นิสิต'}</div>
-                <div style={{ fontSize: '12px', color: '#718096' }}>
-                  ปี {currentYear} เทอม {currentTerm} &nbsp;·&nbsp; ภาคเรียนที่ {currentSem} (เทอมปัจจุบัน)
+          <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
+
+            {/* ── Profile + Case badge row ── */}
+            <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: 14, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+              <div className="flex items-center gap-3">
+                <img
+                  src={userProfile?.basicInfo?.image || userProfile?.image || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
+                  alt="profile"
+                  style={{ width: 42, height: 42, borderRadius: '50%', border: '2px solid #2d3748', objectFit: 'cover' }}
+                />
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: '15px', color: '#fff' }}>{userName || 'นิสิต'}</div>
+                  <div style={{ fontSize: '12px', color: '#718096' }}>
+                    ปี {currentYear} เทอม {currentTerm} &nbsp;·&nbsp; ภาคเรียนที่ {currentSem} (เทอมปัจจุบัน)
+                  </div>
                 </div>
               </div>
+              {matchedCase && (() => {
+                const isRetired  = ['A','B','C','D','E','F'].includes(matchedCase);
+                const isRegrade  = matchedCase === 'G';
+                const isSafeFull = matchedCase === 'H' && hasCurrentSemGrade;
+                const isSafeTend = matchedCase === 'H' && !hasCurrentSemGrade;
+
+                const bgColor     = isSafeFull ? '#27674922' : isSafeTend ? '#2c5f2e22' : isRegrade ? '#2b6cb022' : '#e53e3e22';
+                const borderColor = isSafeFull ? '#276749'   : isSafeTend ? '#2d6a2f'   : isRegrade ? '#2b6cb0'   : '#e53e3e';
+                const textColor   = isSafeFull ? '#68d391'   : isSafeTend ? '#9ae6a0'   : isRegrade ? '#90cdf4'   : '#fc8181';
+                const caseLabels = {
+                  A: 'GPAX ต่ำกว่า 1.25 ในเทอม 1',
+                  B: 'GPAX ต่ำกว่า 1.50 ในเทอม 2',
+                  C: 'โปรต่ำ ใกล้พ้นสภาพ',
+                  D: 'โปรสูง ใกล้พ้นสภาพ',
+                  E: 'โปรกระจาย เฝ้าระวัง',
+                  F: 'GPAX ต่ำกว่า 1.80 ใกล้จบ',
+                  G: 'GPAX คาบเส้น 1.80–1.99',
+                  H: isSafeFull ? 'ปรับตัวสำเร็จ ✓' : 'แนวโน้มดี ยังไม่ติดโปร',
+                };
+                const IconEl = (isSafeFull || isSafeTend) ? CheckCircle2 : AlertTriangle;
+                return (
+                  <div style={{
+                    background: bgColor,
+                    border: `1.5px solid ${borderColor}`,
+                    borderRadius: 14,
+                    padding: '12px 20px',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    boxShadow: `0 0 20px ${textColor}25`,
+                  }}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                      background: `${textColor}18`,
+                      border: `1.5px solid ${textColor}50`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <IconEl size={20} color={textColor} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 900, color: textColor, letterSpacing: '-0.3px' }}>
+                        แนวโน้มใกล้เคียง Case {matchedCase}
+                      </div>
+                      <div style={{ fontSize: '12px', color: textColor, opacity: 0.8, marginTop: 2 }}>
+                        {caseLabels[matchedCase]}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
-            {matchedCase && (() => {
-              const safeCase = matchedCase === 'H';
-              const warnCase = matchedCase === 'G';
-              const bgColor = safeCase ? '#27674922' : warnCase ? '#2b6cb022' : '#e53e3e22';
-              const borderColor = safeCase ? '#276749' : warnCase ? '#2b6cb0' : '#e53e3e';
-              const textColor = safeCase ? '#68d391' : warnCase ? '#90cdf4' : '#fc8181';
-              const caseLabels = {
-                A: 'GPAX ต่ำกว่า 1.25 ในเทอม 1',
-                B: 'GPAX ต่ำกว่า 1.50 ในเทอม 2',
-                C: 'โปรต่ำ ใกล้พ้นสภาพ',
-                D: 'โปรสูง ใกล้พ้นสภาพ',
-                E: 'โปรกระจาย เฝ้าระวัง',
-                F: 'GPAX ต่ำกว่า 1.80 ใกล้จบ',
-                G: 'GPAX คาบเส้น 1.80–1.99',
-                H: 'ปรับตัวได้ ดีมาก',
-              };
+
+            {/* ── Graduation eligibility card ── */}
+            {(() => {
+              if (calculatedGPAX === null) return null;
+
+              const gpax     = calculatedGPAX;
+              const semCount = gradedSemCount;
+
+              // ── เกณฑ์เกรด ──────────────────────────────────────────────────
+              const gradeOk      = gpax >= 2.00;
+              const gradeRegrade = gpax >= 1.80 && gpax < 2.00;
+              const gradeFail    = gpax < 1.80;
+
+              // ── เกณฑ์เทอม: CS ENG59 = 8 เทอม (4 ปี) ──────────────────────
+              // pastSems = เทอมที่จบแล้ว (ไม่รวมปัจจุบัน)
+              const pastSems      = currentSem != null ? currentSem - 1 : semCount;
+              const REQUIRED_SEMS = 8;
+              const semOk         = pastSems >= REQUIRED_SEMS;
+              const semsLeft      = Math.max(0, REQUIRED_SEMS - pastSems);
+
+              // ── สรุปสถานะ ──────────────────────────────────────────────────
+              // canGrad = เกรดผ่าน AND เรียนครบเทอมแล้ว
+              // gradeOkNotDone = เกรดผ่าน แต่เทอมยังไม่ครบ
+              const canGrad       = gradeOk && semOk;
+              const gradeOkNotDone = gradeOk && !semOk;
+              const needsRegrade  = gradeRegrade;
+              const notReady      = gradeFail;
+
+              // ── สี ────────────────────────────────────────────────────────
+              const accent = canGrad       ? '#22c55e'
+                           : gradeOkNotDone ? '#facc15'
+                           : needsRegrade  ? '#60a5fa'
+                           :                 '#f87171';
+
+              const borderCol = canGrad       ? '#16a34a'
+                              : gradeOkNotDone ? '#ca8a04'
+                              : needsRegrade  ? '#2563eb'
+                              :                 '#dc2626';
+
+              const bgCol = canGrad       ? 'linear-gradient(135deg, #052e16 0%, #0f2820 100%)'
+                          : gradeOkNotDone ? 'linear-gradient(135deg, #1c1500 0%, #2d2000 100%)'
+                          : needsRegrade  ? 'linear-gradient(135deg, #0c1a2e 0%, #0a1628 100%)'
+                          :                 'linear-gradient(135deg, #1f0707 0%, #2d0f0f 100%)';
+
+              const StatusIcon = canGrad ? CheckCircle2
+                               : gradeOkNotDone ? AlertTriangle
+                               : needsRegrade ? AlertTriangle
+                               : XCircle;
+
+              const headline = canGrad       ? 'จบการศึกษาได้'
+                             : gradeOkNotDone ? 'เกรดผ่านแล้ว — รอครบเทอม'
+                             : needsRegrade  ? 'ต้องลงรีเกรดก่อนจบ'
+                             :                 'ยังจบไม่ได้';
+
+              const subline = canGrad       ? 'GPAX ≥ 2.00 และเรียนครบ 8 เทอมแล้ว'
+                            : gradeOkNotDone ? `GPAX ผ่านแล้ว แต่ยังเหลืออีก ${semsLeft} เทอม`
+                            : needsRegrade  ? 'GPAX 1.80–1.99 ต้องดึงเกรดให้ถึง 2.00 ก่อน'
+                            :                 'GPAX ต่ำกว่า 1.80 ต้องเร่งดึงเกรดอย่างเร่งด่วน';
+
+              // คำนวณเกรดที่ต้องได้ (กรณียังไม่ผ่าน)
+              const avgWeight  = semCount > 0 ? totalGradedCredits / semCount : 20;
+              const needed1Sem = !gradeOk && semCount > 0
+                ? (2.00 * (totalGradedCredits + avgWeight) - gpax * totalGradedCredits) / avgWeight
+                : null;
+              const needed2Sem = !gradeOk && semCount > 0
+                ? (2.00 * (totalGradedCredits + avgWeight * 2) - gpax * totalGradedCredits) / (avgWeight * 2)
+                : null;
+
               return (
-                <div style={{ background: bgColor, border: `1px solid ${borderColor}`, borderRadius: 10, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  {safeCase
-                    ? <CheckCircle2 size={16} color={textColor} />
-                    : <AlertTriangle size={16} color={textColor} />
-                  }
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: 800, color: textColor }}>
-                      แนวโน้มใกล้เคียง Case {matchedCase}
+                <div style={{
+                  background: bgCol,
+                  border: `1.5px solid ${borderCol}`,
+                  borderRadius: 20,
+                  overflow: 'hidden',
+                  boxShadow: `0 0 60px ${accent}22, 0 0 120px ${accent}0a, inset 0 1px 0 ${accent}15`,
+                  position: 'relative',
+                }}>
+                  {/* Glow orb background */}
+                  <div style={{
+                    position: 'absolute', top: -60, right: -60, width: 220, height: 220,
+                    borderRadius: '50%', background: `${accent}0c`, filter: 'blur(60px)', pointerEvents: 'none',
+                  }} />
+
+                  {/* ── Top bar: verdict ─────────────────────────────────── */}
+                  <div style={{
+                    padding: '28px 32px',
+                    display: 'flex', alignItems: 'center', gap: 24,
+                    borderBottom: `1px solid ${borderCol}40`,
+                    flexWrap: 'wrap',
+                    position: 'relative',
+                  }}>
+                    {/* Icon — bigger */}
+                    <div style={{
+                      width: 72, height: 72, borderRadius: 18, flexShrink: 0,
+                      background: `${accent}15`,
+                      border: `2px solid ${accent}50`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      boxShadow: `0 0 24px ${accent}30`,
+                    }}>
+                      <StatusIcon size={36} color={accent} strokeWidth={2.5} />
                     </div>
-                    <div style={{ fontSize: '11px', color: textColor, opacity: 0.8 }}>
-                      {caseLabels[matchedCase]}
+
+                    {/* Headline */}
+                    <div style={{ flex: 1, minWidth: 200 }}>
+                      <div style={{
+                        fontSize: '28px', fontWeight: 900, color: accent,
+                        letterSpacing: '-0.8px', lineHeight: 1.1,
+                        textShadow: `0 0 20px ${accent}50`,
+                      }}>
+                        {headline}
+                      </div>
+                      <div style={{ fontSize: '14px', color: `${accent}cc`, marginTop: 6, fontWeight: 600 }}>
+                        {subline}
+                      </div>
                     </div>
+
+                    {/* GPAX big number — much bigger */}
+                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                      <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 700, marginBottom: 4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>GPAX สะสม</div>
+                      <div style={{
+                        fontSize: '64px', fontWeight: 900, fontFamily: 'monospace',
+                        color: accent, lineHeight: 1,
+                        textShadow: `0 0 30px ${accent}60`,
+                        letterSpacing: '-2px',
+                      }}>
+                        {gpax.toFixed(2)}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#4b5563', marginTop: 4 }}>จาก 4.00</div>
+                    </div>
+                  </div>
+
+                  {/* ── Bottom: progress bars ─────────────────────────────── */}
+                  <div style={{ padding: '22px 32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 40px' }}>
+
+                    {/* GPAX bar */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 700 }}>เกรดสะสม (GPAX)</span>
+                        <span style={{ fontSize: '13px', fontWeight: 900, fontFamily: 'monospace',
+                          color: gradeOk ? '#22c55e' : gradeRegrade ? '#60a5fa' : '#f87171' }}>
+                          {gpax.toFixed(2)} / 2.00
+                        </span>
+                      </div>
+                      <div style={{ position: 'relative', height: 16, borderRadius: 99, background: '#0d111880', overflow: 'visible', boxShadow: 'inset 0 2px 4px #00000040' }}>
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0, bottom: 0,
+                          width: `${Math.min((gpax / 4) * 100, 100)}%`,
+                          borderRadius: 99,
+                          background: gradeOk
+                            ? 'linear-gradient(90deg,#16a34a,#22c55e,#4ade80)'
+                            : gradeRegrade
+                            ? 'linear-gradient(90deg,#1d4ed8,#60a5fa)'
+                            : 'linear-gradient(90deg,#991b1b,#f87171)',
+                          boxShadow: gradeOk ? '0 0 12px #22c55e80' : gradeRegrade ? '0 0 12px #60a5fa80' : '0 0 12px #f8717180',
+                          transition: 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                        }} />
+                        {/* 2.00 target marker */}
+                        <div style={{
+                          position: 'absolute', top: -6, bottom: -6, left: '50%',
+                          width: 3, borderRadius: 3, background: '#facc15',
+                          boxShadow: '0 0 8px #facc1580',
+                        }} />
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                        <span style={{ fontSize: '11px', color: '#374151' }}>0.00</span>
+                        <span style={{ fontSize: '11px', color: '#facc15', fontWeight: 800 }}>เป้า 2.00</span>
+                        <span style={{ fontSize: '11px', color: '#374151' }}>4.00</span>
+                      </div>
+                      <div style={{ fontSize: '11px', color: '#4b5563', marginTop: 5 }}>
+                        weighted จาก {gradedSemCount} เทอม · {totalGradedCredits} หน่วยกิต
+                      </div>
+                    </div>
+
+                    {/* Semester progress bar */}
+                    <div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                        <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 700 }}>เทอมที่เรียนแล้ว</span>
+                        <span style={{ fontSize: '13px', fontWeight: 900, fontFamily: 'monospace',
+                          color: semOk ? '#22c55e' : '#facc15' }}>
+                          {pastSems} / {REQUIRED_SEMS} เทอม
+                        </span>
+                      </div>
+                      <div style={{ position: 'relative', height: 16, borderRadius: 99, background: '#0d111880', boxShadow: 'inset 0 2px 4px #00000040' }}>
+                        <div style={{
+                          position: 'absolute', left: 0, top: 0, bottom: 0,
+                          width: `${Math.min((pastSems / REQUIRED_SEMS) * 100, 100)}%`,
+                          borderRadius: 99,
+                          background: semOk
+                            ? 'linear-gradient(90deg,#16a34a,#22c55e,#4ade80)'
+                            : 'linear-gradient(90deg,#854d0e,#facc15)',
+                          boxShadow: semOk ? '0 0 12px #22c55e80' : '0 0 12px #facc1560',
+                          transition: 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
+                        }} />
+                      </div>
+                      <div style={{ marginTop: 10 }}>
+                        {semOk ? (
+                          <span style={{ fontSize: '12px', color: '#22c55e', fontWeight: 700 }}>✓ เรียนครบ 8 เทอมแล้ว</span>
+                        ) : (
+                          <span style={{ fontSize: '12px', color: '#facc15', fontWeight: 700 }}>
+                            ⏳ ยังขาดอีก {semsLeft} เทอม (ปัจจุบัน: ปี {currentYear} เทอม {currentTerm})
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Needed grade section (if grade not passing) */}
+                    {!gradeOk && needed1Sem !== null && (
+                      <div style={{ gridColumn: '1 / -1', borderTop: `1px solid ${borderCol}30`, paddingTop: 14 }}>
+                        <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 700, marginBottom: 10 }}>
+                          ต้องได้เกรดเท่าไรถึงจะดึง GPAX ขึ้น 2.00 ได้
+                        </div>
+                        <div style={{ display: 'flex', gap: 12 }}>
+                          {[
+                            { label: 'ใน 1 เทอมถัดไป', val: needed1Sem },
+                            { label: 'เฉลี่ย 2 เทอมถัดไป', val: needed2Sem },
+                          ].map(({ label, val }) => {
+                            const impossible = !val || val > 4;
+                            const hard = val > 3.5;
+                            const c = impossible ? '#f87171' : hard ? '#f97316' : '#facc15';
+                            return (
+                              <div key={label} style={{
+                                flex: 1, borderRadius: 10,
+                                background: '#111827', border: `1px solid ${c}40`,
+                                padding: '10px 14px',
+                              }}>
+                                <div style={{ fontSize: '10px', color: '#6b7280', marginBottom: 4 }}>{label}</div>
+                                <div style={{ fontSize: '24px', fontWeight: 900, fontFamily: 'monospace', color: c }}>
+                                  {impossible ? '> 4.00' : val.toFixed(2)}
+                                </div>
+                                <div style={{ fontSize: '10px', color: c, opacity: 0.7, marginTop: 2 }}>
+                                  {impossible ? 'เป็นไปไม่ได้ใน 1 เทอม' : hard ? 'ยาก แต่ทำได้' : 'พอทำได้'}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                   </div>
                 </div>
               );
             })()}
+
           </div>
         )}
 
@@ -476,59 +809,71 @@ const AcademicCriteriaPage = () => {
         </div>
 
         {/* ── Main Table ── */}
-        <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ background: '#0d1117', border: '1px solid #1f2937', borderRadius: 18, overflow: 'hidden', boxShadow: '0 4px 32px #00000060' }}>
 
           {/* Table outer scroll wrapper */}
           <div style={{ overflowX: 'auto' }}>
-            <div style={{ minWidth: 1100 }}>
+            <div style={{ minWidth: 900 }}>
 
-              {/* ── Column header row: EX | 1ST YEAR | 2ND YEAR | ... | 8TH YEAR ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', background: '#0d1117', borderBottom: '2px solid #1f2937' }}>
-                {/* Top-left corner */}
-                <div style={{ padding: '10px 8px', borderRight: '1px solid #1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 900, color: '#4a5568', letterSpacing: 1 }}>EX.</span>
+              {/* ── Year header row ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '88px 1fr', background: '#060910', borderBottom: '1px solid #1f2937' }}>
+                <div style={{ padding: '12px 8px', borderRight: '1px solid #1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 900, color: '#374151', letterSpacing: 2 }}>CASE</span>
                 </div>
-                {/* Year headers 1–8 */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)' }}>
-                  {['1ST YEAR','2ND YEAR','3RD YEAR','4TH YEAR','5TH YEAR','6TH YEAR','7TH YEAR','8TH YEAR'].map((yr, i) => (
-                    <div key={yr} style={{ padding: '10px 4px', textAlign: 'center', borderRight: i < 7 ? '1px solid #1f2937' : 'none', borderLeft: i === 0 ? 'none' : undefined }}>
-                      <span style={{ fontSize: '11px', fontWeight: 800, color: '#a0aec0', letterSpacing: 0.5 }}>{yr}</span>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)' }}>
+                  {['ปี 1','ปี 2','ปี 3','ปี 4','ปี 5','ปี 6'].map((yr, i) => (
+                    <div key={yr} style={{
+                      padding: '12px 4px', textAlign: 'center',
+                      borderRight: i < 5 ? '1px solid #1f2937' : 'none',
+                      background: currentYear === i+1 ? '#1e3a5f' : 'transparent',
+                    }}>
+                      <span style={{
+                        fontSize: '12px', fontWeight: 900, letterSpacing: 1,
+                        color: currentYear === i+1 ? '#60a5fa' : '#4b5563',
+                      }}>{yr}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* ── Semester sub-header row: (blank) | 1 2 | 3 4 | ... ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', background: '#0d1117', borderBottom: '2px solid #1f2937' }}>
+              {/* ── Semester sub-header ── */}
+              <div style={{ display: 'grid', gridTemplateColumns: '88px 1fr', background: '#080c12', borderBottom: '2px solid #1f2937' }}>
                 <div style={{ padding: '6px 8px', borderRight: '1px solid #1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#4a5568' }}>SEMESTER</span>
+                  <span style={{ fontSize: '10px', fontWeight: 700, color: '#374151', letterSpacing: 1 }}>เทอม</span>
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(16, 1fr)' }}>
-                  {Array.from({ length: 16 }, (_, i) => (
-                    <div key={i} style={{ padding: '6px 2px', textAlign: 'center', borderRight: i < 15 ? '1px solid #1f2937' : 'none', background: currentSem === i + 1 ? '#63b3ed18' : 'transparent' }}>
-                      <span style={{ fontSize: '12px', fontWeight: 800, color: currentSem === i + 1 ? '#63b3ed' : '#718096' }}>{i + 1}</span>
-                    </div>
-                  ))}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)' }}>
+                  {Array.from({ length: 12 }, (_, i) => {
+                    const termNum = i % 2 === 0 ? 1 : 2;
+                    const isCurSem = currentSem === i + 1;
+                    return (
+                      <div key={i} style={{
+                        padding: '6px 2px', textAlign: 'center',
+                        borderRight: i % 2 === 1 && i < 11 ? '1px solid #1f2937' : i % 2 === 0 ? '1px dashed #1f293760' : 'none',
+                        background: isCurSem ? '#1e3a5f' : 'transparent',
+                      }}>
+                        <span style={{ fontSize: '11px', fontWeight: 800, color: isCurSem ? '#60a5fa' : '#374151' }}>
+                          {termNum}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* ── User's actual GPAX row (if data exists) ── */}
+              {/* ── User's GPAX row ── */}
               {userProfile && Object.keys(userSemData).length > 0 && (
-                <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr', borderBottom: '2px solid #63b3ed40', background: '#63b3ed06' }}>
-                  {/* Row label */}
+                <div style={{ display: 'grid', gridTemplateColumns: '88px 1fr', borderBottom: '2px solid #2563eb40', background: '#1e40af08' }}>
                   <div style={{ padding: '8px 6px', borderRight: '1px solid #1f2937', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
                     <img
                       src={userProfile?.basicInfo?.image || userProfile?.image || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'}
                       alt="you"
-                      style={{ width: 30, height: 30, borderRadius: '50%', objectFit: 'cover', border: '2px solid #63b3ed' }}
+                      style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover', border: '2px solid #3b82f6' }}
                     />
-                    <span style={{ fontSize: '9px', fontWeight: 800, color: '#63b3ed', textAlign: 'center', lineHeight: 1.2 }}>
+                    <span style={{ fontSize: '9px', fontWeight: 800, color: '#60a5fa', textAlign: 'center', lineHeight: 1.2 }}>
                       {userName ? userName.split(' ')[0] : 'คุณ'}
                     </span>
                   </div>
-
-                  {/* Cells */}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(16, 1fr)', gap: '4px', padding: '6px 4px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '3px', padding: '5px 3px' }}>
                     {renderUserRow()}
                   </div>
                 </div>
@@ -541,83 +886,77 @@ const AcademicCriteriaPage = () => {
                 const outcomeStyle = OUTCOME_STYLES[row.outcome] || OUTCOME_STYLES.retired;
                 const isMatched = matchedCase === row.id;
 
+                // outcome color accent per row
+                const rowAccent = row.outcome === 'retired' ? '#e53e3e' : row.outcome === 'graduated' ? '#553c9a' : '#2b6cb0';
+
                 return (
                   <div
                     key={row.id}
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: '100px 1fr',
-                      borderBottom: rowIdx < TABLE_ROWS.length - 1 ? '1px solid #1f2937' : 'none',
-                      background: isMatched ? '#68d39108' : isSelected ? '#1a202c' : 'transparent',
+                      gridTemplateColumns: '88px 1fr',
+                      borderBottom: rowIdx < TABLE_ROWS.length - 1 ? '1px solid #1a2030' : 'none',
+                      background: isMatched ? '#68d39106' : isSelected ? '#111827' : 'transparent',
                       transition: 'background 0.2s',
+                      borderLeft: isMatched ? '3px solid #22c55e' : '3px solid transparent',
                     }}
                   >
-                    {/* ── Row Label cell (case icon + letter) ── */}
+                    {/* Row label */}
                     <div
-                      style={{ padding: '8px 6px', borderRight: '1px solid #1f2937', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}
+                      style={{ padding: '6px', borderRight: '1px solid #1a2030', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}
                       onClick={() => setSelectedRow(isSelected ? null : row.id)}
                     >
-                      <div style={{ width: 26, height: 26, borderRadius: 7, background: isSelected ? '#2d3748' : '#1a202c', border: '2px solid #2d3748', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 900, color: isSelected ? '#fff' : '#a0aec0' }}>{row.id}</span>
+                      <div style={{
+                        width: 30, height: 30, borderRadius: 8,
+                        background: isSelected ? rowAccent : '#111827',
+                        border: `2px solid ${isMatched ? '#22c55e' : isSelected ? rowAccent : '#1f2937'}`,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        transition: 'all 0.2s',
+                      }}>
+                        <span style={{ fontSize: '14px', fontWeight: 900, color: isSelected ? '#fff' : '#6b7280' }}>{row.id}</span>
                       </div>
                       {isMatched && (
-                        <span style={{ fontSize: '8px', fontWeight: 800, color: '#68d391', background: '#27674920', border: '1px solid #27674960', borderRadius: 4, padding: '2px 4px', textAlign: 'center', lineHeight: 1.3 }}>
-                          ใกล้เคียง<br/>คุณ
+                        <span style={{ fontSize: '7px', fontWeight: 800, color: '#22c55e', background: '#16a34a20', border: '1px solid #22c55e50', borderRadius: 4, padding: '1px 4px', textAlign: 'center', lineHeight: 1.4 }}>
+                          ← คุณ
                         </span>
                       )}
                     </div>
 
-                    {/* ── GPA cells + outcome cell ── */}
+                    {/* GPA cells + outcome badge */}
                     <div style={{ display: 'flex', alignItems: 'stretch' }}>
-                      {/* GPA grid */}
-                      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(16, 1fr)', gap: '4px', padding: '6px 4px' }}>
+                      {/* GPA grid — 12 cols with year dividers */}
+                      <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '3px', padding: '5px 3px' }}>
                         {Array.from({ length: TOTAL_SEMS }, (_, i) => {
                           const semNum = i + 1;
                           const cell = row.cells.find(c => c.sem === semNum);
-
                           if (!cell) return <EmptyCell key={i} />;
-
-                          // The cell marked 'retired' = the X mark
                           if (cell.status === 'retired') return <RetiredCell key={i} />;
-
-                          return (
-                            <GpaCell
-                              key={i}
-                              gpa={cell.gpa}
-                              status={cell.status}
-                              note={cell.note}
-                            />
-                          );
+                          return <GpaCell key={i} gpa={cell.gpa} status={cell.status} note={cell.note} />;
                         })}
                       </div>
 
-                      {/* Outcome description — right side badge */}
+                      {/* Outcome badge */}
                       <div
                         style={{
-                          minWidth: 220,
-                          maxWidth: 280,
-                          margin: '6px 6px 6px 0',
+                          width: 200, flexShrink: 0,
+                          margin: '5px 5px 5px 0',
                           borderRadius: 10,
                           background: outcomeStyle.bg,
                           border: `1px solid ${outcomeStyle.border}`,
-                          padding: '10px 12px',
-                          display: 'flex',
-                          flexDirection: 'column',
-                          justifyContent: 'center',
-                          gap: 6,
+                          padding: '8px 10px',
+                          display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 4,
                           cursor: 'pointer',
-                          flexShrink: 0,
                         }}
                         onClick={() => setSelectedRow(isSelected ? null : row.id)}
                       >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <OutcomeIcon size={14} color={outcomeStyle.text} strokeWidth={2.5} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <OutcomeIcon size={13} color={outcomeStyle.text} strokeWidth={2.5} />
                           <span style={{ fontSize: '11px', fontWeight: 800, color: outcomeStyle.text }}>
                             {row.outcome === 'graduated' ? 'สำเร็จการศึกษา' :
                              row.outcome === 'regrade' ? 'รีเกรดได้' : 'พ้นสภาพ'}
                           </span>
                         </div>
-                        <p style={{ fontSize: '11px', color: '#e2e8f080', lineHeight: 1.5, margin: 0 }}>
+                        <p style={{ fontSize: '10px', color: '#e2e8f060', lineHeight: 1.5, margin: 0 }}>
                           {row.outcomeText}
                         </p>
                       </div>
