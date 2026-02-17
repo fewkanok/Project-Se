@@ -577,18 +577,18 @@ const SetupProfile = () => {
             return;
         }
         
-        if (!basicInfo.studentId || basicInfo.studentId.trim() === '') {
-            alert("กรุณากรอก รหัสนิสิต (Student ID) ให้ครบถ้วน");
-            return;
-        }
+     //    if (!basicInfo.studentId || basicInfo.studentId.trim() === '') {
+     //        alert("กรุณากรอก รหัสนิสิต (Student ID) ให้ครบถ้วน");
+     //        return;
+     //    }
         
         // Validate student ID format (optional - adjust as needed)
-        if (!/^\d{7,10}$/.test(basicInfo.studentId.trim())) {
-            const confirmProceed = window.confirm(
-                "รหัสนิสิตไม่ตรงตามรูปแบบทั่วไป (7-10 หลัก)\nต้องการดำเนินการต่อหรือไม่?"
-            );
-            if (!confirmProceed) return;
-        }
+     //    if (!/^\d{7,10}$/.test(basicInfo.studentId.trim())) {
+     //        const confirmProceed = window.confirm(
+     //            "รหัสนิสิตไม่ตรงตามรูปแบบทั่วไป (7-10 หลัก)\nต้องการดำเนินการต่อหรือไม่?"
+     //        );
+     //        if (!confirmProceed) return;
+     //    }
 
         // 2. เช็คเกรด (GPA) ย้อนหลังให้ครบ
         const curYear = parseInt(basicInfo.currentYear);
@@ -947,7 +947,7 @@ const SetupProfile = () => {
                 {/* 3. GPA */}
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl">
                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-emerald-400"><GraduationCap size={20}/> Previous GPA</h2>
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                    <div className="space-y-2 overflow-visible pr-2">
                         {roadmapData.map((yearGroup, yearIdx) => 
                             yearGroup.semesters.map((sem, semIdx) => {
                                 const isPast = (yearIdx + 1 < basicInfo.currentYear) || 
@@ -1022,7 +1022,7 @@ const SetupProfile = () => {
                                     ? 'bg-purple-600 text-white border-purple-500 shadow-purple-500/20' 
                                     : 'bg-white/10 backdrop-blur text-slate-300 border-white/10'
                                 }`}>
-                                    Year {yearGroup.year}
+                                   {yearGroup.year}
                                 </span>
                             </div>
 
@@ -1104,7 +1104,7 @@ const SetupProfile = () => {
         </div>
 
         {/* Footer */}
-        <div className="fixed bottom-0 left-0 w-full bg-[#050505]/80 backdrop-blur-xl border-t border-white/10 p-4 z-50">
+        <div className="fixed bottom-0 left-0 w-full bg-[#050505]/80 backdrop-blur-xl border-t border-white/10 p-4 z-50 flex center">
             <div className="max-w-7xl mx-auto flex justify-end">
                 <button onClick={handleSubmit}
                     className="bg-white text-black hover:bg-orange-50 font-bold py-3 px-10 rounded-full shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center gap-2 transition-transform hover:-translate-y-1 active:scale-95 text-lg">
