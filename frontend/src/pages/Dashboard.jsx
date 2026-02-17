@@ -488,6 +488,9 @@ const Dashboard = () => {
             </div>
             
             <div className="flex items-center gap-3">
+              <button onClick={() => navigate('/academic-criteria')} className="tech-button px-6 py-3 rounded-xl text-emerald-400 font-semibold flex items-center gap-2 text-sm border-emerald-500/20">
+                <FileText size={18}/> <span className="hidden md:inline">Academic Criteria</span>
+              </button>
               <button onClick={handleEditSetup} className="tech-button px-6 py-3 rounded-xl text-white font-semibold flex items-center gap-2 text-sm">
                 <Settings size={18}/> <span className="hidden md:inline">Settings</span>
               </button>

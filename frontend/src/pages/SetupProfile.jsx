@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil, Plus, Trash2, Search, Save } from 'lucide-react';
+import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil, Plus, Trash2, Search, Save, LayoutDashboard, FileText, LogIn } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 // ✅ Import ให้ตรงกับไฟล์จริง
 import { electiveCourses } from '../data/electiveCourses';
@@ -193,7 +193,7 @@ const SetupProfile = () => {
         const curTerm = parseInt(basicInfo.currentTerm);
         
         // Validate year and term
-        if (isNaN(curYear) || isNaN(curTerm) || curYear < 1 || curYear > 4 || curTerm < 1 || curTerm > 2) {
+        if (isNaN(curYear) || isNaN(curTerm) || curYear < 1 || curYear > 5 || curTerm < 1 || curTerm > 2) {
             console.error('Invalid year or term values');
             return;
         }
@@ -601,11 +601,12 @@ const SetupProfile = () => {
         
         let missingGpaTerm = null;
 
-        // วนลูปเช็คเทอมที่ผ่านมาทั้งหมด
+        // วนลูปเช็คเทอมที่ผ่านมาทั้งหมด (Y5 = จบแล้ว = ทุกเทอมเป็น past)
         for (let y = 1; y <= 4; y++) {
             for (let t = 1; t <= 2; t++) {
-                // เงื่อนไข: ถ้าเป็นเทอมในอดีต (Past)
-                const isPast = (y < curYear) || (y === curYear && t < curTerm);
+                const isPast = curYear === 5
+                    ? true
+                    : (y < curYear) || (y === curYear && t < curTerm);
                 
                 if (isPast) {
                     const termKey = `Y${y}/${t}`;
@@ -828,7 +829,7 @@ const SetupProfile = () => {
       <div className="max-w-7xl mx-auto p-6 relative z-10">
         
         {/* Header */}
-        <div className="mt-8 mb-10 flex flex-col items-center justify-center text-center">
+        <div className="mt-8 mb-6 flex flex-col items-center justify-center text-center">
             <div className="flex items-center gap-3 mb-2">
                 <Terminal className="text-orange-500" size={32}/>
                 <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-purple-400">
@@ -836,6 +837,27 @@ const SetupProfile = () => {
                 </h1>
             </div>
             <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Profile Setup & Course Planning</p>
+        </div>
+
+        {/* Navigation Links */}
+        <div className="flex items-center justify-center gap-3 mb-10 flex-wrap">
+            <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/20 border border-orange-500/40 text-orange-300 text-xs font-bold uppercase tracking-wider">
+                <User size={14}/> Setup (Current)
+            </div>
+            <ChevronRight size={14} className="text-slate-600"/>
+            <button 
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:bg-blue-500/20 hover:border-blue-500/40 hover:text-blue-300 text-xs font-bold uppercase tracking-wider transition-all"
+            >
+                <LayoutDashboard size={14}/> Dashboard
+            </button>
+            <ChevronRight size={14} className="text-slate-600"/>
+            <button 
+                onClick={() => navigate('/academic-criteria')}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-slate-400 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:text-emerald-300 text-xs font-bold uppercase tracking-wider transition-all"
+            >
+                <FileText size={14}/> Academic Criteria
+            </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -921,8 +943,22 @@ const SetupProfile = () => {
                                     </button>
                                 ))}
                             </div>
+                            {/* Graduated button */}
+                            <button
+                                onClick={() => {
+                                    hasUserInteracted.current = true;
+                                    setBasicInfo(prev => ({...prev, currentYear: 5, currentTerm: 1}));
+                                }}
+                                className={`w-full mt-2 py-2 rounded-lg font-bold transition-all border text-sm flex items-center justify-center gap-2 ${
+                                    basicInfo.currentYear === 5
+                                    ? 'bg-emerald-600 border-emerald-500 text-white shadow-lg shadow-emerald-500/30'
+                                    : 'bg-white/5 border-transparent text-slate-400 hover:bg-white/10'
+                                }`}>
+                                🎓 Graduated (จบการศึกษาแล้ว)
+                            </button>
                          </div>
                          
+                         {basicInfo.currentYear !== 5 && (
                          <div>
                             <div className="grid grid-cols-2 gap-2">
                                 {[1,2].map(t => (
@@ -941,6 +977,7 @@ const SetupProfile = () => {
                                 ))}
                             </div>
                          </div>
+                         )}
                     </div>
                 </div>
 
@@ -948,12 +985,15 @@ const SetupProfile = () => {
                 <div className="bg-white/5 backdrop-blur-md border border-white/10 p-6 rounded-2xl">
                     <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-emerald-400"><GraduationCap size={20}/> Previous GPA</h2>
                     <div className="space-y-2 overflow-visible pr-2">
-                        {roadmapData.map((yearGroup, yearIdx) => 
-                            yearGroup.semesters.map((sem, semIdx) => {
-                                const isPast = (yearIdx + 1 < basicInfo.currentYear) || 
-                                               (yearIdx + 1 === basicInfo.currentYear && semIdx + 1 < basicInfo.currentTerm);
+                        {/* GPA inputs for all 8 semesters (Y1-Y4, T1-T2) */}
+                        {[1,2,3,4].map(y => [1,2].map(t => {
+                                // Y5 = Graduated → ทุกเทอมเป็น past
+                                const isPast = basicInfo.currentYear === 5
+                                    ? true
+                                    : (y < basicInfo.currentYear) || 
+                                      (y === basicInfo.currentYear && t < basicInfo.currentTerm);
                                 
-                                const uniqueTermKey = `Y${yearIdx + 1}/${semIdx + 1}`;
+                                const uniqueTermKey = `Y${y}/${t}`;
 
                                 if (isPast) {
                                      return (
@@ -985,6 +1025,11 @@ const SetupProfile = () => {
                         )}
                         {basicInfo.currentYear === 1 && basicInfo.currentTerm === 1 && (
                             <div className="text-center py-6 text-slate-600 text-xs border border-dashed border-white/10 rounded-xl">No grades to enter yet</div>
+                        )}
+                        {basicInfo.currentYear === 5 && (
+                            <div className="text-center py-3 text-emerald-500/70 text-xs border border-dashed border-emerald-500/20 rounded-xl flex items-center justify-center gap-2">
+                                🎓 กรอกเกรดครบทั้ง 8 เทอม
+                            </div>
                         )}
                     </div>
                 </div>

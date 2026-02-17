@@ -451,6 +451,14 @@ const AcademicCriteriaPage = () => {
           >
             <ArrowLeft size={20} />
           </button>
+          <button
+            onClick={() => navigate('/setup')}
+            style={{ padding: '8px 16px', borderRadius: '12px', background: '#1a202c', border: '1px solid #2d3748', color: '#a0aec0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#ed8936'; e.currentTarget.style.color = '#ed8936'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#2d3748'; e.currentTarget.style.color = '#a0aec0'; }}
+          >
+            ⚙️ Setup
+          </button>
           <div>
             <div className="flex items-center gap-3">
               <div style={{ width: 36, height: 36, borderRadius: 8, background: '#e53e3e', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
