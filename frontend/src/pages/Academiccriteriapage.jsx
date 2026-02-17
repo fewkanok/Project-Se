@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle, CheckCircle2, XCircle, GraduationCap, Info, BookOpen, RotateCcw } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, CheckCircle2, XCircle, GraduationCap, Info } from 'lucide-react';
 
 // ─── TABLE DATA — mirrors the infographic exactly ───────────────────────────
 // Each "case row" = one example student trajectory
@@ -129,7 +129,7 @@ const CELL_STYLES = {
 const OUTCOME_STYLES = {
   'retired':   { bg: '#e53e3e22', border: '#e53e3e', text: '#fc8181', icon: XCircle },
   'graduated': { bg: '#55309422', border: '#553c9a', text: '#b794f4', icon: GraduationCap },
-  'regrade':   { bg: '#2b6cb022', border: '#2b6cb0', text: '#90cdf4', icon: RotateCcw },
+  'regrade':   { bg: '#2b6cb022', border: '#2b6cb0', text: '#90cdf4', icon: CheckCircle2 },
 };
 
 // ─── Main Component ─────────────────────────────────────────────────────────
