@@ -8,6 +8,7 @@ import Roadmap from './pages/Roadmap';
 import CourseDetail from './pages/CourseDetail';
 import GradeCalculator from './pages/GradeCalculator';
 import CoopEligibilityModal from './pages/CoopEligibilityModal';
+import AcademicCriteriaPage from './pages/AcademicCriteriaPage';
 
 const ProtectedRoute = () => {
   const user = localStorage.getItem('userProfile');
@@ -31,6 +32,8 @@ function App() {
             <Route path="/course/:id"        element={<CourseDetail />} />
             {/* ✅ Co-op Eligibility Page */}
             <Route path="/coop"              element={<CoopEligibilityModal />} />
+            {/* ✅ Academic Criteria Timeline Page */}
+            <Route path="/academic-criteria" element={<AcademicCriteriaPage />} />
           </Route>
         </Route>
       </Routes>

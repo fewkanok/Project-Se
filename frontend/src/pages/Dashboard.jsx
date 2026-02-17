@@ -787,8 +787,16 @@ const Dashboard = () => {
           <div className="lg:col-span-3 space-y-6">
             
             {/* Academic Status Card */}
-            <div className={`tech-card p-6 rounded-2xl relative overflow-hidden group`}>
+            <button
+              onClick={() => navigate('/academic-criteria')}
+              className={`tech-card p-6 rounded-2xl relative overflow-hidden group cursor-pointer hover:bg-white/5 transition-all w-full text-left`}
+            >
                 <div className={`absolute top-0 right-0 w-40 h-40 bg-${academicStatus.color}-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2`}></div>
+                
+                {/* Hover indicator */}
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ArrowUpRight size={16} className="text-slate-400" />
+                </div>
                 
                 <div className="flex items-center justify-between mb-4 relative z-10">
                     <div className="flex items-center gap-2">
@@ -838,7 +846,14 @@ const Dashboard = () => {
                         </div>
                     </div>
                 </div>
-            </div>
+                
+                {/* Click hint */}
+                <div className="relative z-10 mt-4 pt-4 border-t border-white/10 text-center">
+                  <p className="text-[10px] text-slate-500 group-hover:text-cyan-400 transition-colors font-mono flex items-center justify-center gap-1">
+                    View Criteria Details <ChevronRight size={12} />
+                  </p>
+                </div>
+            </button>
 
             {/* Performance Chart */}
             <div className="tech-card p-6 rounded-2xl">
@@ -922,6 +937,21 @@ const Dashboard = () => {
                       </div>
                     </div>
                     <ChevronRight size={18} className="text-slate-600 group-hover:text-cyan-400 group-hover:translate-x-1 transition-all"/>
+                  </div>
+                </button>
+
+                <button onClick={() => navigate('/academic-criteria')} className="w-full tech-button p-4 rounded-xl text-left group">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <Shield size={18} className="text-white"/>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-white">Criteria</p>
+                        <p className="text-[10px] text-slate-500 font-mono">Timeline</p>
+                      </div>
+                    </div>
+                    <ChevronRight size={18} className="text-slate-600 group-hover:text-orange-400 group-hover:translate-x-1 transition-all"/>
                   </div>
                 </button>
 
