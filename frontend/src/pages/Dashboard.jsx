@@ -730,57 +730,45 @@ const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
                 {stats.activeCoursesList.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full content-start">
-                    {stats.activeCoursesList.slice(0, 6).map((course, idx) => (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {stats.activeCoursesList.map((course, idx) => (
                       <button
                         key={`${course.id}-${idx}`}
                         type="button"
                         onClick={() => navigate(`/course/${course.id}`)}
-                        className="tech-card-hover p-5 rounded-xl group cursor-pointer text-left focus:outline-none h-fit"
+                        className="tech-card-hover p-5 rounded-xl group cursor-pointer text-left focus:outline-none h-fit relative overflow-hidden"
                       >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className={`px-3 py-1.5 rounded-lg font-mono font-bold text-xs ${
-                            course.isElective 
-                              ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' 
-                              : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                          }`}>
-                            {course.code}
-                          </div>
-                          <ArrowUpRight size={16} className="text-slate-600 group-hover:text-cyan-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-all"/>
-                        </div>
+                        {/* Glow effect on hover */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-purple-500/0 group-hover:from-cyan-500/10 group-hover:to-purple-500/10 transition-all duration-500"></div>
                         
-                        <h4 className="font-bold text-sm text-white mb-3 leading-relaxed line-clamp-2">
-                          {course.name}
-                        </h4>
-                        
-                        <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                          <div className="flex items-center gap-2">
-                            <Grid3x3 size={12} className="text-slate-500"/>
-                            <span className="text-xs text-slate-400 font-mono">{course.credits} CR</span>
+                        <div className="relative z-10">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className={`px-3 py-1.5 rounded-lg font-mono font-bold text-xs ${
+                              course.isElective 
+                                ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' 
+                                : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                            }`}>
+                              {course.code}
+                            </div>
+                            <ArrowUpRight size={16} className="text-slate-600 group-hover:text-cyan-400 group-hover:translate-x-1 group-hover:-translate-y-1 transition-all"/>
                           </div>
-                          <span className="text-[10px] text-slate-600 font-mono uppercase tracking-wide">{course.termLabel}</span>
+                          
+                          <h4 className="font-bold text-sm text-white mb-3 leading-relaxed line-clamp-2 group-hover:text-cyan-400 transition-colors">
+                            {course.name}
+                          </h4>
+                          
+                          <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                            <div className="flex items-center gap-2">
+                              <Grid3x3 size={12} className="text-slate-500"/>
+                              <span className="text-xs text-slate-400 font-mono">{course.credits} CR</span>
+                            </div>
+                            <span className="text-[10px] text-slate-600 font-mono uppercase tracking-wide">{course.termLabel}</span>
+                          </div>
                         </div>
                       </button>
                     ))}
-                    
-                    {/* Show "more" indicator if there are more than 6 courses */}
-                    {stats.activeCoursesList.length > 6 && (
-                      <div className="col-span-1 md:col-span-2 flex items-center justify-center p-4 tech-card rounded-xl border-2 border-dashed border-slate-700/50">
-                        <div className="text-center">
-                          <p className="text-sm font-bold text-slate-400 mb-1">
-                            +{stats.activeCoursesList.length - 6} more courses
-                          </p>
-                          <button
-                            onClick={() => navigate('/setup')}
-                            className="text-xs text-cyan-400 hover:text-cyan-300 font-mono flex items-center gap-1 mx-auto"
-                          >
-                            View All in Setup <ChevronRight size={12} />
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <div className="h-full flex flex-col items-center justify-center">
