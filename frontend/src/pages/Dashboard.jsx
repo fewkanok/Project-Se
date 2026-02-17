@@ -270,17 +270,31 @@ const Dashboard = () => {
             if (semester === 2 && currentGPAX < 1.50) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'GPAX ปี 1 เทอม 2 ต่ำกว่า 1.50', color: 'red', riskLevel: 100 };
         } 
         else if (year >= 2) {
-            if (currentGPAX < 1.75) lowProCount++; else lowProCount = 0;
-            if (currentGPAX < 2.00) highProCount++; else highProCount = 0;
+            // กฎ: นับจาก GPA รายเทอม (term GPA) ไม่ใช่ GPAX สะสม
+            // LOW (<1.75), HIGH (1.75–1.99), SAFE (≥2.00) — reset ซึ่งกันและกัน
+            if (gpa < 1.75) {
+                lowProCount++;
+                highProCount = 0; // LOW รีเซ็ต HIGH counter
+            } else if (gpa < 2.00) {
+                highProCount++;
+                lowProCount = 0; // HIGH รีเซ็ต LOW counter
+            } else {
+                lowProCount = 0;  // SAFE รีเซ็ตทั้งคู่
+                highProCount = 0;
+            }
 
-            if (lowProCount >= 2) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'โปรต่ำ (GPAX < 1.75) 2 ครั้ง', color: 'red', riskLevel: 100 };
-            if (highProCount >= 4) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'โปรสูง (GPAX < 2.00) 4 ครั้ง', color: 'red', riskLevel: 100 };
+            if (lowProCount >= 2) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'โปรต่ำ (GPA < 1.75) 2 ครั้งติดกัน', color: 'red', riskLevel: 100 };
+            if (highProCount >= 4) return { ...statusState, status: 'RETIRED', message: 'พ้นสภาพ', detail: 'โปรสูง (GPA < 2.00) 4 ครั้งติดกัน', color: 'red', riskLevel: 100 };
         }
     }
 
     const latestGPAX = accumulatedCredits > 0 ? (accumulatedPoints / accumulatedCredits) : 0;
     
-    const nextTermCredits = 19; 
+    // คำนวณ credits เฉลี่ยต่อเทอม (เหมือน AcademicCriteriaPage)
+    const semesterCount = sortedHistory.length;
+    const avgCreditsPerSem = semesterCount > 0 ? accumulatedCredits / semesterCount : 19;
+    const nextTermCredits = Math.round(avgCreditsPerSem); // ปัดเศษเพื่อให้อ่านง่าย
+    
     const targetGPAX = 2.00;
     const totalCreditsNext = accumulatedCredits + nextTermCredits;
     const requiredPoints = targetGPAX * totalCreditsNext;
@@ -296,35 +310,36 @@ const Dashboard = () => {
         predictionText = neededGPA.toFixed(2);
     }
 
-    if (highProCount > 0) {
-        if (lowProCount === 1) {
-            statusState = {
-                status: 'CRITICAL',
-                message: 'ภาวะวิกฤต (โปรต่ำ)',
-                detail: `เกรดเฉลี่ย ${latestGPAX.toFixed(2)} ต่ำกว่า 1.75 ต้องเร่งแก้ไขด่วน`,
-                color: 'red',
-                riskLevel: 90,
-                prediction: { label: 'เป้าหมายเทอมหน้า (เพื่อหลุดโปร)', value: predictionText, credits: nextTermCredits }
-            };
-        } else if (highProCount === 3) {
-            statusState = {
-                status: 'CRITICAL',
-                message: 'โปรสูง (ครั้งสุดท้าย)',
-                detail: `เหลือโอกาสเดียว! ต้องทำให้ GPAX ถึง 2.00`,
-                color: 'orange',
-                riskLevel: 80,
-                prediction: { label: 'ต้องทำเกรดเทอมหน้า', value: predictionText, credits: nextTermCredits }
-            };
-        } else {
-            statusState = {
-                status: 'PROBATION',
-                message: `ติดวิทยาทัณฑ์ (ครั้งที่ ${highProCount})`,
-                detail: `GPAX ${latestGPAX.toFixed(2)} ต่ำกว่า 2.00`,
-                color: 'orange',
-                riskLevel: 40 + (highProCount * 15),
-                prediction: { label: 'เกรดที่ต้องทำเพื่อหลุดโปร', value: predictionText, credits: nextTermCredits }
-            };
-        }
+    if (lowProCount === 1) {
+        // โปรต่ำ 1 ครั้ง — วิกฤต เหลือโอกาสเดียว
+        statusState = {
+            status: 'CRITICAL',
+            message: 'ภาวะวิกฤต (โปรต่ำ)',
+            detail: `GPA เทอมล่าสุด ต่ำกว่า 1.75 อีกครั้งจะพ้นสภาพ`,
+            color: 'red',
+            riskLevel: 90,
+            prediction: { label: 'เป้าหมายเทอมหน้า (เพื่อหลุดโปร)', value: predictionText, credits: nextTermCredits }
+        };
+    } else if (highProCount === 3) {
+        // โปรสูง 3 ครั้ง — เหลือโอกาสเดียว
+        statusState = {
+            status: 'CRITICAL',
+            message: 'โปรสูง (ครั้งสุดท้าย)',
+            detail: `เหลือโอกาสเดียว! ต้องทำให้ GPA เทอมหน้าถึง 2.00`,
+            color: 'orange',
+            riskLevel: 80,
+            prediction: { label: 'ต้องทำเกรดเทอมหน้า', value: predictionText, credits: nextTermCredits }
+        };
+    } else if (highProCount > 0) {
+        // โปรสูง 1-2 ครั้ง
+        statusState = {
+            status: 'PROBATION',
+            message: `ติดวิทยาทัณฑ์ (ครั้งที่ ${highProCount})`,
+            detail: `GPA เทอมล่าสุด ต่ำกว่า 2.00 (ครั้งที่ ${highProCount}/4)`,
+            color: 'orange',
+            riskLevel: 40 + (highProCount * 15),
+            prediction: { label: 'เกรดที่ต้องทำเพื่อหลุดโปร', value: predictionText, credits: nextTermCredits }
+        };
     } else {
         if (latestGPAX < 2.00) {
              statusState = {

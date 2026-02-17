@@ -253,6 +253,7 @@ const AcademicCriteriaPage = () => {
     if (!currentSem || Object.keys(userSemData).length === 0) return null;
 
     const pastSems = currentSem - 1; // เทอมที่ผ่านมาแล้ว (ไม่รวมปัจจุบัน)
+    if (pastSems < 1) return null;
 
     // อ่านเฉพาะเทอมที่ผ่านมาจริงๆ เทอมที่ยังไม่ผ่านถือว่าไม่มีข้อมูล
     const getSem = (idx) => (idx <= pastSems ? (userSemData[idx] ?? null) : null);
@@ -298,29 +299,31 @@ const AcademicCriteriaPage = () => {
       }
     }
 
-    // ── Case C: เคยติดกัน ≥2  หรือ  กำลัง low ครั้งแรกต่อเนื่อง (ไม่มี safe คั่น) ──
-    if (maxConsLow >= 2 || (consecutiveLow >= 1 && !hadSafeBeforeLow)) return 'C';
+    // ── Case C: เคยติด LOW ≥2 ภาคติดกัน ─────────────────────────────────────
+    if (maxConsLow >= 2) return 'C';
 
-    // ── Case D: เคยติดกัน ≥4  หรือ  กำลังสะสม ≥3 ติด (ใกล้พ้น) ─────────────
+    // ── Case D: เคยติด HIGH ≥4 ภาคติดกัน ────────────────────────────────────
     if (maxConsHigh >= 4 || consecutiveHigh >= 3) return 'D';
-
-    // ── ใช้ weighted GPAX (เดียวกับ Dashboard) สำหรับ H / E / F / G ──────────
-    const gpax = calculatedGPAX;
-
-    // ── Case H ก่อน E: weighted GPAX ≥ 2.00 = แนวโน้มดี/ปรับตัวสำเร็จ ──────
-    if (gpax != null && gpax >= 2.00) return 'H';
 
     // ── Case E: low กระจาย ≥2 ครั้ง (มี safe คั่น แล้วกลับมา low) ───────────
     if (totalLowCount >= 2 && hadSafeBeforeLow) return 'E';
 
-    // ── Case F: เรียนจบแล้ว แต่ weighted GPAX < 1.80 ─────────────────────────
+    // ── ใช้ weighted GPAX (เดียวกับ Dashboard) สำหรับ F / G / H ──────────────
+    // ดึงค่า GPAX จาก gpaHistory โดยตรงก่อน แล้ว fallback ไป calculatedGPAX
+    // เพื่อให้สอดคล้องกับค่าที่แสดงบน Dashboard
+    const gpax = calculatedGPAX;
+
+    // ── Case F: เรียนผ่านมาหลายเทอมแล้ว แต่ weighted GPAX < 1.80 ─────────────
     if (gpax != null && gpax < 1.80 && pastSems >= 6) return 'F';
 
-    // ── Case G: weighted GPAX คาบเส้น 1.80–1.99 ──────────────────────────────
+    // ── Case G: weighted GPAX คาบเส้น 1.80–1.99 (ต้องลงรีเกรด) ──────────────
     if (gpax != null && gpax >= 1.80 && gpax < 2.00) return 'G';
 
-    // ── Case H: fall-through ───────────────────────────────────────────────────
-    return 'H';
+    // ── Case H: weighted GPAX ≥ 2.00 หรือ fall-through ────────────────────────
+    if (gpax != null && gpax >= 2.00) return 'H';
+
+    // ── ยังไม่มีข้อมูล GPAX พอที่จะระบุ case ────────────────────────────────
+    return null;
   };
 
   const matchedCase = getUserMatchedCase();
