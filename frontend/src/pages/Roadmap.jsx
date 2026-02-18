@@ -64,6 +64,7 @@ const Roadmap = () => {
   const [hoveredCourse, setHoveredCourse] = useState(null);
   const [activeTab, setActiveTab] = useState('core'); // 'core' or 'elective'
   const [activeElectiveCategory, setActiveElectiveCategory] = useState('all');
+  const [activeYear, setActiveYear] = useState(1);
   const navigate = useNavigate();
 
   // --- 1. Load User Data from LocalStorage ---
@@ -183,6 +184,22 @@ const Roadmap = () => {
     });
     setLines(newLines);
   };
+
+  useEffect(() => {
+    if (activeTab !== 'core') return;
+    const observers = [];
+    processedRoadmap.forEach((_, idx) => {
+      const el = document.getElementById(`year-section-${idx + 1}`);
+      if (!el) return;
+      const obs = new IntersectionObserver(
+        ([entry]) => { if (entry.isIntersecting) setActiveYear(idx + 1); },
+        { threshold: 0.15 }
+      );
+      obs.observe(el);
+      observers.push(obs);
+    });
+    return () => observers.forEach(o => o.disconnect());
+  }, [activeTab, processedRoadmap]);
 
   useEffect(() => {
     const handleResize = () => requestAnimationFrame(drawLines);
@@ -491,10 +508,47 @@ const Roadmap = () => {
               })}
             </svg>
 
+            {/* ✅ Year Quick Nav — Minimal */}
+            <div className="sticky top-4 z-30 flex justify-center mb-12 pointer-events-none">
+              <div className="relative pointer-events-auto flex items-center gap-0 bg-white/5 border border-white/10 rounded-full p-1 backdrop-blur-md">
+
+                {/* Sliding pill */}
+                <div
+                  className="absolute top-1 bottom-1 rounded-full bg-white/10 transition-all duration-300 ease-in-out"
+                  style={{
+                    left: `calc(${(activeYear - 1) * 25}% + 4px)`,
+                    width: 'calc(25% - 2px)',
+                  }}
+                />
+
+                {processedRoadmap.map((yearGroup, idx) => {
+                  const yearNum = idx + 1;
+                  const isActive = activeYear === yearNum;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setActiveYear(yearNum);
+                        const el = document.getElementById(`year-section-${yearNum}`);
+                        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      className="relative z-10 px-6 py-2 rounded-full text-sm font-medium transition-all duration-300 select-none"
+                      style={{
+                        color: isActive ? '#fff' : 'rgba(148,163,184,0.6)',
+                        width: '80px',
+                      }}
+                    >
+                      ปี {yearNum}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Core Courses Grid */}
             <div className="space-y-32 relative z-10">
               {processedRoadmap.map((yearGroup, yearIdx) => (
-                <div key={yearIdx} className="relative">
+                <div key={yearIdx} id={`year-section-${yearIdx + 1}`} className="relative">
                   
                   {/* Year Label */}
                   <div className="sticky top-20 z-20 flex justify-start mb-12">
