@@ -6,11 +6,64 @@ import { electiveCourses } from '../data/electiveCourses';
 import { useNavigate } from 'react-router-dom';
 
 
+// ✅ ElectiveCard Component
+const ElectiveCard = ({ elective, profile, navigate, getElectiveStatusClass }) => (
+  <div
+    onClick={() => navigate(`/course/${elective.id}`)}
+    className={getElectiveStatusClass(elective.status)}
+  >
+    {/* Header */}
+    <div className="flex justify-between items-start mb-3">
+      <span className="text-xs font-bold font-mono tracking-wider text-white/90 bg-black/60 px-3 py-1.5 rounded-lg border border-white/20 shadow-md">
+        {elective.code}
+      </span>
+      {elective.status === 'passed' && (
+        <CheckCircle size={22} className="text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,1)]" />
+      )}
+      {elective.status === 'active' && (
+        <BookOpen size={22} className="text-blue-300 animate-pulse drop-shadow-[0_0_10px_rgba(147,197,253,1)]" />
+      )}
+      {elective.status === 'available' && (
+        <Sparkles size={20} className="text-orange-400 drop-shadow-[0_0_8px_rgba(251,146,60,0.8)]" />
+      )}
+    </div>
+
+    {/* Content */}
+    <div className="flex-1">
+      <h4 className="font-bold text-lg text-white leading-tight mb-4 group-hover:text-orange-200 transition-colors line-clamp-2">
+        {elective.name}
+      </h4>
+      <div className="flex items-center gap-2 text-sm">
+        <span className="bg-black/40 px-3 py-1 rounded-md text-white/90 font-bold border border-white/10">
+          {elective.credits} Credits
+        </span>
+        {elective.prereq && (
+          <span className="text-xs bg-slate-700/60 px-2.5 py-1 rounded-md border border-slate-600 text-slate-200 font-medium">
+            Req: {elective.prereq}
+          </span>
+        )}
+      </div>
+    </div>
+
+    {/* Badge for selected electives */}
+    {Object.values(profile.customElectives || {}).some(electives =>
+      Array.isArray(electives) && electives.includes(elective.id)
+    ) && (
+      <div className="absolute top-3 right-3">
+        <span className="text-[10px] bg-orange-500 text-white px-2 py-1 rounded-full font-bold shadow-lg shadow-orange-500/50">
+          SELECTED
+        </span>
+      </div>
+    )}
+  </div>
+);
+
 const Roadmap = () => {
   const containerRef = useRef(null);
   const [lines, setLines] = useState([]);
   const [hoveredCourse, setHoveredCourse] = useState(null);
   const [activeTab, setActiveTab] = useState('core'); // 'core' or 'elective'
+  const [activeElectiveCategory, setActiveElectiveCategory] = useState('all');
   const navigate = useNavigate();
 
   // --- 1. Load User Data from LocalStorage ---
@@ -249,6 +302,39 @@ const Roadmap = () => {
     if (courseCode.includes('040613141') || courseCode.includes('040613142')) return 'project';
     return 'core';
   };
+
+  // ✅ Helper: จัดหมวดหมู่วิชาเสรี (ตาม electiveCourses.js จริง)
+  const getElectiveCategory = (elective) => {
+    if (elective.category) return elective.category;
+
+    const id = elective.id || '';
+    const name = elective.name || '';
+
+    // 🏃 กีฬา / สุขภาพ / ออกกำลังกาย
+    const sportIds = ['040313017', '040313018'];
+    const sportKeywords = ['กีฬา', 'ออกกำลังกาย', 'สุขภาพ', 'โภชนาการ', 'สมุนไพร', 'ร่างกาย', 'fitness', 'sport', 'exercise'];
+    if (sportIds.includes(id) || sportKeywords.some(k => name.includes(k))) return 'sport';
+
+    // 🔬 วิทยาศาสตร์ / คณิต
+    const scienceIds = ['030923100', '030923101', '030923102', '030923103', '030943131', '040713002', '040713005'];
+    const scienceKeywords = ['วิทยาศาสตร์', 'physics', 'energy', 'คณิตศาสตร์', 'เทคโนโลยี'];
+    if (scienceIds.includes(id) || scienceKeywords.some(k => name.toLowerCase().includes(k.toLowerCase()))) return 'science';
+
+    // 🎨 มนุษยศาสตร์ / สังคม
+    const humIds = ['080203901', '080203904', '080303103', '080303401', '080303601', '080303607', '080303609', '030953115'];
+    const humKeywords = ['มนุษย์', 'สังคม', 'กฎหมาย', 'จิตวิทยา', 'คาราโอเกะ', 'มนุษยสัมพันธ์', 'ความปลอดภัย', 'สมาธิ'];
+    if (humIds.includes(id) || humKeywords.some(k => name.includes(k))) return 'humanities';
+
+    return 'other';
+  };
+
+  const ELECTIVE_CATEGORIES = [
+    { key: 'all',        label: 'ทั้งหมด',           emoji: '📚', gradient: 'from-slate-600 to-slate-700',   active: 'from-slate-500 to-slate-600' },
+    { key: 'sport',      label: 'กีฬา & สุขภาพ',     emoji: '🏃', gradient: 'from-green-700 to-emerald-700', active: 'from-green-500 to-emerald-500' },
+    { key: 'science',    label: 'วิทยาศาสตร์',       emoji: '🔬', gradient: 'from-purple-700 to-violet-700', active: 'from-purple-500 to-violet-500' },
+    { key: 'humanities', label: 'มนุษยศาสตร์/สังคม', emoji: '🎨', gradient: 'from-pink-700 to-rose-700',     active: 'from-pink-500 to-rose-500' },
+    { key: 'other',      label: 'อื่นๆ',             emoji: '✨', gradient: 'from-orange-700 to-amber-700',  active: 'from-orange-500 to-amber-500' },
+  ];
 
   return (
     <div className="min-h-screen p-6 md:p-12 text-white relative overflow-hidden">
@@ -536,67 +622,94 @@ const Roadmap = () => {
         {/* ELECTIVE COURSES TAB */}
         {activeTab === 'elective' && (
           <div className="space-y-8 relative z-10">
-            <div className="text-center mb-12">
+            <div className="text-center mb-8">
               <h2 className="text-4xl font-black text-white mb-4">Free Elective Courses</h2>
               <p className="text-slate-400 text-lg">
                 Choose courses that match your interests and career goals
               </p>
             </div>
 
-            {/* Elective Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {processedElectives.map((elective) => (
-                <div
-                  key={elective.id}
-                  onClick={() => navigate(`/course/${elective.id}`)}
-                  className={getElectiveStatusClass(elective.status)}
-                >
-                  {/* Header */}
-                  <div className="flex justify-between items-start mb-3">
-                    <span className="text-xs font-bold font-mono tracking-wider text-white/90 bg-black/60 px-3 py-1.5 rounded-lg border border-white/20 shadow-md">
-                      {elective.code}
+            {/* ✅ Category Filter Bar */}
+            <div className="flex flex-wrap justify-center gap-3 mb-10">
+              {ELECTIVE_CATEGORIES.map(cat => {
+                const count = cat.key === 'all'
+                  ? processedElectives.length
+                  : processedElectives.filter(e => getElectiveCategory(e) === cat.key).length;
+                if (count === 0 && cat.key !== 'all') return null;
+                const isActive = activeElectiveCategory === cat.key;
+                return (
+                  <button
+                    key={cat.key}
+                    onClick={() => setActiveElectiveCategory(cat.key)}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-bold text-sm transition-all duration-300 border ${
+                      isActive
+                        ? `bg-gradient-to-r ${cat.active} text-white border-white/30 shadow-lg scale-105`
+                        : 'bg-slate-800/60 text-slate-300 border-slate-700 hover:bg-slate-700/80 hover:text-white'
+                    }`}
+                  >
+                    <span>{cat.emoji}</span>
+                    <span>{cat.label}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${isActive ? 'bg-white/20' : 'bg-slate-700'}`}>
+                      {count}
                     </span>
-                    {elective.status === 'passed' && (
-                      <CheckCircle size={22} className="text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,1)]" />
-                    )}
-                    {elective.status === 'active' && (
-                      <BookOpen size={22} className="text-blue-300 animate-pulse drop-shadow-[0_0_10px_rgba(147,197,253,1)]" />
-                    )}
-                    {elective.status === 'available' && (
-                      <Sparkles size={20} className="text-orange-400 drop-shadow-[0_0_8px_rgba(251,146,60,0.8)]" />
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1">
-                    <h4 className="font-bold text-lg text-white leading-tight mb-4 group-hover:text-orange-200 transition-colors line-clamp-2">
-                      {elective.name}
-                    </h4>
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="bg-black/40 px-3 py-1 rounded-md text-white/90 font-bold border border-white/10">
-                        {elective.credits} Credits
-                      </span>
-                      {elective.prereq && (
-                        <span className="text-xs bg-slate-700/60 px-2.5 py-1 rounded-md border border-slate-600 text-slate-200 font-medium">
-                          Req: {elective.prereq}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Badge for selected electives */}
-                  {Object.values(profile.customElectives || {}).some(electives =>
-                    Array.isArray(electives) && electives.includes(elective.id)
-                  ) && (
-                    <div className="absolute top-3 right-3">
-                      <span className="text-[10px] bg-orange-500 text-white px-2 py-1 rounded-full font-bold shadow-lg shadow-orange-500/50">
-                        SELECTED
-                      </span>
-                    </div>
-                  )}
-                </div>
-              ))}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* ✅ Courses — grouped by category or filtered */}
+            {activeElectiveCategory === 'all' ? (
+              // แสดงแบบแยกหมวด
+              <div className="space-y-12">
+                {ELECTIVE_CATEGORIES.filter(c => c.key !== 'all').map(cat => {
+                  const courses = processedElectives.filter(e => getElectiveCategory(e) === cat.key);
+                  if (courses.length === 0) return null;
+                  return (
+                    <div key={cat.key}>
+                      {/* Section Header */}
+                      <div className="flex items-center gap-4 mb-6">
+                        <div className={`flex items-center gap-3 bg-gradient-to-r ${cat.active} px-6 py-2.5 rounded-full shadow-lg`}>
+                          <span className="text-2xl">{cat.emoji}</span>
+                          <span className="text-white font-black text-lg">{cat.label}</span>
+                          <span className="bg-white/20 text-white text-xs font-bold px-2.5 py-1 rounded-full">{courses.length} วิชา</span>
+                        </div>
+                        <div className="flex-1 h-px bg-gradient-to-r from-white/10 to-transparent"></div>
+                      </div>
+                      {/* Grid */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {courses.map((elective) => (
+                          <ElectiveCard
+                            key={elective.id}
+                            elective={elective}
+                            profile={profile}
+                            navigate={navigate}
+                            getElectiveStatusClass={getElectiveStatusClass}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              // แสดงแค่หมวดที่เลือก
+              <div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {processedElectives
+                    .filter(e => getElectiveCategory(e) === activeElectiveCategory)
+                    .map((elective) => (
+                      <ElectiveCard
+                        key={elective.id}
+                        elective={elective}
+                        profile={profile}
+                        navigate={navigate}
+                        getElectiveStatusClass={getElectiveStatusClass}
+                      />
+                    ))
+                  }
+                </div>
+              </div>
+            )}
 
             {processedElectives.length === 0 && (
               <div className="text-center py-20">
