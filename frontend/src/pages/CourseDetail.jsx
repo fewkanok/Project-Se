@@ -160,40 +160,21 @@ const CourseDetail = () => {
 
   if (!course) return <div className="p-10 text-white text-center">Course not found</div>;
 
-  // Mock Data
+  // ✅ ดึงข้อมูลจาก course object โดยตรง (ไม่ใช้ Mock Data แล้ว)
   const courseDetails = {
-    description: course.type === 'elective' 
-      ? "วิชาเลือกเสรีที่ให้นักศึกษาได้เรียนรู้ตามความสนใจและความถนัด เพื่อเสริมทักษะเฉพาะด้านที่ต้องการพัฒนา หรือขยายองค์ความรู้ในสาขาที่หลากหลาย" 
-      : "วิชานี้เน้นการปูพื้นฐานกระบวนการคิดแบบคอมพิวเตอร์ การแก้ปัญหาด้วยอัลกอริทึม และโครงสร้างข้อมูลเบื้องต้น เหมาะสำหรับผู้เริ่มต้นที่ต้องการเข้าใจระบบการทำงานของโปรแกรมอย่างลึกซึ้ง",
-    professors: course.type === 'elective' 
-      ? ["Dr. Elective Expert", "Asst. Prof. Optional"] 
-      : ["Dr. Somsak", "Assoc. Prof. Manee"],
-    scoring: [
-      { label: "Midterm Exam", percent: 35, color: "bg-orange-500" },
-      { label: "Final Exam", percent: 35, color: "bg-red-500" },
-      { label: "Project & Labs", percent: 30, color: "bg-blue-500" },
+    description: course.description ?? 'ยังไม่มีคำอธิบายรายวิชานี้ในระบบ',
+    professors:  course.professors  ?? ['TBA'],
+    scoring:     course.scoring     ?? [
+      { label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' },
+      { label: 'Final Exam',   percent: 35, color: 'bg-red-500'    },
+      { label: 'Other',        percent: 30, color: 'bg-blue-500'   },
     ],
-    // ✅ หัวข้อที่เรียน
+    difficulty:   course.difficulty   ?? 0,
+    satisfaction: course.satisfaction ?? 0,
     topics: {
-      midterm: [
-        "Introduction to Programming Concepts",
-        "Variables, Data Types & Operators",
-        "Control Structures (If-else, Loops)",
-        "Functions & Recursion",
-        "Arrays & Strings Manipulation",
-        "Object-Oriented Programming Basics",
-        "Classes, Objects & Inheritance"
-      ],
-      final: [
-        "Polymorphism & Abstraction",
-        "File I/O Operations",
-        "Exception Handling & Debugging",
-        "Data Structures (Stack, Queue, Linked List)",
-        "Algorithms & Complexity Analysis",
-        "Design Patterns (Observer, Factory, Singleton)",
-        "Final Project: Full Application Development"
-      ]
-    }
+      midterm: course.topics?.midterm ?? ['TBA'],
+      final:   course.topics?.final   ?? ['TBA'],
+    },
   };
 
   return (
@@ -263,7 +244,34 @@ const CourseDetail = () => {
             )}
           </section>
 
-          
+          {/* Topics Covered */}
+          <section className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
+            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <CheckCircle className="text-green-400"/> Topics Covered
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-orange-300 font-bold mb-3 text-sm uppercase tracking-wider">📝 Midterm</h4>
+                <ul className="space-y-2">
+                  {courseDetails.topics.midterm.map((topic, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-slate-300 text-sm">
+                      <span className="text-orange-400 mt-0.5">▸</span> {topic}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div>
+                <h4 className="text-red-300 font-bold mb-3 text-sm uppercase tracking-wider">📝 Final</h4>
+                <ul className="space-y-2">
+                  {courseDetails.topics.final.map((topic, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-slate-300 text-sm">
+                      <span className="text-red-400 mt-0.5">▸</span> {topic}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </section>
 
           {/* Grading */}
           <section className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
@@ -504,12 +512,12 @@ const CourseDetail = () => {
           <div className="bg-black/40 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
             <h4 className="text-slate-400 mb-2 font-medium">Difficulty Level</h4>
             <div className="flex items-end gap-2 mb-2">
-              <span className="text-4xl font-black text-red-400">4.5</span>
+              <span className="text-4xl font-black text-red-400">{courseDetails.difficulty.toFixed(1)}</span>
               <span className="text-sm text-slate-500 mb-1">/ 5.0</span>
             </div>
             <div className="flex gap-1">
               {[1,2,3,4,5].map(star => (
-                 <div key={star} className={`h-1.5 flex-1 rounded-full ${star <= 4 ? 'bg-red-500' : 'bg-slate-700'}`}></div>
+                 <div key={star} className={`h-1.5 flex-1 rounded-full ${star <= Math.round(courseDetails.difficulty) ? 'bg-red-500' : 'bg-slate-700'}`}></div>
               ))}
             </div>
           </div>
@@ -518,11 +526,11 @@ const CourseDetail = () => {
           <div className="bg-black/40 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
             <h4 className="text-slate-400 mb-2 font-medium">Satisfaction</h4>
             <div className="flex items-end gap-2 mb-2">
-              <span className="text-4xl font-black text-emerald-400">4.8</span>
+              <span className="text-4xl font-black text-emerald-400">{courseDetails.satisfaction.toFixed(1)}</span>
               <span className="text-sm text-slate-500 mb-1">/ 5.0</span>
             </div>
             <div className="w-full bg-slate-700 h-1.5 rounded-full mt-2">
-                <div className="bg-emerald-400 h-1.5 rounded-full" style={{width: '96%'}}></div>
+                <div className="bg-emerald-400 h-1.5 rounded-full" style={{ width: `${(courseDetails.satisfaction / 5) * 100}%` }}></div>
             </div>
           </div>
 
