@@ -65,6 +65,7 @@ const Roadmap = () => {
   const [activeTab, setActiveTab] = useState('core'); // 'core' or 'elective'
   const [activeElectiveCategory, setActiveElectiveCategory] = useState('all');
   const [activeYear, setActiveYear] = useState(1);
+  const isClickScrolling = useRef(false);
   const navigate = useNavigate();
 
   // --- 1. Load User Data from LocalStorage ---
@@ -192,7 +193,18 @@ const Roadmap = () => {
       const el = document.getElementById(`year-section-${idx + 1}`);
       if (!el) return;
       const obs = new IntersectionObserver(
-        ([entry]) => { if (entry.isIntersecting) setActiveYear(idx + 1); },
+        ([entry]) => { 
+          // ✅ ไม่อัพเดท activeYear ถ้าผู้ใช้กำลัง manual scroll
+          if (entry.isIntersecting && !isClickScrolling.current) {
+            setActiveYear(idx + 1);
+          }
+          // รีเซ็ต flag หลังจากที่ scroll เสร็จสิ้น
+          if (entry.isIntersecting && isClickScrolling.current) {
+            setTimeout(() => {
+              isClickScrolling.current = false;
+            }, 1000);
+          }
+        },
         { threshold: 0.15 }
       );
       obs.observe(el);
@@ -512,12 +524,13 @@ const Roadmap = () => {
             <div className="sticky top-4 z-30 flex justify-center mb-12 pointer-events-none">
               <div className="relative pointer-events-auto flex items-center gap-0 bg-white/5 border border-white/10 rounded-full p-1 backdrop-blur-md">
 
-                {/* Sliding pill */}
+                {/* 🌟 แก้ไข Sliding pill ตรงนี้จุดเดียว 🌟 */}
                 <div
-                  className="absolute top-1 bottom-1 rounded-full bg-white/10 transition-all duration-300 ease-in-out"
+                  className="absolute top-1 bottom-1 rounded-full bg-white/10 transition-transform duration-300 ease-out"
                   style={{
-                    left: `calc(${(activeYear - 1) * 25}% + 4px)`,
-                    width: 'calc(25% - 2px)',
+                    width: '80px',
+                    left: '4px', // ล็อกจุดเริ่มต้นไว้ที่ขอบซ้าย + ค่า padding (p-1) ของกล่องแม่
+                    transform: `translateX(${(activeYear - 1) * 80}px)`, // สั่งเลื่อนแกน X แทน
                   }}
                 />
 
@@ -528,6 +541,7 @@ const Roadmap = () => {
                     <button
                       key={idx}
                       onClick={() => {
+                        isClickScrolling.current = true;
                         setActiveYear(yearNum);
                         const el = document.getElementById(`year-section-${yearNum}`);
                         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -538,7 +552,7 @@ const Roadmap = () => {
                         width: '80px',
                       }}
                     >
-                      ปี {yearNum}
+                      <span className="relative z-10">ปี {yearNum}</span>
                     </button>
                   );
                 })}
