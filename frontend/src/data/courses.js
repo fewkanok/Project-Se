@@ -433,44 +433,46 @@ export const roadmapData = [
         term: "Semester 1",
         courses: [
           {
-            id: 'PE1', code: 'PE-1', name: 'PROFESSIONAL ELECTIVE', credits: 3, prereq: null,
-            description: 'วิชาเลือกเฉพาะสาขา ให้นักศึกษาเลือกเรียนตามความสนใจและแนวทางอาชีพที่ต้องการ',
-            professors: ['TBA'], difficulty: 3.0, satisfaction: 4.0,
+            id: '040613151', code: '040613151', name: 'SELEC TOP IN COMP SCI I', credits: 3, prereq: null,
+            description: 'หัวข้อทางด้านวิทยาการคอมพิวเตอร์ ไม่ได้บรรจุอยู่ในวิชาที่เปิดสอนในหลักสูตร เพื่อให้ทันต่อการเปลี่ยนแปลงของวิทยาการคอมพิวเตอร์ในขณะนั้น',
+            professors: ['ผู้ช่วยศาสตราจารย์ ดร.อัครา ประโยชน์'], difficulty: 1.0, satisfaction: 4.0,
+            scoring: 
+            [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
+            topics: 
+            { midterm: ['TBA'], final: ['TBA'] },
+          },
+          {
+            id: '040613504', code: '040613504', name: 'INTER-NETWORKING TECHNOLOGY', credits: 3, prereq: '040613502',
+            description: 'การเชื่อมต่อระหว่างเครือข่าย โพรโทคอลจัดเส้นทาง การตั้งค่าเครือข่ายเบื้องต้น การออกแบบเครือข่ายเฉพาะที่ ความมั่นคงเครือข่าย โพรโทคอลจัดการเครือข่าย',
+            professors: ['อาจารย์ปรัชญาพร เลี้ยงสุทธิสกนธ์'], difficulty: 2.0, satisfaction: 4.0,
             scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
             topics: { midterm: ['TBA'], final: ['TBA'] },
           },
           {
-            id: 'PE2', code: 'PE-2', name: 'PROFESSIONAL ELECTIVE', credits: 3, prereq: null,
-            description: 'วิชาเลือกเฉพาะสาขา ให้นักศึกษาเลือกเรียนตามความสนใจและแนวทางอาชีพที่ต้องการ',
-            professors: ['TBA'], difficulty: 3.0, satisfaction: 4.0,
+            id: '040613604', code: '040613604', name: 'DIGITAL FORENSICS', credits: 3, prereq: ['040613504', '040613601'],
+            description: 'การจัดการพยานหลักฐาน ห่วงโซ่การคุ้มครองพยานหลักฐาน การรวบรวมพยานหลักฐานและการสำเนาข้อมูล การวิเคราะห์ข้อมูล ระเบียบวิธีการตรวจพิสูจน์นิติวิทยาศาสตร์คอมพิวเตอร์ การกู้คืนแฟ้มข้อมูลและพาร์ทิชันที่ถูกลบ นิติวิทยาศาสตร์ของการซ่อนข้อมูลและแฟ้มรูปภาพ การจัดการประวัติและความเกี่ยวข้องของเหตุการณ์ นิติวิทยาศาสตร์เครือข่าย การรายงานผลการตรวจพิสูจน์',
+            professors: ['ผู้ช่วยศาสตราจารย์ ดร.ธรรศฏภณ สุระศักดิ์'], difficulty: 3.0, satisfaction: 4.0,
             scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
             topics: { midterm: ['TBA'], final: ['TBA'] },
           },
           {
-            id: 'PE3', code: 'PE-3', name: 'PROFESSIONAL ELECTIVE', credits: 3, prereq: null,
+            id: '040613702', code: '040613702', name: 'MACHINE LEARNING', credits: 3, prereq: '040613701',
             description: 'วิชาเลือกเฉพาะสาขา ให้นักศึกษาเลือกเรียนตามความสนใจและแนวทางอาชีพที่ต้องการ',
-            professors: ['TBA'], difficulty: 3.0, satisfaction: 4.0,
+            professors: ['ผู้ช่วยศาสตราจารย์ ดร.ลือพล พิพานเมฆาภรณ์', 'อาจารย์ ดร.ยนต์ชนก เขาแก้ว'], difficulty: 3.0, satisfaction: 4.0,
             scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
             topics: { midterm: ['TBA'], final: ['TBA'] },
           },
           {
-            id: 'PE4', code: 'PE-4', name: 'PROFESSIONAL ELECTIVE', credits: 3, prereq: null,
-            description: 'วิชาเลือกเฉพาะสาขา ให้นักศึกษาเลือกเรียนตามความสนใจและแนวทางอาชีพที่ต้องการ',
-            professors: ['TBA'], difficulty: 3.0, satisfaction: 4.0,
-            scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
-            topics: { midterm: ['TBA'], final: ['TBA'] },
-          },
-          {
-            id: 'SCI2', code: 'SCI-2', name: 'SCIENCES & MATH ELECTIVE', credits: 3, prereq: null,
+            id: 'BIOLOGY IN DAILY LIFE', code: '040413001', name: 'BIOLOGY IN DAILY LIFE', credits: 3, prereq: null,
             description: 'วิชาเลือกด้านวิทยาศาสตร์และคณิตศาสตร์ เพื่อเสริมพื้นฐานทางวิทยาศาสตร์',
             professors: ['TBA'], difficulty: 3.0, satisfaction: 3.5,
             scoring: [{ label: 'Midterm Exam', percent: 40, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 40, color: 'bg-red-500' }, { label: 'Assignments', percent: 20, color: 'bg-blue-500' }],
             topics: { midterm: ['TBA'], final: ['TBA'] },
           },
           {
-            id: 'LANG2', code: 'LANG-2', name: 'LANGUAGE ELECTIVE', credits: 3, prereq: null,
-            description: 'วิชาเลือกด้านภาษา เพื่อเพิ่มทักษะการสื่อสารในระดับสากล',
-            professors: ['TBA'], difficulty: 2.5, satisfaction: 4.0,
+            id: '080103030', code: '080103030', name: 'STRATEGIC READING', credits: 3, prereq: ['080103002'],
+            description: 'กลยุทธ์การอ่าน การพัฒนาความสามารถด้านการอ่านโดยเน้นเนื้อหาเชิงวิชาการ',
+            professors: ['อาจารย์วรางคณา แซ่เจ็ง', 'อาจารย์ ดร.พรสวรรค์ เจนพึ่งพร','อาจารย์ ดร.อริยาธรณ์ ฟองไพบูลย์','อาจารย์ ดร.อัญชกาญจน์ เอี่ยมทองอินทร์'], difficulty: 2.5, satisfaction: 4.0,
             scoring: [{ label: 'Midterm Exam', percent: 30, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 30, color: 'bg-red-500' }, { label: 'Participation', percent: 40, color: 'bg-yellow-500' }],
             topics: { midterm: ['TBA'], final: ['TBA'] },
           },
@@ -480,23 +482,23 @@ export const roadmapData = [
         term: "Semester 2",
         courses: [
           {
-            id: 'PE5', code: 'PE-5', name: 'PROFESSIONAL ELECTIVE', credits: 3, prereq: null,
-            description: 'วิชาเลือกเฉพาะสาขา ให้นักศึกษาเลือกเรียนตามความสนใจและแนวทางอาชีพที่ต้องการ',
-            professors: ['TBA'], difficulty: 3.0, satisfaction: 4.0,
+            id: '040613304', code: '040613304', name: 'PROJECT MANAGEMENT', credits: 3, prereq: ['040613302'],
+            description: 'วัฏจักรชีวิตของโครงการ การกำหนดและเริ่มต้นโครงการ การวางแผนโครงการ แผนภาพการจัดตารางเวลาโครงการภายใต้ข้อจำกัดทางทรัพยากร การปฏิบัติโครงการ การปิดโครงการกระบวนการพัฒนาแบบอใจล์',
+            professors: ['อาจารย์ณัฐวุฒิ สร้อยดอกสน'], difficulty: 3.0, satisfaction: 4.0,
             scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
             topics: { midterm: ['TBA'], final: ['TBA'] },
           },
           {
-            id: 'PE6', code: 'PE-6', name: 'PROFESSIONAL ELECTIVE', credits: 3, prereq: null,
-            description: 'วิชาเลือกเฉพาะสาขา ให้นักศึกษาเลือกเรียนตามความสนใจและแนวทางอาชีพที่ต้องการ',
-            professors: ['TBA'], difficulty: 3.0, satisfaction: 4.0,
+            id: '040613602', code: '040613602', name: 'NETWORK SECURITY', credits: 3, prereq: ['040613502', '040613601'],
+            description: 'แนวคิดด้านความมั่นคงของเครือข่าย วิทยาการรหัสลับและการกระจายคีย์ การพิสูจน์ตัวจริงความมั่นคงของเว็บและระดับชั้นขนส่ง ซอฟต์แวร์ประสงค์ร้าย ระบบตรวจจับการบุกรุก ฮันนีพอตและไฟร์วอลล์ ความมั่นคงของเครือข่ายไร้สาย การจัดการความมั่นคงเครือข่า',
+            professors: ['รองศาสตราจารย์ ดร.ธนภัทร์ อนุศาสน์อมรกุล'], difficulty: 3.0, satisfaction: 4.0,
             scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
             topics: { midterm: ['TBA'], final: ['TBA'] },
           },
           {
-            id: 'PE7', code: 'PE-7', name: 'PROFESSIONAL ELECTIVE', credits: 3, prereq: null,
-            description: 'วิชาเลือกเฉพาะสาขา ให้นักศึกษาเลือกเรียนตามความสนใจและแนวทางอาชีพที่ต้องการ',
-            professors: ['TBA'], difficulty: 3.0, satisfaction: 4.0,
+            id: '040613902', code: '040613902', name: 'INTERNET OF THINGS', credits: 3, prereq: ['040613201'],
+            description: 'สถาปัตยกรรมไอโอที องค์ประกอบไอโอที เซ็นเซอร์ ตัวกระทำ ส่วนต่อประสานระหว่างองค์ประกอบ การออกแบบและพัฒนาระบบไอโอที การเชื่อมต่อระบบเครือข่าย โพรโทคอลและการสื่อสารฐานข้อมูล เครื่องแม่ข่ายและคลาวน์สำหรับการบริการ ความมั่นคงและความเป็นส่วนตั',
+            professors: ['รองศาสตราจารย์ ดร.กอบเกียรติ สระอุบล'], difficulty: 3.0, satisfaction: 4.0,
             scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
             topics: { midterm: ['TBA'], final: ['TBA'] },
           },
@@ -532,11 +534,15 @@ export const roadmapData = [
             },
           },
           {
-            id: 'LANG3', code: 'LANG-3', name: 'LANGUAGE ELECTIVE', credits: 3, prereq: null,
-            description: 'วิชาเลือกด้านภาษา เพื่อเพิ่มทักษะการสื่อสารในระดับสากล',
-            professors: ['TBA'], difficulty: 2.5, satisfaction: 4.0,
-            scoring: [{ label: 'Midterm Exam', percent: 30, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 30, color: 'bg-red-500' }, { label: 'Participation', percent: 40, color: 'bg-yellow-500' }],
-            topics: { midterm: ['TBA'], final: ['TBA'] },
+            id: '080103034', code: '080103034-3', name: 'ENGLISH CONVERSATION', credits: 3, prereq: '080103002',
+            description: 
+            'ทักษะการสื่อสารภาษาอังกฤษ โดยเน้นการพูด การฟัง และการออกเสียง การสนทนาภาษาอังกฤษในสถานการณ์ต่าง ๆ ในชีวิตประจำวั',
+            professors: 
+            ['อาจารย์Khagendra Raj Dhakal', 'อาจารย์ธานินทร์ วีระเดช','อาจารย์ธานี เขียดทอง','อาจารย์วิโรจน์ อัศวจารุพันธุ์'], difficulty: 2.5, satisfaction: 4.0,
+            scoring: 
+            [{ label: 'Midterm Exam', percent: 30, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 30, color: 'bg-red-500' }, { label: 'Participation', percent: 40, color: 'bg-yellow-500' }],
+            topics: 
+            { midterm: ['TBA'], final: ['TBA'] },
           },
         ]
       }
