@@ -302,9 +302,9 @@ export const roadmapData = [
             },
           },
           {
-            id: '08xxxxxxx', code: '08xxxxxxx', name: 'LANGUAGE ELECTIVE', credits: 3, prereq: null,
-            description: 'วิชาเลือกด้านภาษา เช่น ภาษาอังกฤษเทคนิค ภาษาญี่ปุ่น ภาษาจีน หรือการสื่อสารเพื่อธุรกิจ เพื่อเพิ่มทักษะการสื่อสารในระดับสากล',
-            professors: ['TBA'],
+            id: '080103001', code: '080103001', name: 'ENGLISH I', credits: 3, prereq: null,
+            description: 'ทักษะการฟัง การพูด การอ่าน และการเขียน การสื่อสารในงานและกิจวัตรประจำวันแบบง่าย การอ่านย่อหน้าแบบสั้น การเขียนประโยค และการฝึกภาษาทางอินเตอร์เนตเพิ่มเติม',
+            professors: ['อาจารย์วรางคณา แซ่เจ็ง', 'อาจารย์Khagendra Raj Dhakal', 'อาจารย์กรกฎ ก่ำแก้ว'],
             difficulty: 2.5,
             satisfaction: 4.0,
             scoring: [
@@ -405,9 +405,9 @@ export const roadmapData = [
             },
           },
           {
-            id: '08xxxxxxx-2', code: '08xxxxxxx', name: 'LANGUAGE ELECTIVE', credits: 3, prereq: null,
+            id: '080103002', code: '080103002', name: 'ENGLISH II', credits: 3, prereq: '080103001',
             description: 'วิชาเลือกด้านภาษา เช่น ภาษาอังกฤษเทคนิค ภาษาญี่ปุ่น ภาษาจีน หรือการสื่อสารเพื่อธุรกิจ เพื่อเพิ่มทักษะการสื่อสารในระดับสากล',
-            professors: ['TBA'],
+            professors: ['อาจารย์วรางคณา แซ่เจ็ง', 'อาจารย์Khagendra Raj Dhakal', 'อาจารย์กรกฎ ก่ำแก้ว'],
             difficulty: 2.5,
             satisfaction: 4.0,
             scoring: [
@@ -445,8 +445,9 @@ export const roadmapData = [
             id: '040613504', code: '040613504', name: 'INTER-NETWORKING TECHNOLOGY', credits: 3, prereq: '040613502',
             description: 'การเชื่อมต่อระหว่างเครือข่าย โพรโทคอลจัดเส้นทาง การตั้งค่าเครือข่ายเบื้องต้น การออกแบบเครือข่ายเฉพาะที่ ความมั่นคงเครือข่าย โพรโทคอลจัดการเครือข่าย',
             professors: ['อาจารย์ปรัชญาพร เลี้ยงสุทธิสกนธ์'], difficulty: 2.0, satisfaction: 4.0,
-            scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
-            topics: { midterm: ['TBA'], final: ['TBA'] },
+            scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'QUIZ 1', percent: 10, color: 'bg-blue-500' } ,{ label: 'QUIZ 2', percent: 10, color: 'bg-blue-500' },{ label: 'งานที่ได้รับมอบหมาย', percent: 10, color: 'bg-blue-500' }],
+            topics: { midterm: ['ทบทวนหัวข้อที่สำคัญในรายวิชาเครือข่ายคอมพิวเตอร์','Routers & Basic Router Configuration','Static Routing vs Dynamic Routing Protocols','Dynamic Routing Protocol: RIP','Dynamic Routing: OSPF','Dynamic Host Configuration Protocol','Local Area Network'], 
+              final: ['Virtual LAN','Traffic Filtering: Standard ACLs','Traffic Filtering: Extended ACLs','Network Address Translation & Default Static Route','Simple Network Management Protocol','Review/Presentation'] },
           },
           {
             id: '040613604', code: '040613604', name: 'DIGITAL FORENSICS', credits: 3, prereq: ['040613504', '040613601'],
@@ -485,9 +486,16 @@ export const roadmapData = [
             id: '040613304', code: '040613304', name: 'PROJECT MANAGEMENT', credits: 3, prereq: ['040613302'],
             description: 'วัฏจักรชีวิตของโครงการ การกำหนดและเริ่มต้นโครงการ การวางแผนโครงการ แผนภาพการจัดตารางเวลาโครงการภายใต้ข้อจำกัดทางทรัพยากร การปฏิบัติโครงการ การปิดโครงการกระบวนการพัฒนาแบบอใจล์',
             professors: ['อาจารย์ณัฐวุฒิ สร้อยดอกสน'], difficulty: 3.0, satisfaction: 4.0,
-            scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
-            topics: { midterm: ['TBA'], final: ['TBA'] },
-          },
+            scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, 
+              { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, 
+              { label: 'การบ้านหรืองานที่มอบหมาย + ความมีส่วนร่วมในชั้นเรียน', percent: 30, color: 'bg-blue-500' }],
+            topics: 
+            { midterm: ['แนะนํารายวิชา (Course Outline)','ภาพรวมของการบริหารโครงการ (Project Management Overview)', 
+              'วัฎจักรชีวิตของโครงการ (Project Life Cycle)', 'ผู้บริหารโครงการ (Project manager)', 'ระบบสารสนเทศ (Information Systems)', 
+              'วัฎจักรชีวิตในการพัฒนาระบบ 1 (System Development Life Cycle I)', 'วัฎจักรชีวิตในการพัฒนาระบบ 2 (System Development Life Cycle 2)', 
+              'การกําหนดและเริ่มต้นโครงการ (Defining the Project)', 'การวางแผนโครงการ (Planning the Project)', 'การศึกษาความเป็นไปได้ของโครงการ (Project feasibility)','การศึกษาความเป็นไปได้ของโครงการ (Project feasibility)' ], 
+              final: ['การกําหนดเวลางานโครงการ (Project Scheduling)', 'การสร้างแผนงานแบบแผนภูมิแกนต์ (GANTT Chart)', 'การกําหนดเวลาโครงการด้วยวิธีข่ายงานนําหน้า (Precedence Diagram Method)', 'การกําหนดเวลาโครงการด้วยวิธีสายงานวิกฤติ (Critical Path Method)', 
+                'การกําหนดเวลางานโครงการภายใต้ทรัพยากรจํากัด (Project Scheduling withResource Constraints)','การกําหนดเวลางานโครงการภายใต้ทรัพยากรจํากัด (Project Scheduling withResource Constraints)','การกําหนดเวลางานโดยวิธี PERTการเร่งโครงการ (Reducing Project Time)','การเร่งโครงการ (Reducing Project Time)'] },},
           {
             id: '040613602', code: '040613602', name: 'NETWORK SECURITY', credits: 3, prereq: ['040613502', '040613601'],
             description: 'แนวคิดด้านความมั่นคงของเครือข่าย วิทยาการรหัสลับและการกระจายคีย์ การพิสูจน์ตัวจริงความมั่นคงของเว็บและระดับชั้นขนส่ง ซอฟต์แวร์ประสงค์ร้าย ระบบตรวจจับการบุกรุก ฮันนีพอตและไฟร์วอลล์ ความมั่นคงของเครือข่ายไร้สาย การจัดการความมั่นคงเครือข่า',
