@@ -864,6 +864,9 @@ const Roadmap = () => {
     });
   }, [profile]);
 
+  // Filter out the special "Track Courses" year so it doesn't render in the main UI
+  const visibleRoadmap = processedRoadmap.filter(y => y.year !== 'Track Courses');
+
   const processedElectives = useMemo(() => {
     return electiveCourses.map(elective => {
       let status = 'available';
@@ -878,7 +881,7 @@ const Roadmap = () => {
     if (!containerRef.current || activeTab !== 'core') return;
     const newLines = [];
     const containerRect = containerRef.current.getBoundingClientRect();
-    processedRoadmap.forEach(year => {
+    visibleRoadmap.forEach(year => {
       year.semesters.forEach(sem => {
         sem.courses.forEach(course => {
           if (course.prereq) {
@@ -905,7 +908,7 @@ const Roadmap = () => {
   useEffect(() => {
     if (activeTab !== 'core') return;
     const observers = [];
-    processedRoadmap.forEach((_, idx) => {
+    visibleRoadmap.forEach((_, idx) => {
       const el = document.getElementById(`year-section-${idx + 1}`);
       if (!el) return;
       const obs = new IntersectionObserver(([entry]) => { if (entry.isIntersecting) setActiveYear(idx + 1); }, { threshold:0.15 });
@@ -931,12 +934,12 @@ const Roadmap = () => {
     if (!courseId) return { related:new Set(), direction:null };
     const related = new Set([courseId]);
     let hasPrereq = false;
-    processedRoadmap.forEach(year => year.semesters.forEach(sem => sem.courses.forEach(course => {
+    visibleRoadmap.forEach(year => year.semesters.forEach(sem => sem.courses.forEach(course => {
       if (course.id === courseId && course.prereq) hasPrereq = true;
     })));
     if (hasPrereq) {
       const findPrereqs = (id) => {
-        processedRoadmap.forEach(year => year.semesters.forEach(sem => sem.courses.forEach(course => {
+        visibleRoadmap.forEach(year => year.semesters.forEach(sem => sem.courses.forEach(course => {
           if (course.id === id && course.prereq) { related.add(course.prereq); findPrereqs(course.prereq); }
         })));
       };
@@ -944,7 +947,7 @@ const Roadmap = () => {
       return { related, direction:'backward' };
     } else {
       const findDependents = (id) => {
-        processedRoadmap.forEach(year => year.semesters.forEach(sem => sem.courses.forEach(course => {
+        visibleRoadmap.forEach(year => year.semesters.forEach(sem => sem.courses.forEach(course => {
           if (course.prereq === id) { related.add(course.id); findDependents(course.id); }
         })));
       };
@@ -1178,7 +1181,7 @@ const Roadmap = () => {
                   className="absolute top-1 bottom-1 rounded-full bg-white/10 transition-all duration-300 ease-in-out"
                   style={{ left:`calc(${(Math.min(activeYear,4)-1)*25}% + 4px)`, width:'calc(25% - 2px)' }}
                 />
-                {processedRoadmap.slice(0,4).map((yearGroup, idx) => {
+                {visibleRoadmap.slice(0,4).map((yearGroup, idx) => {
                   const yearNum = idx + 1;
                   const isActive = activeYear === yearNum;
                   return (
@@ -1201,7 +1204,7 @@ const Roadmap = () => {
 
             {/* Core Courses Grid */}
             <div className="space-y-32 relative z-10">
-              {processedRoadmap.map((yearGroup, yearIdx) => (
+              {visibleRoadmap.map((yearGroup, yearIdx) => (
                 <div key={yearIdx} id={`year-section-${yearIdx+1}`} className="relative">
                   <div className="sticky top-20 z-20 flex justify-start mb-12">
                     <div className="bg-gradient-to-r from-slate-800/95 via-slate-800/90 to-transparent backdrop-blur-xl border-2 border-slate-600/50 px-8 py-3 rounded-r-full shadow-2xl">
@@ -1277,7 +1280,7 @@ const Roadmap = () => {
                                       </span>
                                       {course.prereq && (
                                         <span className="text-xs bg-slate-700/60 px-2.5 py-1 rounded-md border border-slate-600 text-slate-200 font-medium">
-                                          Req: {course.prereq}
+                                          Req: {course.prereq} // aa
                                         </span>
                                       )}
                                     </div>
