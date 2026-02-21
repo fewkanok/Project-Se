@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil, Plus, Trash2, Search, Save } from 'lucide-react';
 import { roadmapData } from '../data/courses';
-// ✅ Import ให้ตรงกับไฟล์จริง
 import { electiveCourses } from '../data/electiveCourses';
+import { courses as allTrackCourses, tracks } from '../data/courseData';
 
 const SetupProfile = () => {
   const navigate = useNavigate();
@@ -92,6 +92,22 @@ const SetupProfile = () => {
     }
   });
 
+  // State: PE Slot Assignments { 'PE1': 'courseCode', 'PE2': 'courseCode', ... }
+  const [peAssignments, setPeAssignments] = useState(() => {
+    try {
+        return savedData?.peAssignments || {};
+    } catch (error) {
+        console.error('Error loading PE assignments:', error);
+        return {};
+    }
+  });
+
+  // State: PE Modal
+  const [showPeModal, setShowPeModal] = useState(false);
+  const [activePeSlotId, setActivePeSlotId] = useState(null); // 'PE1', 'PE2', ...
+  const [selectedTrack, setSelectedTrack] = useState(null);   // track id string
+  const [peSearchTerm, setPeSearchTerm] = useState('');
+
   // State: Modal
   const [showElectiveModal, setShowElectiveModal] = useState(false);
   const [activeTermKey, setActiveTermKey] = useState(null);
@@ -148,6 +164,7 @@ const SetupProfile = () => {
           learningCourses: Object.keys(dataToSave.courseStates).filter(id => dataToSave.courseStates[id] === 'learning'),
           courseStates: dataToSave.courseStates,
           customElectives: dataToSave.customElectives || {},
+          peAssignments: dataToSave.peAssignments || {},
           maxYear: dataToSave.maxYear || 4,
           totalCredits: dataToSave.totalCredits || 0,
           lastUpdated: new Date().toISOString()
@@ -176,11 +193,11 @@ const SetupProfile = () => {
     }
     
     try {
-        autoSave({ basicInfo, courseStates, customElectives, gpaHistory, maxYear, totalCredits });
+        autoSave({ basicInfo, courseStates, customElectives, peAssignments, gpaHistory, maxYear, totalCredits });
     } catch (error) {
         console.error('Error in auto-save effect:', error);
     }
-  }, [basicInfo, courseStates, customElectives, gpaHistory, totalCredits]);
+  }, [basicInfo, courseStates, customElectives, peAssignments, gpaHistory, totalCredits]);
 
   const hasUserInteracted = useRef(false);
 
@@ -385,7 +402,10 @@ const SetupProfile = () => {
           }
           
           const currentState = courseStates[courseId];
-          const courseObj = findCourseById(courseId) || electiveCourses.find(e => e.id === courseId);
+          // ค้นหาวิชาจากทุก source รวมถึง PE track courses
+          const courseObj = findCourseById(courseId) 
+              || electiveCourses.find(e => e.id === courseId)
+              || allTrackCourses[courseId];
           
           if (!courseObj) {
               console.error('Course not found:', courseId);
@@ -399,10 +419,19 @@ const SetupProfile = () => {
 
           if (nextState === 'passed' || nextState === 'learning') {
               if (courseObj?.prereq) {
-                  const prereqState = courseStates[courseObj.prereq];
-                  if (prereqState !== 'passed') {
-                      const prereqCourse = findCourseById(courseObj.prereq) || electiveCourses.find(e => e.id === courseObj.prereq);
-                      alert(`Cannot select this course! You must pass "${prereqCourse?.name || courseObj.prereq}" first.`);
+                  const prereqCode = courseObj.prereq;
+                  // เช็ค prereq แบบครบ: courseStates + peAssignments (PE courses ที่วางแผนไว้)
+                  const prereqInCourseStates = courseStates[prereqCode] === 'passed' || courseStates[prereqCode] === 'learning';
+                  const prereqInPeSlot = Object.values(peAssignments).includes(prereqCode);
+                  const prereqSatisfied = prereqInCourseStates || prereqInPeSlot;
+                  
+                  if (!prereqSatisfied) {
+                      // หาชื่อวิชา prereq จากทุก source
+                      const prereqCourse = findCourseById(prereqCode)
+                          || electiveCourses.find(e => e.id === prereqCode)
+                          || allTrackCourses[prereqCode];
+                      const prereqName = prereqCourse?.name || prereqCode;
+                      alert(`ต้องผ่าน "${prereqName}" ก่อนจึงจะลงวิชานี้ได้`);
                       return;
                   }
               }
@@ -644,6 +673,7 @@ const SetupProfile = () => {
             learningCourses,
             courseStates,
             customElectives,
+            peAssignments,
             maxYear,
             totalCredits, 
             lastUpdated: new Date().toISOString() 
@@ -668,25 +698,160 @@ const SetupProfile = () => {
 
   const getFilteredElectives = () => {
     try {
-        if (!Array.isArray(electiveCourses)) {
-            console.error('Elective courses data is invalid');
-            return [];
-        }
-        
+        if (!Array.isArray(electiveCourses)) return [];
         return electiveCourses.filter(elective => {
             if (!elective || typeof elective !== 'object') return false;
-            
             const searchLower = electiveSearchTerm.toLowerCase().trim();
-            const matchesSearch = !searchLower || 
-                (elective.name && elective.name.toLowerCase().includes(searchLower)) || 
+            return !searchLower ||
+                (elective.name && elective.name.toLowerCase().includes(searchLower)) ||
                 (elective.code && elective.code.toLowerCase().includes(searchLower));
-            
-            return matchesSearch;
         });
-    } catch (error) {
-        console.error('Error filtering electives:', error);
-        return [];
+    } catch (error) { return []; }
+  };
+
+  // --- PE (Professional Elective) Handlers ---
+  const openPeModal = (peSlotId) => {
+    setActivePeSlotId(peSlotId);
+    setSelectedTrack(null);
+    setPeSearchTerm('');
+    setShowPeModal(true);
+  };
+
+  // วิชาที่ assign ไปแล้ว (ทุก slot รวมกัน)
+  const getAllAssignedCourseCodes = () => Object.values(peAssignments);
+
+  // วิชาที่ filter จาก track ที่เลือก + ค้นหา + ยังไม่ถูก assign
+  const getFilteredTrackCourses = () => {
+    if (!selectedTrack) return [];
+    const track = tracks.find(t => t.id === selectedTrack);
+    if (!track) return [];
+
+    // รวม code ทุกตัวจาก track
+    const trackCodes = new Set();
+    track.chains.forEach(chain => {
+      chain.forEach(item => {
+        if (item !== 'arrow') trackCodes.add(item.replace('*', ''));
+      });
+    });
+
+    const assigned = getAllAssignedCourseCodes();
+    const currentAssignedInThisSlot = peAssignments[activePeSlotId];
+
+    // หมายเลข slot ปัจจุบัน เช่น 'PE2' → 2
+    const currentSlotNum = parseInt(activePeSlotId?.replace(/\D/g, '') || '0');
+
+    // ฟังก์ชันเช็คว่า prereq "ผ่าน" หรือยัง
+    // prereq ถือว่าผ่านถ้า:
+    //   1) เรียนผ่านแล้วใน courseStates (passed/learning)
+    //   2) ถูก assign ใน PE slot ที่มีหมายเลข < currentSlotNum
+    const isPrereqSatisfied = (prereqCode) => {
+      if (!prereqCode) return true;
+      if (courseStates[prereqCode] === 'passed' || courseStates[prereqCode] === 'learning') return true;
+      const prereqSlotEntry = Object.entries(peAssignments).find(([, code]) => code === prereqCode);
+      if (!prereqSlotEntry) return false;
+      const prereqSlotNum = parseInt(prereqSlotEntry[0].replace(/\D/g, '') || '999');
+      return prereqSlotNum < currentSlotNum;
+    };
+
+    // หา prereq name เพื่อแสดงในการ์ด
+    const getPrereqName = (prereqCode) => {
+      if (!prereqCode) return null;
+      const c = allTrackCourses[prereqCode];
+      return c ? c.name : prereqCode;
+    };
+
+    // สร้าง object พร้อม status สำหรับแต่ละวิชา
+    const results = Array.from(trackCodes)
+      .map(code => allTrackCourses[code])
+      .filter(Boolean)
+      .map(course => {
+        const isCurrentSlot = course.code === currentAssignedInThisSlot;
+        const isAssignedElsewhere = !isCurrentSlot && assigned.includes(course.code);
+        const isAlreadyPassed = courseStates[course.code] === 'passed';
+        const prereqOk = isPrereqSatisfied(course.prereq);
+
+        // ซ่อนถ้าถูก assign ที่ slot อื่น หรือ passed แล้ว
+        if (isAssignedElsewhere || isAlreadyPassed) return null;
+
+        // สถานะ
+        let status = 'available'; // ลงได้
+        let lockReason = null;
+        if (isCurrentSlot) {
+          status = 'selected';
+        } else if (!prereqOk) {
+          status = 'locked';
+          const prereqName = getPrereqName(course.prereq);
+          // หาว่า prereq อยู่ที่ slot ไหน (ถ้า assign ไว้แล้ว)
+          const prereqSlotEntry = Object.entries(peAssignments).find(([, c]) => c === course.prereq);
+          if (prereqSlotEntry) {
+            lockReason = `ต้องลง "${prereqName}" (${prereqSlotEntry[0]}) ก่อน`;
+          } else {
+            lockReason = `ต้องผ่าน "${prereqName || course.prereq}" ก่อน`;
+          }
+        }
+
+        // filter search (ยกเว้นที่ selected ให้โชว์เสมอ)
+        const searchLower = peSearchTerm.toLowerCase().trim();
+        if (searchLower && status !== 'selected') {
+          const match =
+            course.name?.toLowerCase().includes(searchLower) ||
+            course.nameEn?.toLowerCase().includes(searchLower) ||
+            course.code?.toLowerCase().includes(searchLower);
+          if (!match) return null;
+        }
+
+        return { ...course, status, lockReason };
+      })
+      .filter(Boolean);
+
+    // เรียงลำดับ: selected → available → locked
+    const order = { selected: 0, available: 1, locked: 2 };
+    return results.sort((a, b) => order[a.status] - order[b.status]);
+  };
+
+  // ฟังก์ชัน cascade: ถ้าลบ courseCode ออกจาก slot → ลบ PE ทุกตัวที่ต้องการมันเป็น prereq ด้วย (ทอดต่อกันไป)
+  const cascadeRemovePeAssignments = (removedCourseCode, assignments) => {
+    let updated = { ...assignments };
+    let changed = true;
+    while (changed) {
+      changed = false;
+      const currentValues = Object.values(updated); // codes ที่ยังอยู่
+      for (const [slotId, code] of Object.entries(updated)) {
+        const course = allTrackCourses[code];
+        if (course?.prereq && !currentValues.includes(course.prereq)) {
+          // prereq ของวิชานี้หายไปจาก assignments แล้ว → เช็คว่า prereq อยู่ใน courseStates ไหม
+          const prereqInStates = courseStates[course.prereq] === 'passed' || courseStates[course.prereq] === 'learning';
+          if (!prereqInStates) {
+            delete updated[slotId];
+            changed = true;
+          }
+        }
+      }
     }
+    return updated;
+  };
+
+  const handleSelectPeCourse = (courseCode) => {
+    const currentInSlot = peAssignments[activePeSlotId];
+    if (currentInSlot === courseCode) {
+      // toggle ออก → cascade ลบ PE ที่ depend ด้วย
+      const afterRemove = { ...peAssignments };
+      delete afterRemove[activePeSlotId];
+      setPeAssignments(cascadeRemovePeAssignments(courseCode, afterRemove));
+    } else {
+      setPeAssignments(prev => ({ ...prev, [activePeSlotId]: courseCode }));
+    }
+    setShowPeModal(false);
+    setPeSearchTerm('');
+    setSelectedTrack(null);
+  };
+
+  const handleRemovePeAssignment = (peSlotId) => {
+    const removedCode = peAssignments[peSlotId];
+    const afterRemove = { ...peAssignments };
+    delete afterRemove[peSlotId];
+    // cascade ลบ PE ที่ต้องการวิชานี้เป็น prereq ด้วย
+    setPeAssignments(cascadeRemovePeAssignments(removedCode, afterRemove));
   };
 
   return (
@@ -793,8 +958,9 @@ const SetupProfile = () => {
                         <h4 className={`text-sm font-bold leading-tight ${
                           alreadySelected ? 'text-slate-400' : 'text-white group-hover:text-orange-300'
                         }`}>
-                          {elective.name}
+                          {elective.nameEn || elective.name}
                         </h4>
+                        <p className="text-[10px] text-slate-600 mt-0.5 leading-tight">{elective.nameEn ? elective.name : ''}</p>
                         
                         {!alreadySelected && (
                           <div className="absolute inset-0 rounded-xl bg-gradient-to-br from-orange-500/0 to-purple-500/0 group-hover:from-orange-500/5 group-hover:to-purple-500/5 pointer-events-none transition-all"></div>
@@ -819,6 +985,180 @@ const SetupProfile = () => {
               <div className="text-xs text-slate-500">
                 คลิกเพื่อเลือกวิชาที่ต้องการ
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══════ PE (PROFESSIONAL ELECTIVE) MODAL ══════ */}
+      {showPeModal && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+          <div className="bg-gradient-to-br from-[#0a0a0a] via-[#0f0f0f] to-[#0a0a0a] border border-purple-500/30 rounded-3xl max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-2xl shadow-purple-500/20 flex flex-col">
+
+            {/* Header */}
+            <div className="p-6 border-b border-white/10 bg-gradient-to-r from-purple-500/10 via-transparent to-blue-500/10 shrink-0">
+              <div className="flex justify-between items-start mb-1">
+                <div>
+                  <h3 className="text-2xl font-black text-white flex items-center gap-2">
+                    <GraduationCap className="text-purple-400" size={28}/>
+                    เลือกวิชาเลือกเอก
+                  </h3>
+                  <p className="text-slate-400 text-sm mt-1">
+                    Slot: <span className="font-mono text-purple-400 font-bold">{activePeSlotId}</span>
+                    {peAssignments[activePeSlotId] && (
+                      <span className="ml-2 text-emerald-400 text-xs">● เลือกแล้ว: <b>{allTrackCourses[peAssignments[activePeSlotId]]?.nameEn || allTrackCourses[peAssignments[activePeSlotId]]?.name || peAssignments[activePeSlotId]}</b></span>
+                    )}
+                  </p>
+                </div>
+                <button onClick={() => { setShowPeModal(false); setPeSearchTerm(''); setSelectedTrack(null); }}
+                  className="text-slate-400 hover:text-white hover:bg-white/10 p-2 rounded-full transition-all">
+                  <XCircle size={28}/>
+                </button>
+              </div>
+            </div>
+
+            {/* Step 1: เลือก Track */}
+            {!selectedTrack ? (
+              <div className="p-6 overflow-y-auto flex-1">
+                <p className="text-slate-400 text-sm mb-5 font-bold uppercase tracking-wider">Step 1 — เลือกสาย (Track)</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {tracks.map(track => (
+                    <button key={track.id} onClick={() => setSelectedTrack(track.id)}
+                      className="group p-5 rounded-2xl border-2 text-left transition-all hover:scale-[1.03] hover:-translate-y-1"
+                      style={{ borderColor: track.color + '60', background: track.color + '12' }}>
+                      <div className="text-3xl mb-2">{track.icon}</div>
+                      <div className="font-black text-white text-base group-hover:opacity-90" style={{ color: track.color }}>{track.label}</div>
+                      <div className="text-xs text-slate-500 mt-1">
+                        {(() => {
+                          const codes = new Set();
+                          track.chains.forEach(chain => chain.forEach(item => { if (item !== 'arrow') codes.add(item.replace('*','')); }));
+                          return codes.size;
+                        })()} วิชา
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              /* Step 2: เลือกวิชาจาก Track ที่เลือก */
+              <div className="flex flex-col flex-1 overflow-hidden">
+                {/* Track header + search */}
+                <div className="p-4 border-b border-white/10 shrink-0 flex items-center gap-3 flex-wrap">
+                  <button onClick={() => setSelectedTrack(null)}
+                    className="flex items-center gap-1 text-slate-400 hover:text-white text-sm font-bold px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-all">
+                    ← กลับ
+                  </button>
+                  <span className="text-sm font-bold" style={{ color: tracks.find(t=>t.id===selectedTrack)?.color }}>
+                    {tracks.find(t=>t.id===selectedTrack)?.icon} {tracks.find(t=>t.id===selectedTrack)?.label}
+                  </span>
+                  <div className="relative flex-1 min-w-[200px]">
+                    <input type="text" placeholder="ค้นหาวิชา..."
+                      value={peSearchTerm} onChange={e => setPeSearchTerm(e.target.value)}
+                      className="w-full bg-black/40 border border-white/20 rounded-xl py-2 pl-4 pr-8 text-white placeholder-slate-500 focus:border-purple-500 outline-none text-sm"/>
+                    <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" size={16}/>
+                  </div>
+                </div>
+
+                {/* Course list */}
+                <div className="p-4 overflow-y-auto flex-1">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {getFilteredTrackCourses().map(course => {
+                      const { status, lockReason } = course;
+                      const isSelected = status === 'selected';
+                      const isLocked = status === 'locked';
+                      const track = tracks.find(t => t.id === selectedTrack);
+                      const trackColor = track?.color || '#7c3aed';
+
+                      return (
+                        <button key={course.code}
+                          onClick={() => !isLocked && handleSelectPeCourse(course.code)}
+                          disabled={isLocked}
+                          className={`group relative p-4 rounded-xl border-2 text-left transition-all ${
+                            isSelected
+                              ? 'border-emerald-500/70 bg-emerald-500/10'
+                              : isLocked
+                                ? 'border-slate-700/50 bg-slate-900/40 opacity-60 cursor-not-allowed'
+                                : 'border-white/10 bg-white/5 hover:bg-purple-500/10 hover:scale-[1.02] cursor-pointer'
+                          }`}>
+
+                          {/* Header row: code + credits + badge */}
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[11px] font-mono px-2 py-1 rounded-lg border font-bold"
+                                style={isLocked
+                                  ? { borderColor: '#374151', color: '#6b7280', background: '#111827' }
+                                  : { borderColor: trackColor+'60', color: trackColor, background: trackColor+'18' }}>
+                                {course.code}
+                              </span>
+                              <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-800 text-slate-400 border border-white/10">
+                                {course.credits} หน่วยกิต
+                              </span>
+                            </div>
+
+                            {/* สถานะ badge */}
+                            {isSelected && (
+                              <div className="flex items-center gap-1 text-emerald-400 text-xs font-bold shrink-0 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                                <CheckCircle2 size={12}/> เลือกแล้ว
+                              </div>
+                            )}
+                            {isLocked && (
+                              <div className="flex items-center gap-1 text-slate-500 text-xs font-bold shrink-0 bg-slate-800 border border-slate-700 px-2 py-0.5 rounded-full">
+                                <Lock size={10}/> ยังลงไม่ได้
+                              </div>
+                            )}
+                            {!isSelected && !isLocked && (
+                              <div className="flex items-center gap-1 text-xs font-bold shrink-0 px-2 py-0.5 rounded-full border"
+                                style={{ color: trackColor, borderColor: trackColor+'50', background: trackColor+'12' }}>
+                                <CheckCircle2 size={10}/> ลงได้
+                              </div>
+                            )}
+                          </div>
+
+                          {/* ชื่อวิชา */}
+                          <h4 className={`text-sm font-bold leading-tight mb-0.5 ${
+                            isSelected ? 'text-emerald-200' : isLocked ? 'text-slate-500' : 'text-white'
+                          }`}>
+                            {course.nameEn || course.name}
+                          </h4>
+                          <p className="text-[11px] text-slate-600 leading-tight mb-2">{course.name}</p>
+
+                          {/* Prereq info */}
+                          {course.prereq && (
+                            <div className={`text-[10px] mt-1 flex items-start gap-1.5 px-2 py-1.5 rounded-lg ${
+                              isLocked
+                                ? 'bg-red-950/40 border border-red-900/50 text-red-400'
+                                : 'bg-emerald-950/40 border border-emerald-900/40 text-emerald-500'
+                            }`}>
+                              {isLocked
+                                ? <Lock size={10} className="shrink-0 mt-0.5"/>
+                                : <CheckCircle2 size={10} className="shrink-0 mt-0.5"/>
+                              }
+                              <span>
+                                {isLocked
+                                  ? lockReason
+                                  : `ผ่าน ${allTrackCourses[course.prereq]?.nameEn || allTrackCourses[course.prereq]?.name || course.prereq} แล้ว ✓`
+                                }
+                              </span>
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                    {getFilteredTrackCourses().length === 0 && (
+                      <div className="col-span-2 text-center py-10">
+                        <AlertCircle className="mx-auto mb-3 text-slate-600" size={40}/>
+                        <p className="text-slate-500 text-sm">ไม่พบวิชา</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="p-4 border-t border-white/10 bg-black/40 shrink-0 flex items-center justify-between">
+              <span className="text-xs text-slate-500">เลือกได้เฉพาะปีปัจจุบัน (Y{basicInfo.currentYear}) และปีที่ผ่านมา</span>
+              <span className="text-xs text-slate-600">{Object.keys(peAssignments).length} / 9 slots filled</span>
             </div>
           </div>
         </div>
@@ -1115,16 +1455,94 @@ const SetupProfile = () => {
                                             <div className="space-y-2.5">
                                                 {/* Core Courses */}
                                                 {sem.courses.map(course => {
+                                                    const isPeSlot = course.isProfessionalElective === true;
+                                                    const assignedCode = isPeSlot ? peAssignments[course.id] : null;
+                                                    const assignedCourse = assignedCode ? allTrackCourses[assignedCode] : null;
                                                     const status = courseStates[course.id];
                                                     const prereqState = course.prereq ? courseStates[course.prereq] : 'passed';
-                                                    const isLocked = course.prereq && prereqState !== 'passed'; 
+                                                    const isLocked = course.prereq && prereqState !== 'passed';
 
+                                                    // ── PE Slot Card ──
+                                                    if (isPeSlot) {
+                                                        // ล็อค PE slot สำหรับปีอนาคต
+                                                        const slotYear = yearIdx + 1;
+                                                        const isFutureYear = slotYear > parseInt(basicInfo.currentYear);
+
+                                                        if (isFutureYear) {
+                                                            return (
+                                                                <div key={course.id}
+                                                                    className="p-3 rounded-xl border border-dashed border-slate-700/40 bg-slate-900/30 flex items-center justify-between opacity-40 cursor-not-allowed"
+                                                                >
+                                                                    <div className="text-left min-w-0">
+                                                                        <div className="text-[10px] font-mono text-slate-600 mb-0.5">{course.id} · PROFESSIONAL ELECTIVE</div>
+                                                                        <div className="text-xs text-slate-700 flex items-center gap-1"><Lock size={10}/> ยังไม่ถึงปีการศึกษานี้</div>
+                                                                    </div>
+                                                                    <Lock size={14} className="text-slate-700 shrink-0"/>
+                                                                </div>
+                                                            );
+                                                        }
+
+                                                        if (assignedCourse) {
+                                                            // filled slot — คลิกเพื่อ toggle สถานะ
+                                                            const assignedStatus = courseStates[assignedCode];
+                                                            const statusLabel = assignedStatus === 'passed' ? { text: 'ผ่านแล้ว', cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' }
+                                                                : assignedStatus === 'learning' ? { text: 'กำลังเรียน', cls: 'text-blue-400 bg-blue-500/10 border-blue-500/30' }
+                                                                : { text: 'ยังไม่เริ่ม', cls: 'text-slate-500 bg-slate-500/10 border-slate-500/20' };
+                                                            return (
+                                                                <div key={course.id} className="group relative">
+                                                                    <div
+                                                                        onClick={() => handleCourseClick(assignedCode)}
+                                                                        className={`p-3 rounded-xl border border-dashed transition-all flex items-center justify-between cursor-pointer ${assignedStatus === 'passed' ? 'bg-emerald-500/15 border-emerald-500/50' : assignedStatus === 'learning' ? 'bg-blue-500/15 border-blue-500/50' : 'bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/15'}`}
+                                                                    >
+                                                                        <div className="min-w-0 flex-1">
+                                                                            <div className="text-[10px] font-mono text-purple-400 flex items-center gap-1 mb-0.5">
+                                                                                <GraduationCap size={10}/> PROFESSIONAL ELECTIVE · {course.id}
+                                                                            </div>
+                                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                                <span className="text-[10px] font-mono px-1 rounded border border-purple-500/30 text-purple-300 shrink-0">{assignedCourse.code}</span>
+                                                                                <span className="text-sm font-medium truncate text-purple-100">{assignedCourse.nameEn || assignedCourse.name}</span>
+                                                                            </div>
+                                                                            {/* สถานะ + คำใบ้ */}
+                                                                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${statusLabel.cls}`}>{statusLabel.text}</span>
+                                                                                <span className="text-[10px] text-slate-600 italic">คลิกเพื่อเปลี่ยนสถานะ</span>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                                                                            {assignedStatus === 'passed' ? <CheckCircle2 size={16} className="text-emerald-500"/> : assignedStatus === 'learning' ? <PlayCircle size={16} className="text-blue-500"/> : <div className="w-4 h-4 rounded-full border border-purple-500/30"/>}
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleRemovePeAssignment(course.id); }}
+                                                                                className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:bg-red-500/20 rounded transition-all"
+                                                                            ><Trash2 size={14}/></button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        } else {
+                                                            // empty PE slot — clickable placeholder
+                                                            return (
+                                                                <button
+                                                                    key={course.id}
+                                                                    onClick={() => openPeModal(course.id)}
+                                                                    className="w-full p-3 rounded-xl border border-dashed border-purple-500/20 bg-purple-500/5 hover:bg-purple-500/10 hover:border-purple-500/40 transition-all flex items-center justify-between gap-2 group"
+                                                                >
+                                                                    <div className="text-left min-w-0">
+                                                                        <div className="text-[10px] font-mono text-purple-500 mb-0.5">{course.id} · PROFESSIONAL ELECTIVE</div>
+                                                                        <div className="text-xs text-slate-600 group-hover:text-purple-400 transition-colors">คลิกเพื่อเลือกวิชา...</div>
+                                                                    </div>
+                                                                    <Plus size={16} className="text-purple-500/50 group-hover:text-purple-400 shrink-0 transition-colors"/>
+                                                                </button>
+                                                            );
+                                                        }
+                                                    }
+
+                                                    // ── Normal Course Card ──
                                                     return (
                                                         <div key={course.id} onClick={() => handleCourseClick(course.id)} className={`relative p-3 rounded-xl border transition-all duration-200 flex items-center justify-between gap-3 group select-none ${isLocked ? 'opacity-60 cursor-not-allowed border-red-500/20 bg-red-500/5' : status === 'passed' ? 'cursor-pointer bg-emerald-500/10 border-emerald-500/30' : status === 'learning' ? 'cursor-pointer bg-blue-500/10 border-blue-500/30' : 'cursor-pointer bg-white/5 border-white/5 hover:bg-white/10'}`}>
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="flex items-center gap-2">
                                                                     <span className={`text-[10px] font-mono px-1.5 rounded border shrink-0 ${isLocked ? 'border-red-500/30 text-red-400' : status === 'passed' ? 'border-emerald-500/30 text-emerald-400' : status === 'learning' ? 'border-blue-500/30 text-blue-400' : 'border-slate-600 text-slate-500'}`}>{course.code}</span>
-                                                                    <h4 className={`text-sm font-medium truncate ${isLocked ? 'text-red-200/50' : status === 'passed' ? 'text-emerald-100' : status === 'learning' ? 'text-blue-100' : 'text-slate-400'}`}>{course.name}</h4>
+                                                                    <h4 className={`text-sm font-medium truncate ${isLocked ? 'text-red-200/50' : status === 'passed' ? 'text-emerald-100' : status === 'learning' ? 'text-blue-100' : 'text-slate-400'}`}>{course.nameEn || course.name}</h4>
                                                                 </div>
                                                                 {isLocked && <p className="text-[10px] text-red-500 mt-1 flex items-center gap-1"><AlertCircle size={10}/> Prerequisite: {course.prereq}</p>}
                                                             </div>
@@ -1132,22 +1550,20 @@ const SetupProfile = () => {
                                                                 {isLocked ? <Lock size={16} className="text-red-500/50"/> : status === 'passed' ? <CheckCircle2 size={16} className="text-emerald-500"/> : status === 'learning' ? <PlayCircle size={16} className="text-blue-500"/> : <div className="w-4 h-4 rounded-full border border-slate-600"></div>}
                                                             </div>
                                                         </div>
-                                                    )
+                                                    );
                                                 })}
 
                                                 {/* Elective Courses */}
                                                 {semesterElectives.map(electiveId => {
                                                     const elective = electiveCourses.find(e => e.id === electiveId);
                                                     if (!elective) return null;
-                                                    
                                                     const status = courseStates[elective.id];
-                                                    
                                                     return (
                                                         <div key={elective.id} className="group relative">
                                                             <div onClick={() => handleCourseClick(elective.id)} className={`p-3 rounded-xl border border-dashed transition-all flex items-center justify-between cursor-pointer ${status === 'passed' ? 'bg-emerald-500/20 border-emerald-500/50' : status === 'learning' ? 'bg-blue-500/20 border-blue-500/50' : 'bg-orange-500/5 border-orange-500/20 hover:bg-orange-500/10'}`}>
                                                                 <div className="min-w-0">
                                                                     <div className="text-[10px] font-mono text-orange-400">FREE ELECTIVE</div>
-                                                                    <div className="text-sm font-medium truncate text-orange-100">{elective.name}</div>
+                                                                    <div className="text-sm font-medium truncate text-orange-100">{elective.nameEn || elective.name}</div>
                                                                 </div>
                                                                 <div className="flex items-center gap-2">
                                                                     {status === 'passed' ? <CheckCircle2 size={16} className="text-emerald-500"/> : status === 'learning' ? <PlayCircle size={16} className="text-blue-500"/> : <div className="w-4 h-4 rounded-full border border-orange-500/30"/>}

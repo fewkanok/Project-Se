@@ -6,6 +6,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { CheckCircle, Lock, BookOpen, AlertCircle, Sparkles, GraduationCap, Code, GitBranch } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
+import { courses as trackCoursesData, tracks } from '../data/courseData';
 import { useNavigate } from 'react-router-dom';
 
 // ════════════════════════════════════════════════════════════
@@ -617,8 +618,8 @@ function CMTooltip({ course, courseState, position, visible }) {
         boxShadow: "0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.05)",
       }}>
         <div style={{ fontFamily:"monospace", fontSize:"0.6rem", color:"#6366f1", marginBottom:4, letterSpacing:"0.08em" }}>{course.code}</div>
-        <div style={{ fontWeight:900, color:"#fff", fontSize:"0.88rem", lineHeight:1.35, marginBottom:3 }}>{course.name}</div>
-        <div style={{ fontSize:"0.68rem", color:"#94a3b8", marginBottom:10, lineHeight:1.4 }}>{course.nameEn}</div>
+        <div style={{ fontWeight:900, color:"#fff", fontSize:"0.88rem", lineHeight:1.35, marginBottom:3 }}>{course.nameEn || course.name}</div>
+        <div style={{ fontSize:"0.68rem", color:"#94a3b8", marginBottom:10, lineHeight:1.4 }}>{course.nameEn ? course.name : ""}</div>
 
         <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, flexWrap:"wrap" }}>
           <span style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", color:"#a5b4fc", fontFamily:"monospace", fontSize:"0.62rem", padding:"2px 10px", borderRadius:999, fontWeight:700 }}>
@@ -792,9 +793,10 @@ const ElectiveCard = ({ elective, profile, navigate, getElectiveStatusClass }) =
       {elective.status === 'available' && <Sparkles size={20} className="text-orange-400 drop-shadow-[0_0_8px_rgba(251,146,60,0.8)]" />}
     </div>
     <div className="flex-1">
-      <h4 className="font-bold text-lg text-white leading-tight mb-4 group-hover:text-orange-200 transition-colors line-clamp-2">
-        {elective.name}
+      <h4 className="font-bold text-lg text-white leading-tight mb-2 group-hover:text-orange-200 transition-colors line-clamp-2">
+        {elective.nameEn || elective.name}
       </h4>
+      {elective.nameEn && <p className="text-xs text-slate-500 mb-2 leading-tight line-clamp-1">{elective.name}</p>}
       <div className="flex items-center gap-2 text-sm">
         <span className="bg-black/40 px-3 py-1 rounded-md text-white/90 font-bold border border-white/10">
           {elective.credits} Credits
@@ -832,7 +834,7 @@ const Roadmap = () => {
     const saved = localStorage.getItem('userProfile');
     return saved ? JSON.parse(saved) : {
       passedCourses: [], learningCourses: [], courseStates: {},
-      customElectives: {}, currentYear: 1, currentTerm: 1
+      customElectives: {}, customTrackCourses: {}, peAssignments: {}, currentYear: 1, currentTerm: 1
     };
   });
 
@@ -877,10 +879,43 @@ const Roadmap = () => {
     });
   }, [profile]);
 
+  // Build list of track courses selected by user (วิชาเลือกเอก)
+  const processedTrackCourses = useMemo(() => {
+    const result = [];
+    const customTrackCourses = profile.customTrackCourses || {};
+    Object.entries(customTrackCourses).forEach(([termKey, courseIds]) => {
+      if (!Array.isArray(courseIds)) return;
+      courseIds.forEach(courseId => {
+        const course = trackCoursesData[courseId];
+        if (!course) return;
+        const courseState = profile.courseStates?.[courseId];
+        let status = 'available';
+        if (courseState === 'passed') status = 'passed';
+        else if (courseState === 'learning') status = 'active';
+        const [yearStr, termStr] = termKey.split('-');
+        result.push({ ...course, id: courseId, termKey, year: parseInt(yearStr), term: parseInt(termStr), status });
+      });
+    });
+    // Sort by year then term
+    result.sort((a, b) => a.year !== b.year ? a.year - b.year : a.term - b.term);
+    return result;
+  }, [profile]);
+
+  // Track dash styles — แต่ละ track มี pattern ไม่เหมือนกัน
+  const TRACK_LINE_STYLES = {
+    ai:   { dash: 'none',       width: 3,   glow: 18 },
+    net:  { dash: '10 4',       width: 2.5, glow: 14 },
+    game: { dash: '4 4',        width: 2.5, glow: 14 },
+    iot:  { dash: '16 5 4 5',   width: 3,   glow: 16 },
+    fs:   { dash: '2 5',        width: 2.5, glow: 12 },
+  };
+
   const drawLines = () => {
     if (!containerRef.current || activeTab !== 'core') return;
     const newLines = [];
     const containerRect = containerRef.current.getBoundingClientRect();
+
+    // ── วิชาหลัก ──────────────────────────────────────────────
     visibleRoadmap.forEach(year => {
       year.semesters.forEach(sem => {
         sem.courses.forEach(course => {
@@ -890,18 +925,62 @@ const Roadmap = () => {
             if (startEl && endEl) {
               const startRect = startEl.getBoundingClientRect();
               const endRect   = endEl.getBoundingClientRect();
-              const startX = startRect.left + startRect.width / 2 - containerRect.left;
-              const startY = startRect.bottom - containerRect.top;
-              const endX   = endRect.left + endRect.width / 2 - containerRect.left;
-              const endY   = endRect.top - containerRect.top;
-              const prereqPassed  = profile.courseStates?.[course.prereq] === 'passed';
-              const targetPassed  = profile.courseStates?.[course.id] === 'passed';
-              newLines.push({ id:`${course.prereq}-${course.id}`, start:course.prereq, end:course.id, startX, startY, endX, endY, prereqPassed, targetPassed });
+              newLines.push({
+                id: `${course.prereq}-${course.id}`,
+                start: course.prereq, end: course.id,
+                startX: startRect.left + startRect.width / 2 - containerRect.left,
+                startY: startRect.bottom - containerRect.top,
+                endX:   endRect.left + endRect.width / 2 - containerRect.left,
+                endY:   endRect.top - containerRect.top,
+                prereqPassed: profile.courseStates?.[course.prereq] === 'passed',
+                targetPassed: profile.courseStates?.[course.id] === 'passed',
+                isPeTrack: false,
+              });
             }
           }
         });
       });
     });
+
+    // ── PE Track connections — เชื่อม PE cards ด้วยสีสายเฉพาะ ──
+    const peAssignments = profile.peAssignments || {};
+    const assignedCodes = Object.values(peAssignments).filter(Boolean);
+
+    assignedCodes.forEach(code => {
+      const course = trackCoursesData[code];
+      if (!course?.prereq) return;
+      // prereq ต้องเป็น PE course ที่ assign ไว้ด้วย
+      if (!assignedCodes.includes(course.prereq)) return;
+
+      const startEl = document.getElementById(`pe-card-${course.prereq}`);
+      const endEl   = document.getElementById(`pe-card-${code}`);
+      if (!startEl || !endEl) return;
+
+      const startRect = startEl.getBoundingClientRect();
+      const endRect   = endEl.getBoundingClientRect();
+
+      // หา track ของวิชานี้เพื่อเอาสี
+      const peTrack = tracks.find(t => {
+        const codes = new Set();
+        t.chains.forEach(c => c.forEach(item => { if (item !== 'arrow') codes.add(item.replace('*', '')); }));
+        return codes.has(code);
+      });
+
+      newLines.push({
+        id: `pe-${course.prereq}-${code}`,
+        start: course.prereq, end: code,
+        startX: startRect.left + startRect.width / 2 - containerRect.left,
+        startY: startRect.bottom - containerRect.top,
+        endX:   endRect.left + endRect.width / 2 - containerRect.left,
+        endY:   endRect.top - containerRect.top,
+        prereqPassed: profile.courseStates?.[course.prereq] === 'passed',
+        targetPassed: profile.courseStates?.[code] === 'passed',
+        isPeTrack: true,
+        trackId:    peTrack?.id || 'ai',
+        trackColor: peTrack?.color || '#7c3aed',
+      });
+    });
+
     setLines(newLines);
   };
 
@@ -1127,6 +1206,32 @@ const Roadmap = () => {
                     <feMergeNode in="SourceGraphic" />
                   </feMerge>
                 </filter>
+                {/* ── Per-track markers + glow filters ── */}
+                {[
+                  { id:'ai',   color:'#7c3aed' },
+                  { id:'net',  color:'#0891b2' },
+                  { id:'game', color:'#d97706' },
+                  { id:'iot',  color:'#059669' },
+                  { id:'fs',   color:'#db2777' },
+                ].map(({ id, color }) => (
+                  <g key={id}>
+                    <marker id={`arrow-pe-${id}`} markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+                      <path d="M0,0 L0,10 L10,5 z" fill={color} />
+                    </marker>
+                    <marker id={`arrow-pe-${id}-dim`} markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+                      <path d="M0,0 L0,9 L9,4.5 z" fill={color} fillOpacity="0.4" />
+                    </marker>
+                    <filter id={`glow-pe-${id}`} x="-50%" y="-50%" width="200%" height="200%">
+                      <feGaussianBlur stdDeviation="5" result="blur" />
+                      <feFlood floodColor={color} floodOpacity="0.6" result="color"/>
+                      <feComposite in="color" in2="blur" operator="in" result="coloredBlur"/>
+                      <feMerge>
+                        <feMergeNode in="coloredBlur"/>
+                        <feMergeNode in="SourceGraphic"/>
+                      </feMerge>
+                    </filter>
+                  </g>
+                ))}
               </defs>
 
               {lines.map((line) => {
@@ -1134,6 +1239,40 @@ const Roadmap = () => {
                 const bothPassed  = line.prereqPassed && line.targetPassed;
                 const isRelated   = relatedCourses.has(line.start) && relatedCourses.has(line.end);
 
+                // ── PE Track line — ใช้สี track เฉพาะ ─────────────────
+                if (line.isPeTrack) {
+                  const tId    = line.trackId || 'ai';
+                  const tColor = line.trackColor || '#7c3aed';
+                  const style  = TRACK_LINE_STYLES[tId] || TRACK_LINE_STYLES.ai;
+                  const passed = line.prereqPassed;
+                  const both   = line.prereqPassed && line.targetPassed;
+                  return (
+                    <g key={line.id}>
+                      {/* เส้น glow ด้านหลัง */}
+                      <path
+                        d={`M ${line.startX} ${line.startY} C ${line.startX} ${line.startY + 120}, ${line.endX} ${line.endY - 120}, ${line.endX} ${line.endY}`}
+                        fill="none"
+                        stroke={tColor}
+                        strokeWidth={style.width + 6}
+                        strokeOpacity={both ? 0.25 : passed ? 0.15 : 0.08}
+                        strokeDasharray={style.dash !== 'none' ? style.dash : undefined}
+                        filter={`url(#glow-pe-${tId})`}
+                      />
+                      {/* เส้นหลัก */}
+                      <path
+                        d={`M ${line.startX} ${line.startY} C ${line.startX} ${line.startY + 120}, ${line.endX} ${line.endY - 120}, ${line.endX} ${line.endY}`}
+                        fill="none"
+                        stroke={tColor}
+                        strokeWidth={both ? style.width + 1 : style.width}
+                        strokeOpacity={both ? 0.95 : passed ? 0.7 : 0.35}
+                        strokeDasharray={style.dash !== 'none' ? style.dash : undefined}
+                        markerEnd={`url(#arrow-pe-${tId}${both || passed ? '' : '-dim'})`}
+                      />
+                    </g>
+                  );
+                }
+
+                // ── วิชาหลัก (core) line ────────────────────────────────
                 let strokeColor   = "#475569";
                 let strokeWidth   = "2";
                 let strokeOpacity = "0.04";
@@ -1236,6 +1375,82 @@ const Roadmap = () => {
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                             {sem.courses.map((course) => {
                               const isRelated = relatedCourses.has(course.id);
+                              const isPeSlot = course.isProfessionalElective === true;
+                              const assignedCode = isPeSlot ? (profile.peAssignments?.[course.id]) : null;
+                              const assignedCourse = assignedCode ? trackCoursesData[assignedCode] : null;
+
+                              // ── PE Slot with assigned course ──
+                              if (isPeSlot && assignedCourse) {
+                                const assignedState = profile.courseStates?.[assignedCode];
+                                const status = assignedState === 'passed' ? 'passed' : assignedState === 'learning' ? 'active' : 'available';
+                                // find track color
+                                const assignedTrack = tracks.find(t => {
+                                  const codes = new Set();
+                                  t.chains.forEach(c => c.forEach(item => { if (item !== 'arrow') codes.add(item.replace('*','')); }));
+                                  return codes.has(assignedCode);
+                                });
+                                const tColor = assignedTrack?.color || '#7c3aed';
+                                return (
+                                  <div
+                                    key={course.id}
+                                    id={`pe-card-${assignedCode}`}
+                                    onClick={() => navigate(`/course/${assignedCode}`)}
+                                    className={`relative p-4 rounded-xl border-2 backdrop-blur-md transition-all duration-300 h-[140px] flex flex-col justify-between group cursor-pointer shadow-lg select-none hover:-translate-y-1 hover:scale-[1.02] ${
+                                      status === 'passed' ? 'bg-gradient-to-br from-emerald-900/60 to-emerald-800/40 border-emerald-500/60 shadow-emerald-500/20' :
+                                      status === 'active' ? 'bg-gradient-to-br from-blue-900/70 to-blue-800/50 border-blue-400/70 shadow-blue-500/30 ring-2 ring-blue-400/30' :
+                                      'border-2'
+                                    }`}
+                                    style={status === 'available' ? { borderColor: tColor + '60', background: tColor + '12' } : {}}
+                                  >
+                                    {/* Track badge */}
+                                    <div className="absolute -top-2 -left-2 z-10">
+                                      <span className="text-[9px] text-white px-2 py-1 rounded-full font-bold shadow-lg" style={{ background: tColor }}>
+                                        {assignedTrack?.icon} {assignedTrack?.label || 'ELECTIVE'}
+                                      </span>
+                                    </div>
+                                    <div className="flex justify-between items-start mb-2">
+                                      <span className="text-xs font-bold font-mono tracking-wider bg-black/50 px-3 py-1.5 rounded-lg border shadow-md" style={{ color: tColor, borderColor: tColor + '40' }}>
+                                        {assignedCourse.code}
+                                      </span>
+                                      {status === 'passed' && <CheckCircle size={22} className="text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,1)]"/>}
+                                      {status === 'active' && <BookOpen size={22} className="text-blue-300 animate-pulse"/>}
+                                      {status === 'available' && <GraduationCap size={20} style={{ color: tColor }}/>}
+                                    </div>
+                                    <div>
+                                      <h4 className="font-bold text-base text-white leading-snug mb-1 group-hover:opacity-80 transition-opacity line-clamp-2">
+                                        {assignedCourse.nameEn || assignedCourse.name}
+                                      </h4>
+                                      {assignedCourse.nameEn && <p className="text-[10px] text-slate-500 mb-1 line-clamp-1">{assignedCourse.name}</p>}
+                                      <div className="flex items-center gap-2 text-sm">
+                                        <span className="bg-black/40 px-2.5 py-1 rounded-md text-white/90 font-bold border border-white/10">
+                                          {assignedCourse.credits}
+                                        </span>
+                                        <span className="text-[10px] text-slate-500">slot: {course.id}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              // ── Empty PE Slot ──
+                              if (isPeSlot && !assignedCourse) {
+                                return (
+                                  <div
+                                    key={course.id}
+                                    id={`core-${course.id}`}
+                                    className="relative p-4 rounded-xl border-2 border-dashed border-purple-500/20 bg-purple-500/5 h-[140px] flex flex-col items-center justify-center gap-2 select-none"
+                                  >
+                                    <div className="absolute -top-2 -left-2 z-10">
+                                      <span className="text-[9px] bg-gradient-to-r from-purple-600 to-pink-600 text-white px-2 py-1 rounded-full font-bold shadow-lg">ELECTIVE</span>
+                                    </div>
+                                    <GraduationCap size={24} className="text-purple-500/40"/>
+                                    <p className="text-xs text-slate-600 font-bold">{course.id} · ยังไม่ได้เลือก</p>
+                                    <p className="text-[10px] text-slate-700">ไปที่ Setup Profile เพื่อเลือกวิชา</p>
+                                  </div>
+                                );
+                              }
+
+                              // ── Normal Course Card ──
                               return (
                                 <div
                                   key={course.id}
@@ -1247,9 +1462,6 @@ const Roadmap = () => {
                                 >
                                   {getCourseType(course.code) !== 'core' && (
                                     <div className="absolute -top-2 -left-2 z-10">
-                                      {getCourseType(course.code) === 'professional' && (
-                                        <span className="text-[9px] bg-gradient-to-r from-purple-600 to-pink-600 text-white px-2 py-1 rounded-full font-bold shadow-lg">ELECTIVE</span>
-                                      )}
                                       {getCourseType(course.code) === 'free' && (
                                         <span className="text-[9px] bg-gradient-to-r from-orange-600 to-red-600 text-white px-2 py-1 rounded-full font-bold shadow-lg">FREE</span>
                                       )}
@@ -1271,16 +1483,17 @@ const Roadmap = () => {
                                     {course.status === 'available' && <AlertCircle size={20} className="text-purple-400 drop-shadow-[0_0_8px_rgba(168,85,247,0.8)]" />}
                                   </div>
                                   <div>
-                                    <h4 className="font-bold text-base text-white leading-snug mb-3 group-hover:text-cyan-200 transition-colors">
-                                      {course.name}
+                                    <h4 className="font-bold text-base text-white leading-snug mb-1 group-hover:text-cyan-200 transition-colors">
+                                      {course.nameEn || course.name}
                                     </h4>
+                                    {course.nameEn && <p className="text-[10px] text-slate-500 mb-2 line-clamp-1">{course.name}</p>}
                                     <div className="flex items-center flex-wrap gap-2 text-sm">
                                       <span className="bg-black/40 px-2.5 py-1 rounded-md text-white/90 font-bold border border-white/10">
                                         {course.credits} Credits
                                       </span>
                                       {course.prereq && (
                                         <span className="text-xs bg-slate-700/60 px-2.5 py-1 rounded-md border border-slate-600 text-slate-200 font-medium">
-                                          Req: {course.prereq} // aa
+                                          Req: {course.prereq}
                                         </span>
                                       )}
                                     </div>
@@ -1301,6 +1514,107 @@ const Roadmap = () => {
                 </div>
               ))}
             </div>
+
+            {/* ── วิชาเลือกเอก (PE Assignments) Section ── */}
+            {(() => {
+              const peAssignments = profile.peAssignments || {};
+              const assignedEntries = Object.entries(peAssignments).filter(([, code]) => !!trackCoursesData[code]);
+              if (assignedEntries.length === 0) return null;
+
+              // Group by track
+              const byTrack = {};
+              assignedEntries.forEach(([slotId, code]) => {
+                const course = trackCoursesData[code];
+                const track = tracks.find(t => {
+                  const codes = new Set();
+                  t.chains.forEach(c => c.forEach(item => { if (item !== 'arrow') codes.add(item.replace('*','')); }));
+                  return codes.has(code);
+                });
+                const tId = track?.id || 'other';
+                if (!byTrack[tId]) byTrack[tId] = { track, courses: [] };
+                const state = profile.courseStates?.[code];
+                const status = state === 'passed' ? 'passed' : state === 'learning' ? 'active' : 'available';
+                byTrack[tId].courses.push({ slotId, code, course, status, track });
+              });
+
+              return (
+                <div className="relative z-10 mt-12">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="flex items-center gap-3 bg-gradient-to-r from-purple-900/60 to-blue-900/40 border border-purple-500/30 px-6 py-3 rounded-2xl backdrop-blur-md shadow-xl">
+                      <GraduationCap className="text-purple-400" size={24}/>
+                      <h2 className="text-2xl font-black text-white">วิชาเลือกเอก (Professional Elective)</h2>
+                      <span className="bg-purple-500/20 text-purple-300 text-xs font-bold px-2.5 py-1 rounded-full border border-purple-500/30">
+                        {assignedEntries.length} / 9 slots
+                      </span>
+                    </div>
+                    <div className="flex-1 h-px bg-gradient-to-r from-purple-500/30 to-transparent"/>
+                  </div>
+
+                  <div className="space-y-8">
+                    {Object.values(byTrack).map(({ track, courses }) => (
+                      <div key={track?.id || 'other'}>
+                        {track && (
+                          <div className="flex items-center gap-3 mb-4">
+                            <div className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-sm border"
+                              style={{ borderColor: track.color + '60', background: track.color + '18', color: track.color }}>
+                              <span className="text-base">{track.icon}</span>
+                              <span>{track.label}</span>
+                            </div>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                          {courses.map(({ slotId, code, course, status, track: t }) => {
+                            const tColor = t?.color || '#7c3aed';
+                            const statusClass = status === 'passed'
+                              ? 'bg-gradient-to-br from-emerald-900/60 to-emerald-800/40 border-emerald-500/60 shadow-emerald-500/20'
+                              : status === 'active'
+                              ? 'bg-gradient-to-br from-blue-900/70 to-blue-800/50 border-blue-400/70 shadow-blue-500/30 ring-2 ring-blue-400/30'
+                              : '';
+                            return (
+                              <div key={slotId}
+                                id={`pe-card-${code}`}
+                                onClick={() => navigate(`/course/${code}`)}
+                                className={`relative p-5 rounded-2xl border-2 backdrop-blur-md transition-all duration-300 min-h-[160px] flex flex-col justify-between group cursor-pointer shadow-lg select-none hover:-translate-y-1 hover:scale-[1.02] ${statusClass}`}
+                                style={status === 'available' ? { borderColor: tColor + '50', background: tColor + '10' } : {}}
+                              >
+                                {/* Slot badge */}
+                                <div className="absolute -top-2 -left-2 z-10">
+                                  <span className="text-[9px] text-white px-2 py-1 rounded-full font-bold shadow-lg" style={{ background: tColor }}>
+                                    {t?.icon} slot: {slotId}
+                                  </span>
+                                </div>
+
+                                <div className="flex justify-between items-start mb-3">
+                                  <span className="text-xs font-bold font-mono tracking-wider bg-black/50 px-3 py-1.5 rounded-lg border shadow-md"
+                                    style={{ color: tColor, borderColor: tColor + '40' }}>
+                                    {course.code}
+                                  </span>
+                                  {status === 'passed'    && <CheckCircle size={22} className="text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,1)]"/>}
+                                  {status === 'active'    && <BookOpen size={22} className="text-blue-300 animate-pulse"/>}
+                                  {status === 'available' && <GraduationCap size={20} style={{ color: tColor }}/>}
+                                </div>
+
+                                <div className="flex-1">
+                                  <h4 className="font-bold text-base text-white leading-snug mb-1 group-hover:opacity-80 transition-opacity line-clamp-2">
+                                    {course.nameEn || course.name}
+                                  </h4>
+                                  <p className="text-xs text-slate-500 mb-3 line-clamp-1">{course.nameEn ? course.name : ""}</p>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="bg-black/40 px-2.5 py-1 rounded-md text-white/90 font-bold border border-white/10 text-sm">
+                                      {course.credits}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
           </>
         )}
 
