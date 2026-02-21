@@ -4,6 +4,7 @@ import { PlayCircle, Award, BookOpen, Zap, TrendingUp, Calendar, Clock, AlertCir
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
+import { courses as allTrackCourses } from '../data/courseData';
 
 // --- Configuration: Co-op Requirements ---
 const COOP_REQUIREMENTS = {
@@ -85,6 +86,33 @@ const Dashboard = () => {
     const currentYearNum = parseInt(profile.basicInfo?.currentYear || profile.currentYear) || 1;
     const currentTermNum = parseInt(profile.basicInfo?.currentTerm || profile.currentTerm) || 1;
     const customElectives = profile.customElectives || {};
+    const peAssignments = profile.peAssignments || {}; // { 'PE5': '040613704', 'PE6': '040613505', ... }
+
+    // helper: แปลง "3(2-2-5)" → 3
+    const parseCredits = (val) => {
+      if (typeof val === 'number' && !isNaN(val)) return val;
+      if (typeof val === 'string') {
+        const num = parseInt(val, 10);
+        if (!isNaN(num)) return num;
+      }
+      return 3; // default fallback
+    };
+
+    // สร้าง lookup map: peSlotId → course object จาก allTrackCourses
+    const peSlotCourseMap = {};
+    Object.entries(peAssignments).forEach(([slotId, courseCode]) => {
+      const trackCourse = allTrackCourses?.[courseCode];
+      if (trackCourse) {
+        peSlotCourseMap[slotId] = {
+          ...trackCourse,
+          id: courseCode,
+          code: courseCode,
+          name: trackCourse.nameEn || trackCourse.name, // ใช้ชื่ออังกฤษ
+          credits: parseCredits(trackCourse.credits),   // แปลงเป็น number
+          _peSlot: slotId,
+        };
+      }
+    });
 
     // โหลดเกรดจาก Coop Modal
     let coopGrades = {};
@@ -106,7 +134,14 @@ const Dashboard = () => {
                 const termKey = `${yearNum}-${termNum}`;
                 const gpaKey = `Y${yearNum}/${termNum}`;
 
-                let displayCourses = [...sem.courses];
+                // แทนที่ PE slots ด้วย course จริงจาก peSlotCourseMap
+                let displayCourses = sem.courses.map(c => {
+                  if (c.isProfessionalElective && peSlotCourseMap[c.id]) {
+                    // ใช้ course object จาก allTrackCourses แทน placeholder
+                    return peSlotCourseMap[c.id];
+                  }
+                  return c;
+                });
                 if (customElectives[termKey]) {
                     customElectives[termKey].forEach(elecId => {
                         const elecInfo = electiveCourses.find(c => c.id === elecId);
@@ -120,21 +155,30 @@ const Dashboard = () => {
 
                 displayCourses.forEach(c => {
                     const status = profile.courseStates?.[c.id];
+                    // ป้องกัน NaN: credits ต้องเป็นตัวเลขเสมอ
+                    const safeCredits = typeof c.credits === 'number' && !isNaN(c.credits)
+                      ? c.credits
+                      : parseInt(c.credits, 10) || 3;
                     
                     if (!c.isElective) {
-                        totalStructureCredits += c.credits;
+                        totalStructureCredits += safeCredits;
                     }
 
                     if (status === 'learning') {
                         activeCoursesList.push({
-                            ...c, 
-                            termLabel: c.isElective ? `Free Elective (Y${yearNum}/${termNum})` : sem.term
+                            ...c,
+                            credits: safeCredits,
+                            termLabel: c.isElective 
+                              ? `Free Elective (Y${yearNum}/${termNum})` 
+                              : c._peSlot 
+                                ? `Prof. Elective (Y${yearNum}/${termNum})`
+                                : sem.term
                         });
                     }
 
                     if (status === 'passed') {
-                        earnedCredits += c.credits;
-                        termPassedCredits += c.credits;
+                        earnedCredits += safeCredits;
+                        termPassedCredits += safeCredits;
                         passedCourseCodes.add(c.code);
                         passedCourseCodes.add(c.id);
                     }
