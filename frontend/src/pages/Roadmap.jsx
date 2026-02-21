@@ -251,18 +251,25 @@ function CMNodeBox({ code, t, onHover, onLeave, courseStates, navigate }) {
 
   // ── Course status from profile ────────────────────────────
   const courseState = courseStates?.[code];
-  const isPassed   = courseState === 'passed';
-  const isLearning = courseState === 'learning';
+  const isPassed    = courseState === 'passed';
+  // isLearning ได้ก็ต่อเมื่อ prereq เป็น 'passed' แล้วเท่านั้น
+  // ถ้า prereq ยัง learning/null อยู่ → ถือว่า locked (แสดงสีปกติ)
+  const prereqCode     = course?.prereq;
+  const prereqState    = prereqCode ? courseStates?.[prereqCode] : 'passed';
+  const prereqSatisfied = !prereqCode || prereqState === 'passed';
+  const isLearning  = courseState === 'learning' && prereqSatisfied;
+  const isLocked    = courseState === 'learning' && !prereqSatisfied;
 
-  // Override border/bg when passed or learning
+  // Override border/bg when passed / learning / locked-by-prereq
   let borderStyle = c.border;
   let bgStyle     = c.bg;
   if (isPassed)   { borderStyle = "2px solid #10b981"; bgStyle = "rgba(6,78,59,0.75)"; }
   if (isLearning) { borderStyle = "2px solid #60a5fa"; bgStyle = "rgba(23,37,84,0.75)"; }
+  if (isLocked)   { borderStyle = "2px solid #ef4444"; bgStyle = "rgba(69,10,10,0.65)"; }
 
   // Glow color per type
   const glowMap = { base:"rgba(34,197,94,", minor:"rgba(96,165,250,", major:"rgba(248,113,113,", free:"rgba(100,116,139," };
-  const glowColor = isPassed ? "rgba(16,185,129," : isLearning ? "rgba(96,165,250," : (glowMap[t] || "rgba(148,163,184,");
+  const glowColor = isPassed ? "rgba(16,185,129," : isLearning ? "rgba(96,165,250," : isLocked ? "rgba(239,68,68," : (glowMap[t] || "rgba(148,163,184,");
 
   return (
     <div
@@ -307,9 +314,14 @@ function CMNodeBox({ code, t, onHover, onLeave, courseStates, navigate }) {
           📖 เรียน
         </div>
       )}
+      {isLocked && (
+        <div style={{ position:"absolute", top:6, right:6, background:"linear-gradient(135deg,#991b1b,#ef4444)", borderRadius:999, padding:"2px 7px", fontSize:"0.58rem", fontWeight:800, color:"#fff", display:"flex", alignItems:"center", gap:3, boxShadow:"0 2px 8px rgba(239,68,68,0.5)" }}>
+          🔒 ลงไม่ได้
+        </div>
+      )}
 
       {/* Course name */}
-      <div style={{ color: c.nameColor, fontSize: "0.8rem", fontWeight: 700, lineHeight: 1.4, marginBottom: 4, paddingRight: (isPassed || isLearning) ? 48 : 4, letterSpacing: "0.01em", wordBreak: "break-word" }}>
+      <div style={{ color: c.nameColor, fontSize: "0.8rem", fontWeight: 700, lineHeight: 1.4, marginBottom: 4, paddingRight: (isPassed || isLearning || isLocked) ? 48 : 4, letterSpacing: "0.01em", wordBreak: "break-word" }}>
         {course?.nameEn || code}
       </div>
       {/* Code */}
@@ -1382,7 +1394,20 @@ const Roadmap = () => {
                               // ── PE Slot with assigned course ──
                               if (isPeSlot && assignedCourse) {
                                 const assignedState = profile.courseStates?.[assignedCode];
-                                const status = assignedState === 'passed' ? 'passed' : assignedState === 'learning' ? 'active' : 'available';
+                                // เช็ค prereq ก่อนแสดงสถานะ — ถ้า prereq ยังไม่ passed → locked
+                                const assignedPrereq = assignedCourse?.prereq;
+                                const assignedPrereqState = assignedPrereq ? profile.courseStates?.[assignedPrereq] : 'passed';
+                                // prereq อาจอยู่ใน peAssignments (PE course อื่น)
+                                const prereqInPe = assignedPrereq
+                                  ? Object.values(profile.peAssignments || {}).includes(assignedPrereq) &&
+                                    profile.courseStates?.[assignedPrereq] === 'passed'
+                                  : true;
+                                const prereqOk = !assignedPrereq || assignedPrereqState === 'passed' || prereqInPe;
+                                const effectiveState = !prereqOk && assignedState === 'learning' ? 'locked' : assignedState;
+                                const status = effectiveState === 'passed' ? 'passed'
+                                  : effectiveState === 'learning' ? 'active'
+                                  : effectiveState === 'locked'   ? 'locked'
+                                  : 'available';
                                 // find track color
                                 const assignedTrack = tracks.find(t => {
                                   const codes = new Set();
@@ -1396,8 +1421,9 @@ const Roadmap = () => {
                                     id={`pe-card-${assignedCode}`}
                                     onClick={() => navigate(`/course/${assignedCode}`)}
                                     className={`relative p-4 rounded-xl border-2 backdrop-blur-md transition-all duration-300 h-[140px] flex flex-col justify-between group cursor-pointer shadow-lg select-none hover:-translate-y-1 hover:scale-[1.02] ${
-                                      status === 'passed' ? 'bg-gradient-to-br from-emerald-900/60 to-emerald-800/40 border-emerald-500/60 shadow-emerald-500/20' :
-                                      status === 'active' ? 'bg-gradient-to-br from-blue-900/70 to-blue-800/50 border-blue-400/70 shadow-blue-500/30 ring-2 ring-blue-400/30' :
+                                      status === 'passed'    ? 'bg-gradient-to-br from-emerald-900/60 to-emerald-800/40 border-emerald-500/60 shadow-emerald-500/20' :
+                                      status === 'active'    ? 'bg-gradient-to-br from-blue-900/70 to-blue-800/50 border-blue-400/70 shadow-blue-500/30 ring-2 ring-blue-400/30' :
+                                      status === 'locked'    ? 'bg-gradient-to-br from-red-950/60 to-red-900/30 border-red-500/50 shadow-red-500/20 opacity-75' :
                                       'border-2'
                                     }`}
                                     style={status === 'available' ? { borderColor: tColor + '60', background: tColor + '12' } : {}}
@@ -1408,12 +1434,22 @@ const Roadmap = () => {
                                         {assignedTrack?.icon} {assignedTrack?.label || 'ELECTIVE'}
                                       </span>
                                     </div>
+                                    {/* Locked prereq warning */}
+                                    {status === 'locked' && (
+                                      <div className="absolute inset-0 rounded-xl flex items-center justify-center bg-red-950/40 backdrop-blur-[1px] z-10 pointer-events-none">
+                                        <div className="flex flex-col items-center gap-1 text-center px-3">
+                                          <Lock size={18} className="text-red-400"/>
+                                          <span className="text-[10px] text-red-300 font-bold leading-tight">ต้องผ่านวิชาก่อนหน้าก่อน</span>
+                                        </div>
+                                      </div>
+                                    )}
                                     <div className="flex justify-between items-start mb-2">
-                                      <span className="text-xs font-bold font-mono tracking-wider bg-black/50 px-3 py-1.5 rounded-lg border shadow-md" style={{ color: tColor, borderColor: tColor + '40' }}>
+                                      <span className="text-xs font-bold font-mono tracking-wider bg-black/50 px-3 py-1.5 rounded-lg border shadow-md" style={{ color: status === 'locked' ? '#f87171' : tColor, borderColor: (status === 'locked' ? '#ef4444' : tColor) + '40' }}>
                                         {assignedCourse.code}
                                       </span>
-                                      {status === 'passed' && <CheckCircle size={22} className="text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,1)]"/>}
-                                      {status === 'active' && <BookOpen size={22} className="text-blue-300 animate-pulse"/>}
+                                      {status === 'passed'    && <CheckCircle size={22} className="text-emerald-400 drop-shadow-[0_0_10px_rgba(52,211,153,1)]"/>}
+                                      {status === 'active'    && <BookOpen size={22} className="text-blue-300 animate-pulse"/>}
+                                      {status === 'locked'    && <Lock size={20} className="text-red-400"/>}
                                       {status === 'available' && <GraduationCap size={20} style={{ color: tColor }}/>}
                                     </div>
                                     <div>

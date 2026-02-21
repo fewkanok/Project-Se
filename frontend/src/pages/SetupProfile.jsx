@@ -741,16 +741,19 @@ const SetupProfile = () => {
     const currentSlotNum = parseInt(activePeSlotId?.replace(/\D/g, '') || '0');
 
     // ฟังก์ชันเช็คว่า prereq "ผ่าน" หรือยัง
-    // prereq ถือว่าผ่านถ้า:
-    //   1) เรียนผ่านแล้วใน courseStates (passed/learning)
-    //   2) ถูก assign ใน PE slot ที่มีหมายเลข < currentSlotNum
+    // กฎ: นับเฉพาะ 'passed' เท่านั้น — 'learning' ไม่ผ่าน
+    // prereq ผ่านถ้า:
+    //   1) courseStates[prereq] === 'passed'  (วิชาหลัก หรือ PE ที่ mark passed แล้ว)
+    //   2) prereq ถูก assign ใน PE slot ก่อนหน้า AND courseStates[prereq] === 'passed'
     const isPrereqSatisfied = (prereqCode) => {
       if (!prereqCode) return true;
-      if (courseStates[prereqCode] === 'passed' || courseStates[prereqCode] === 'learning') return true;
+      // ผ่านจาก courseStates (ครอบคลุมทั้งวิชาหลักและ PE ที่ passed แล้ว)
+      if (courseStates[prereqCode] === 'passed') return true;
+      // prereq อยู่ใน PE slot ก่อนหน้า → ต้อง passed ด้วยจึงนับ
       const prereqSlotEntry = Object.entries(peAssignments).find(([, code]) => code === prereqCode);
       if (!prereqSlotEntry) return false;
       const prereqSlotNum = parseInt(prereqSlotEntry[0].replace(/\D/g, '') || '999');
-      return prereqSlotNum < currentSlotNum;
+      return prereqSlotNum < currentSlotNum && courseStates[prereqCode] === 'passed';
     };
 
     // หา prereq name เพื่อแสดงในการ์ด
@@ -1484,15 +1487,22 @@ const SetupProfile = () => {
 
                                                         if (assignedCourse) {
                                                             // filled slot — คลิกเพื่อ toggle สถานะ
-                                                            const assignedStatus = courseStates[assignedCode];
+                                                            const assignedRawStatus = courseStates[assignedCode];
+                                                            // เช็ค prereq — ถ้า prereq ยังไม่ passed → locked ลงเรียนพร้อมกันไม่ได้
+                                                            const assignedPrereq = allTrackCourses[assignedCode]?.prereq;
+                                                            const prereqPassed = !assignedPrereq
+                                                              || courseStates[assignedPrereq] === 'passed'
+                                                              || Object.values(peAssignments).includes(assignedPrereq) && courseStates[assignedPrereq] === 'passed';
+                                                            const assignedStatus = (!prereqPassed && assignedRawStatus === 'learning') ? 'locked' : assignedRawStatus;
                                                             const statusLabel = assignedStatus === 'passed' ? { text: 'ผ่านแล้ว', cls: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' }
                                                                 : assignedStatus === 'learning' ? { text: 'กำลังเรียน', cls: 'text-blue-400 bg-blue-500/10 border-blue-500/30' }
+                                                                : assignedStatus === 'locked'   ? { text: '⚠ ลงไม่ได้ — ต้องผ่านวิชาก่อน', cls: 'text-red-400 bg-red-500/10 border-red-500/30' }
                                                                 : { text: 'ยังไม่เริ่ม', cls: 'text-slate-500 bg-slate-500/10 border-slate-500/20' };
                                                             return (
                                                                 <div key={course.id} className="group relative">
                                                                     <div
                                                                         onClick={() => handleCourseClick(assignedCode)}
-                                                                        className={`p-3 rounded-xl border border-dashed transition-all flex items-center justify-between cursor-pointer ${assignedStatus === 'passed' ? 'bg-emerald-500/15 border-emerald-500/50' : assignedStatus === 'learning' ? 'bg-blue-500/15 border-blue-500/50' : 'bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/15'}`}
+                                                                        className={`p-3 rounded-xl border border-dashed transition-all flex items-center justify-between cursor-pointer ${assignedStatus === 'passed' ? 'bg-emerald-500/15 border-emerald-500/50' : assignedStatus === 'learning' ? 'bg-blue-500/15 border-blue-500/50' : assignedStatus === 'locked' ? 'bg-red-500/10 border-red-500/40 opacity-75' : 'bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/15'}`}
                                                                     >
                                                                         <div className="min-w-0 flex-1">
                                                                             <div className="text-[10px] font-mono text-purple-400 flex items-center gap-1 mb-0.5">
@@ -1509,7 +1519,7 @@ const SetupProfile = () => {
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex items-center gap-2 shrink-0 ml-2">
-                                                                            {assignedStatus === 'passed' ? <CheckCircle2 size={16} className="text-emerald-500"/> : assignedStatus === 'learning' ? <PlayCircle size={16} className="text-blue-500"/> : <div className="w-4 h-4 rounded-full border border-purple-500/30"/>}
+                                                                            {assignedStatus === 'passed' ? <CheckCircle2 size={16} className="text-emerald-500"/> : assignedStatus === 'learning' ? <PlayCircle size={16} className="text-blue-500"/> : assignedStatus === 'locked' ? <Lock size={16} className="text-red-400"/> : <div className="w-4 h-4 rounded-full border border-purple-500/30"/>}
                                                                             <button
                                                                                 onClick={(e) => { e.stopPropagation(); handleRemovePeAssignment(course.id); }}
                                                                                 className="opacity-0 group-hover:opacity-100 p-1 text-red-400 hover:bg-red-500/20 rounded transition-all"
