@@ -450,12 +450,13 @@ export const roadmapData = [
               final: ['Virtual LAN','Traffic Filtering: Standard ACLs','Traffic Filtering: Extended ACLs','Network Address Translation & Default Static Route','Simple Network Management Protocol','Review/Presentation'] },
           },
           {
-            id: '040613604', code: '040613604', name: 'DIGITAL FORENSICS', credits: 3, prereq: ['040613504', '040613601'],
+            id: '040613604', code: '040613604', name: 'DIGITAL FORENSICS', credits: 3,
             description: 'การจัดการพยานหลักฐาน ห่วงโซ่การคุ้มครองพยานหลักฐาน การรวบรวมพยานหลักฐานและการสำเนาข้อมูล การวิเคราะห์ข้อมูล ระเบียบวิธีการตรวจพิสูจน์นิติวิทยาศาสตร์คอมพิวเตอร์ การกู้คืนแฟ้มข้อมูลและพาร์ทิชันที่ถูกลบ นิติวิทยาศาสตร์ของการซ่อนข้อมูลและแฟ้มรูปภาพ การจัดการประวัติและความเกี่ยวข้องของเหตุการณ์ นิติวิทยาศาสตร์เครือข่าย การรายงานผลการตรวจพิสูจน์',
             professors: ['ผู้ช่วยศาสตราจารย์ ดร.ธรรศฏภณ สุระศักดิ์'], difficulty: 3.0, satisfaction: 4.0,
             scoring: [{ label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' }, { label: 'Final Exam', percent: 35, color: 'bg-red-500' }, { label: 'Project', percent: 30, color: 'bg-blue-500' }],
             topics: { midterm: ['TBA'], final: ['TBA'] },
           },
+          
           {
             id: '040613702', code: '040613702', name: 'MACHINE LEARNING', credits: 3, prereq: '040613701',
             description: 'วิชาเลือกเฉพาะสาขา ให้นักศึกษาเลือกเรียนตามความสนใจและแนวทางอาชีพที่ต้องการ',
