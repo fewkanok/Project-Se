@@ -715,11 +715,26 @@ function CurriculumMapTab() {
         {/* ── Legend ── */}
         <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} className="pt-4">
           <div className="text-slate-600 font-bold uppercase tracking-wider text-[10px] mb-3">Legend</div>
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center gap-6 flex-wrap">
+          <div className="grid grid-cols-2 gap-4">
+            {/* Row 1: Color Indicators */}
+            <div className="flex flex-col gap-2 col-span-2 sm:col-span-1">
+              <div className="flex flex-wrap gap-3">
                 {[
                   { color:"#22c55e", label:"Base Subject" },
                   { color:"#60a5fa", label:"Major" },
+                ].map(({ color, label }) => (
+                  <div key={label} className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <div style={{ width:10, height:10, borderRadius:3, border:`1.5px solid ${color}`, background:`${color}25` }} />
+                    <span>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* Row 2: More Color Indicators */}
+            <div className="flex flex-col gap-2 col-span-2 sm:col-span-1">
+              <div className="flex flex-wrap gap-3">
+                {[
                   { color:"#f87171", label:"Minor" },
                   { color:"#64748b", label:"Up to you" },
                 ].map(({ color, label }) => (
@@ -728,15 +743,22 @@ function CurriculumMapTab() {
                     <span>{label}</span>
                   </div>
                 ))}
-                <div className="ml-auto text-slate-700 italic text-[11px]">คลิกที่วิชาเพื่อดูรายละเอียด</div>
-              </div>
-
-              {/* Status badges */}
-              <div className="flex items-center gap-3">
-                <div style={{ background:"#059669", borderRadius:"999px", padding:"1px 8px", fontSize:"0.58rem", fontWeight:800, color:"#fff" }}>✓ ผ่าน</div>
-                <div style={{ background:"#2563eb", borderRadius:"999px", padding:"1px 8px", fontSize:"0.58rem", fontWeight:800, color:"#fff" }}>📖 เรียนอยู่</div>
               </div>
             </div>
+
+            {/* Row 3: Status Indicators */}
+            <div className="flex flex-col gap-2 col-span-2">
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-1.5">
+                  <div style={{ background:"#059669", borderRadius:"999px", padding:"1px 8px", fontSize:"0.58rem", fontWeight:800, color:"#fff" }}>✓ ผ่าน</div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div style={{ background:"#2563eb", borderRadius:"999px", padding:"1px 8px", fontSize:"0.58rem", fontWeight:800, color:"#fff" }}>📖 เรียนอยู่</div>
+                </div>
+                <div className="text-slate-700 italic text-[11px] ml-auto">คลิกที่วิชาเพื่อดูรายละเอียด</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1151,12 +1173,12 @@ const Roadmap = () => {
 
             {/* Year Quick Nav */}
             <div className="sticky top-4 z-30 flex justify-center mb-12 pointer-events-none">
-              <div className="relative pointer-events-auto flex items-center gap-0 bg-white/5 border border-white/10 rounded-full p-1 backdrop-blur-md">
+                <div className="relative pointer-events-auto flex items-center gap-0 bg-white/5 border border-white/10 rounded-full p-1 backdrop-blur-md">
                 <div
                   className="absolute top-1 bottom-1 rounded-full bg-white/10 transition-all duration-300 ease-in-out"
-                  style={{ left:`calc(${(activeYear-1)*25}% + 4px)`, width:'calc(25% - 2px)' }}
+                  style={{ left:`calc(${(Math.min(activeYear,4)-1)*25}% + 4px)`, width:'calc(25% - 2px)' }}
                 />
-                {processedRoadmap.map((yearGroup, idx) => {
+                {processedRoadmap.slice(0,4).map((yearGroup, idx) => {
                   const yearNum = idx + 1;
                   const isActive = activeYear === yearNum;
                   return (
