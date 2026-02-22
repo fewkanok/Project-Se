@@ -318,6 +318,42 @@ export const courses = {
     credits: "3(3-0-6)",
     prereq: null,
   },
+  // ─── outside of track  ───────────────────────────────────────
+  "040613207": {
+    code: "040613207",
+    name: "หลักภาษาโปรแกรม",
+    nameEn: "Principles of Programming Languages",
+    credits: "3(2-2-5)",
+    prereq: "040613204",
+  },
+  "040613304": {
+    code: "040613304",
+    name: "การบริหารโครงการ",
+    nameEn: "Project Management",
+    credits: "3(2-2-5)",
+    prereq: "040613302",
+  },
+  "040613111": {
+    code: "040613111",
+    name: "ดิจิทัลและระบบตรรกะ",
+    nameEn: "Digital and Logic Systems",
+    credits: "3(3-0-6)",
+    prereq: null,
+  },
+  "040613305": {
+    code: "040613305",
+    name: "สถาปัตยกรรมซอฟต์แวร์",
+    nameEn: "Software Architecture",
+    credits: "3(3-0-6)",
+    prereq: "040613302",
+  },
+  "040613307": {
+    code: "040613307",
+    name: "การทดสอบซอฟต์แวร์",
+    nameEn: "Software Testing",
+    credits: "3(3-0-6)",
+    prereq: "040613302",
+  },
 };
 
 // ─── Track Definitions ──────────────────────────────────────────
@@ -425,6 +461,21 @@ export const tracks = [
       ["040613201", "arrow", "040613411", "arrow", "040613412"],
       // OOP → Mobile App Dev → Selected Topics I
       ["040613204", "arrow", "040613421", "arrow", "040613521"],
+    ],
+  },
+  {
+    id: "Outside",
+    label: "Outside of Track",
+    color: "#6b7280",
+    colorVar: "var(--outside)",
+    icon: "📚",
+    chains: [
+      // Programming path: Prog I → Struct Prog → OOP → Principles of Languages
+      ["040613201", "arrow", "040613203", "arrow", "040613204", "arrow", "040613207"],
+      // Digital & Logic Systems (standalone)
+      ["040613111"],
+      // Database & Software Engineering path
+      ["040613201", "arrow", "040613301", "arrow", "040613302", "arrow", "040613304" , "arrow", "040613305", "arrow", "040613307"],
     ],
   },
 ];

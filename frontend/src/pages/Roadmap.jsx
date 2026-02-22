@@ -61,6 +61,42 @@ const CURRICULUM_COURSES = {
   "040613412": { code:"040613412", name:"เว็บเฟรมเวิร์ค", nameEn:"Web Framework", credits:"3(2-2-5)", prereq:"040613411" },
   "040613421": { code:"040613421", name:"การพัฒนาโปรแกรมประยุกต์เคลื่อนที่", nameEn:"Mobile Application Development", credits:"3(2-2-5)", prereq:"040613204" },
   "040613521": { code:"040613521", name:"การศึกษาเฉพาะเรื่องทางวิทยาการคอมพิวเตอร์ 1", nameEn:"Selected Topics in Computer Science I", credits:"3(3-0-6)", prereq:null },
+  // ─── outside of track  ───────────────────────────────────────
+  "040613207": {
+    code: "040613207",
+    name: "หลักภาษาโปรแกรม",
+    nameEn: "Principles of Programming Languages",
+    credits: "3(2-2-5)",
+    prereq: "040613204",
+  },
+  "040613304": {
+    code: "040613304",
+    name: "การบริหารโครงการ",
+    nameEn: "Project Management",
+    credits: "3(2-2-5)",
+    prereq: "040613302",
+  },
+  "040613111": {
+    code: "040613111",
+    name: "ดิจิทัลและระบบตรรกะ",
+    nameEn: "Digital and Logic Systems",
+    credits: "3(3-0-6)",
+    prereq: null,
+  },
+  "040613305": {
+    code: "040613305",
+    name: "สถาปัตยกรรมซอฟต์แวร์",
+    nameEn: "Software Architecture",
+    credits: "3(3-0-6)",
+    prereq: "040613302",
+  },
+  "040613307": {
+    code: "040613307",
+    name: "การทดสอบซอฟต์แวร์",
+    nameEn: "Software Testing",
+    credits: "3(3-0-6)",
+    prereq: "040613302",
+  },
 };
 
 const CURRICULUM_TRACKS = [
@@ -114,6 +150,17 @@ const CURRICULUM_TRACKS = [
       ["040613204", "arrow", "040613421", "arrow", "040613521"],
     ],
   },
+  {
+    id: "Outside", label: "Outside of Track", color: "#6b7280", icon: "📚",
+    chains: [
+      ["040613201", "arrow", "040613203", "arrow", "040613204", "arrow", "040613207"],
+      ["040613111"],
+      ["040613104", "arrow", "040613205"],
+      ["040613301", "arrow", "040613305"],
+      ["040613307"],
+      ["040613304"],
+    ],
+  },
 ];
 
 const CURRICULUM_NODE_TYPE_MAP = {
@@ -122,6 +169,7 @@ const CURRICULUM_NODE_TYPE_MAP = {
   game: { "040613104":"base","040613201":"base","040613801":"game-major","040613802":"game-major","040613804":"game","040613805":"game","040613806":"game","040613803":"game" },
   iot:  { "040613112":"base","040613201":"base","040613301":"base","040613901":"iot-major","040613902":"iot-major","040613904":"iot","040613903":"iot","040613153":"iot","040613905":"iot" },
   fs:   { "040613201":"base","040613204":"base","040613411":"fs-major","040613412":"fs","040613421":"fs-major","040613521":"fs" },
+  Outside:  {"040613201":"base","040613203":"base","040613204":"base","040613207":"minor","040613301":"base","040613305":"minor","040613304":"minor","040613307":"minor","040613111":"base" },
 };
 
 // ════════════════════════════════════════════════════════════
@@ -225,6 +273,25 @@ const CM_TREES = [
         ]},
       ]},
       { code:"040613152", t:"major", children:[] },
+    ]
+  },
+  {
+    id:"Outside", label:"Outside of Track", icon:"📚", color:"#6b7280",
+    gradient:"from-slate-600 to-gray-600", shadow:"shadow-slate-500/50", activeBg:"from-slate-900/60 to-gray-900/40",
+    roots:[
+      { code:"040613201", t:"base", children:[
+        { code:"040613203", t:"base", children:[
+          { code:"040613204", t:"base", children:[
+            { code:"040613207", t:"minor", children:[] },
+          ]},
+        ]},
+        { code:"040613301", t:"base", children:[
+          { code:"040613305", t:"minor", children:[] },
+          { code:"040613304", t:"minor", children:[] },
+          { code:"040613307", t:"minor", children:[] },
+        ]},
+      ]},
+      { code:"040613111", t:"base", children:[] },
     ]
   },
 ];
@@ -737,6 +804,7 @@ function CurriculumMapTab() {
             { id:"net",  icon:"🔐", label:"Security & Network", color:"#0891b2" },
             { id:"game", icon:"🎮", label:"Game & Graphic",     color:"#d97706" },
             { id:"iot",  icon:"🤖", label:"IoT & Robot",        color:"#059669" },
+            { id: "Outside", icon:"📚", label:"Outside of Track",   color:"#6b7280" } ,
           ].map(t => {
             const active = activeCMTrack === t.id;
             const countNodes = (roots) => {

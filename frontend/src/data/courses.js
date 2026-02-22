@@ -565,7 +565,7 @@ export const roadmapData = [
             scoring: [
               { label: 'Midterm Exam', percent: 35, color: 'bg-orange-500' },
               { label: 'Final Exam', percent: 35, color: 'bg-red-500' },
-              { label: 'การบ้านหรืองานที่มอบหมาย + ความมีส่วนร่วมในชั้นเรียน', percent: 30, color: 'bg-blue-500' },
+              { label: 'การบ้านหรืองานที่มอบหมาย + ความมีส่วนร่วมในชั้นเรียน 30%\n▪ ความมีส่วนร่วมในชั้นเรียน (เข้าชั้นเรียน) 5%\n▪ การบ้าน (5) + เข้าร่วมอบรม Online (5) 10%\n▪ โครงงานหรืองานกลุ่ม 15%', percent: 30, color: 'bg-blue-500' },
             ],
             topics: {
               midterm: ['ภาพรวมของการบริหารโครงการ (Project Management Overview)', 'วัฎจักรชีวิตของโครงการ (Project Life Cycle)', 'ผู้บริหารโครงการ (Project Manager)', 'ระบบสารสนเทศ (Information Systems)', 'วัฎจักรชีวิตในการพัฒนาระบบ (SDLC I & II)', 'การกําหนดและเริ่มต้นโครงการ (Defining the Project)', 'การวางแผนโครงการ (Planning the Project)', 'การศึกษาความเป็นไปได้ของโครงการ (Project Feasibility)'],
