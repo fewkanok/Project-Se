@@ -495,7 +495,7 @@ const SetupProfile = () => {
                       const prereqCourse = findCourseById(prereqCode)
                           || electiveCourses.find(e => e.id === prereqCode)
                           || allTrackCourses[prereqCode];
-                      const prereqName = prereqCourse?.nameEn || prereqCourse?.name || prereqCode;
+                      const prereqName = prereqCourse?.name || prereqCode;
                       alert(`ต้องผ่าน "${prereqName}" ก่อนจึงจะลงวิชานี้ได้`);
                       return;
                   }
@@ -1287,14 +1287,16 @@ const SetupProfile = () => {
       <div className="max-w-7xl mx-auto p-6 relative z-10">
         
         {/* Header */}
-        <div className="mt-8 mb-10 flex flex-col items-center justify-center text-center">
-            <div className="flex items-center gap-3 mb-2">
-                <Terminal className="text-orange-500" size={32}/>
-                <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-purple-400">
-                    CS SURVIVOR
-                </h1>
+        <div className="mt-8 mb-10 flex items-center justify-between">
+            <div>
+                <div className="flex items-center gap-3 mb-1">
+                    <Terminal className="text-orange-500" size={32}/>
+                    <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-purple-400">
+                        CS SURVIVOR
+                    </h1>
+                </div>
+                <p className="text-slate-500 font-bold uppercase tracking-widest text-sm ml-1">Profile Setup & Course Planning</p>
             </div>
-            <p className="text-slate-500 font-bold uppercase tracking-widest text-sm">Profile Setup & Course Planning</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -1717,8 +1719,12 @@ const SetupProfile = () => {
         </div>
 
         {/* Footer */}
-        <div className="fixed bottom-0 left-0 w-full bg-[#050505]/80 backdrop-blur-xl border-t border-white/10 p-4 z-50 flex center">
-            <div className="max-w-7xl mx-auto flex justify-end">
+        <div className="fixed bottom-0 left-0 w-full bg-[#050505]/80 backdrop-blur-xl border-t border-white/10 p-4 z-50">
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <Terminal className="text-orange-500" size={22}/>
+                    <span className="text-white font-black text-lg tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-purple-400">CS SURVIVOR</span>
+                </div>
                 <button onClick={handleSubmit}
                     className="bg-white text-black hover:bg-orange-50 font-bold py-3 px-10 rounded-full shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center gap-2 transition-transform hover:-translate-y-1 active:scale-95 text-lg">
                     Generate Dashboard <ChevronRight size={24}/>
