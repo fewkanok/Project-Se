@@ -725,26 +725,50 @@ function CurriculumMapTab() {
       {/* ── Header with Filter Tabs and Legend ── */}
       <div className="flex flex-col gap-6 mb-8">
         {/* Filter Tabs */}
-        <div className="flex flex-wrap justify-center gap-2">
-          {[{ id:"all", icon:"⚡", label:"ทั้งหมด", gradient:"from-slate-600 to-slate-500", shadow:"shadow-slate-500/30" }, ...CM_TREES].map(t => {
+        <div className="flex flex-nowrap justify-center gap-2 overflow-x-auto pb-1 w-full">
+          {[
+            { id:"all", icon:"⚡", label:"All" },
+            { id:"ai",   icon:"🧠", label:"AI",                color:"#7c3aed" },
+            { id:"fs",   icon:"🌐", label:"Full-Stack",        color:"#db2777" },
+            { id:"net",  icon:"🔐", label:"Security & Network",color:"#0891b2" },
+            { id:"game", icon:"🎮", label:"Game & Graphic",    color:"#d97706" },
+            { id:"iot",  icon:"🤖", label:"IoT & Robot",       color:"#059669" },
+          ].map(t => {
             const active = activeCMTrack === t.id;
+            // นับ unique nodes
+            const countNodes = (roots) => {
+              const seen = new Set();
+              const walk = (n) => { if(seen.has(n.code))return; seen.add(n.code); (n.children||[]).forEach(walk); };
+              (roots||[]).forEach(walk); return seen.size;
+            };
+            const count = t.id === "all"
+              ? CM_TREES.reduce((s,tr) => s + countNodes(tr.roots), 0)
+              : countNodes(CM_TREES.find(tr => tr.id === t.id)?.roots);
             return (
               <button
                 key={t.id}
                 onClick={() => setActiveCMTrack(t.id)}
-                style={active ? {
-                  background: `linear-gradient(135deg, ${t.color || '#475569'}, ${t.color ? t.color + 'cc' : '#334155'})`,
-                  boxShadow: `0 4px 20px ${t.color ? t.color + '55' : '#47556966'}`,
+                style={active && t.color ? {
+                  background: `linear-gradient(135deg, ${t.color}, ${t.color}cc)`,
+                  boxShadow: `0 4px 20px ${t.color}55`,
+                  border: '1px solid rgba(255,255,255,0.25)',
+                  transform: 'scale(1.05)',
+                } : active ? {
+                  background: 'linear-gradient(135deg,#475569,#334155)',
                   border: '1px solid rgba(255,255,255,0.2)',
                   transform: 'scale(1.05)',
                 } : {
-                  background: 'rgba(255,255,255,0.04)',
+                  background: 'rgba(30,41,59,0.6)',
                   border: '1px solid rgba(255,255,255,0.08)',
                 }}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 text-white hover:bg-white/10"
+                className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-full font-bold text-sm transition-all duration-300 text-white hover:scale-105"
               >
                 <span>{t.icon}</span>
-                <span>{t.label}</span>
+                <span className="whitespace-nowrap">{t.label}</span>
+                <span style={{
+                  background: active ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)',
+                  borderRadius: '999px', padding: '1px 7px', fontSize: '0.68rem', fontWeight: 800,
+                }}>{count}</span>
               </button>
             );
           })}
@@ -888,10 +912,23 @@ const Roadmap = () => {
       step1[id] = state;
     });
 
-    // ✅ Step 2: เก็บ step1 ทั้งหมด — ไม่ cascade delete
-    // เหตุผล: ผู้ใช้ mark passed เองใน Setup แล้ว ข้อมูลถูกต้องแน่นอน
-    // การ cascade delete อาจลบวิชาที่ passed จริงออกถ้า prereq chain มีปัญหา
-    return { ...parsed, courseStates: step1 };
+    // ✅ Step 2: cascade prereq validation
+    // ถ้า prereq ยังไม่ passed → วิชาที่ต่อจากมันไม่ควรเป็น passed (ข้อมูลมั่วจาก old data)
+    const allCoursesFlat = {};
+    roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => { allCoursesFlat[c.id] = c; })));
+    Object.entries(trackCoursesData).forEach(([id, c]) => { allCoursesFlat[id] = c; });
+
+    const cleanedStates = {};
+    Object.entries(step1).forEach(([id, state]) => {
+      const course = allCoursesFlat[id];
+      if (!course?.prereq) { cleanedStates[id] = state; return; }
+      const prereqState = step1[course.prereq];
+      if (prereqState === 'passed') { cleanedStates[id] = state; }
+      else if (state === 'learning' && prereqState === 'learning') { cleanedStates[id] = state; }
+      // prereq ยังไม่ passed แต่ตัวเองอ้างว่า passed → ลบทิ้ง
+    });
+    
+    return { ...parsed, courseStates: cleanedStates };
   });
 
   const processedRoadmap = useMemo(() => {
@@ -904,15 +941,12 @@ const Roadmap = () => {
           return {
             ...sem,
             courses: sem.courses.map(course => {
-              // ✅ แปลงเป็น number ก่อนเปรียบ — profile อาจ save currentYear/Term เป็น string
-              const curYear = parseInt(profile.basicInfo?.currentYear || profile.currentYear) || 1;
-              const curTerm = parseInt(profile.basicInfo?.currentTerm || profile.currentTerm) || 1;
               let status = 'locked';
               const courseState = profile.courseStates?.[course.id];
               if (courseState === 'passed') status = 'passed';
               else if (courseState === 'learning') status = 'active';
-              else if (curYear === yearNum && curTerm === termNum) status = 'available';
-              else if (curYear > yearNum || (curYear === yearNum && curTerm > termNum)) status = 'missed';
+              else if (profile.currentYear === yearNum && profile.currentTerm === termNum) status = 'available';
+              else if (profile.currentYear > yearNum || (profile.currentYear === yearNum && profile.currentTerm > termNum)) status = 'missed';
               if (course.prereq) {
                 const prereqPassed = profile.courseStates?.[course.prereq] === 'passed';
                 if (!prereqPassed && status === 'locked') status = 'locked';
@@ -1203,7 +1237,7 @@ const Roadmap = () => {
             }`}
           >
             <GitBranch size={20} />
-            แบ่งสาย
+            Track Map
           </button>
         </div>
 
