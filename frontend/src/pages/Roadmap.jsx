@@ -726,7 +726,7 @@ function CurriculumMapTab() {
   return (
     <div className="text-white">
 
-      {/* ── Header with Filter Tabs and Legend ── */}
+      {/* ── Filter Tabs + Legend in one row ── */}
       <div className="flex flex-col gap-6 mb-8">
         {/* Filter Tabs */}
         <div className="flex flex-nowrap justify-center gap-2 overflow-x-auto pb-1 w-full">
@@ -777,53 +777,30 @@ function CurriculumMapTab() {
           })}
         </div>
 
-        {/* ── Legend ── */}
-        <div style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }} className="pt-4">
-          <div className="text-slate-600 font-bold uppercase tracking-wider text-[10px] mb-3">Legend</div>
-          <div className="grid grid-cols-2 gap-4">
-            {/* Row 1: Color Indicators */}
-            <div className="flex flex-col gap-2 col-span-2 sm:col-span-1">
-              <div className="flex flex-wrap gap-3">
-                {[
-                  { color:"#22c55e", label:"Base Subject" },
-                  { color:"#60a5fa", label:"Major" },
-                ].map(({ color, label }) => (
-                  <div key={label} className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <div style={{ width:10, height:10, borderRadius:3, border:`1.5px solid ${color}`, background:`${color}25` }} />
-                    <span>{label}</span>
-                  </div>
-                ))}
-              </div>
+        {/* ── Legend — ใหญ่ขึ้น อยู่แถวเดียวกัน ── */}
+        <div className="flex flex-wrap items-center justify-center gap-8 py-2">
+          {/* Color type indicators */}
+          {[
+            { color:"#22c55e", label:"Base Subject" },
+            { color:"#60a5fa", label:"Major" },
+            { color:"#f87171", label:"Minor" },
+            { color:"#64748b", label:"Up to you" },
+          ].map(({ color, label }) => (
+            <div key={label} className="flex items-center gap-2.5">
+              <div style={{ width:18, height:18, borderRadius:5, border:`2.5px solid ${color}`, background:`${color}35` }} />
+              <span style={{ color: color, fontSize:'1rem', fontWeight:800 }}>{label}</span>
             </div>
-            
-            {/* Row 2: More Color Indicators */}
-            <div className="flex flex-col gap-2 col-span-2 sm:col-span-1">
-              <div className="flex flex-wrap gap-3">
-                {[
-                  { color:"#f87171", label:"Minor" },
-                  { color:"#64748b", label:"Up to you" },
-                ].map(({ color, label }) => (
-                  <div key={label} className="flex items-center gap-1.5 text-xs text-slate-500">
-                    <div style={{ width:10, height:10, borderRadius:3, border:`1.5px solid ${color}`, background:`${color}25` }} />
-                    <span>{label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+          ))}
 
-            {/* Row 3: Status Indicators */}
-            <div className="flex flex-col gap-2 col-span-2">
-              <div className="flex flex-wrap gap-3">
-                <div className="flex items-center gap-1.5">
-                  <div style={{ background:"#059669", borderRadius:"999px", padding:"1px 8px", fontSize:"0.58rem", fontWeight:800, color:"#fff" }}>✓ ผ่าน</div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <div style={{ background:"#2563eb", borderRadius:"999px", padding:"1px 8px", fontSize:"0.58rem", fontWeight:800, color:"#fff" }}>📖 เรียนอยู่</div>
-                </div>
-                <div className="text-slate-700 italic text-[11px] ml-auto">คลิกที่วิชาเพื่อดูรายละเอียด</div>
-              </div>
-            </div>
-          </div>
+          {/* Divider */}
+          <div style={{ width:1, height:28, background:'rgba(255,255,255,0.15)' }} />
+
+          {/* Status badges */}
+          <div style={{ background:"linear-gradient(135deg,#059669,#10b981)", borderRadius:999, padding:"5px 16px", fontSize:"0.9rem", fontWeight:800, color:"#fff" }}>✓ ผ่าน</div>
+          <div style={{ background:"linear-gradient(135deg,#1d4ed8,#2563eb)", borderRadius:999, padding:"5px 16px", fontSize:"0.9rem", fontWeight:800, color:"#fff" }}>📖 เรียนอยู่</div>
+
+          {/* Hint */}
+          <span className="text-slate-500 italic text-xs">คลิกที่วิชาเพื่อดูรายละเอียด</span>
         </div>
       </div>
 
@@ -1227,7 +1204,6 @@ const Roadmap = () => {
             Elective Courses
           </button>
 
-          {/* ✅ ปุ่มใหม่: แบ่งสาย */}
           <button
             onClick={() => setActiveTab('trackmap')}
             className={`flex items-center gap-2 px-8 py-3 rounded-full font-bold text-lg transition-all duration-300 ${
@@ -1240,32 +1216,6 @@ const Roadmap = () => {
             Track Map
           </button>
         </div>
-
-        {/* ── Legend (ซ่อนเมื่ออยู่หน้า trackmap) ── */}
-        {activeTab !== 'trackmap' && (
-          <div className="flex flex-wrap justify-center gap-4 md:gap-6 text-sm font-bold text-slate-300 mt-6 bg-black/40 py-3 px-8 rounded-full w-max mx-auto border border-white/20 backdrop-blur-xl shadow-xl">
-            <span className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_12px_#10b981]"></div>
-              Passed
-            </span>
-            <span className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-blue-400 animate-pulse shadow-[0_0_12px_#60a5fa]"></div>
-              Learning
-            </span>
-            {activeTab === 'core' && (
-              <>
-                <span className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-purple-500 shadow-[0_0_10px_#a855f7]"></div>
-                  Available
-                </span>
-                <span className="flex items-center gap-2">
-                  <div className="w-3 h-3 rounded-full bg-slate-500"></div>
-                  Locked
-                </span>
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ── Main Content ── */}
@@ -1407,6 +1357,33 @@ const Roadmap = () => {
                 );
               })}
             </svg>
+
+            {/* Core Courses Section Header + Legend */}
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl mb-3">
+                <Code className="text-cyan-400" size={28} />
+                <h2 className="text-3xl font-black text-white">Core Courses</h2>
+              </div>
+              <p className="text-slate-400 text-base mb-6">วิชาหลักตามหลักสูตร พร้อม prerequisite และสถานะการเรียน</p>
+              <div className="flex flex-wrap items-center justify-center gap-8">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-[18px] h-[18px] rounded-[5px]" style={{ border: '2.5px solid #10b981', background: '#10b98135' }}></div>
+                  <span className="font-bold text-base" style={{ color: '#10b981' }}>Passed</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-[18px] h-[18px] rounded-[5px] animate-pulse" style={{ border: '2.5px solid #60a5fa', background: '#60a5fa35' }}></div>
+                  <span className="font-bold text-base" style={{ color: '#60a5fa' }}>Learning</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-[18px] h-[18px] rounded-[5px]" style={{ border: '2.5px solid #a855f7', background: '#a855f735' }}></div>
+                  <span className="font-bold text-base" style={{ color: '#a855f7' }}>Available</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-[18px] h-[18px] rounded-[5px]" style={{ border: '2.5px solid #64748b', background: '#64748b35' }}></div>
+                  <span className="font-bold text-base" style={{ color: '#64748b' }}>Locked</span>
+                </div>
+              </div>
+            </div>
 
             {/* Year Quick Nav */}
             <div className="sticky top-4 z-30 flex justify-center mb-12 pointer-events-none">
@@ -1736,8 +1713,25 @@ const Roadmap = () => {
         {activeTab === 'elective' && (
           <div className="space-y-8 relative z-10">
             <div className="text-center mb-8">
-              <h2 className="text-4xl font-black text-white mb-4">Free Elective Courses</h2>
-              <p className="text-slate-400 text-lg">Choose courses that match your interests and career goals</p>
+              <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl mb-3">
+                <Sparkles className="text-orange-400" size={28} />
+                <h2 className="text-3xl font-black text-white">Elective Courses</h2>
+              </div>
+              <p className="text-slate-400 text-base mb-6">เลือกวิชาเสรีตามความสนใจและเป้าหมายอาชีพของคุณ</p>
+              <div className="flex flex-wrap items-center justify-center gap-8">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-[18px] h-[18px] rounded-[5px]" style={{ border: '2.5px solid #10b981', background: '#10b98135' }}></div>
+                  <span className="font-bold text-base" style={{ color: '#10b981' }}>Passed</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-[18px] h-[18px] rounded-[5px] animate-pulse" style={{ border: '2.5px solid #60a5fa', background: '#60a5fa35' }}></div>
+                  <span className="font-bold text-base" style={{ color: '#60a5fa' }}>Learning</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-[18px] h-[18px] rounded-[5px]" style={{ border: '2.5px solid #f97316', background: '#f9731635' }}></div>
+                  <span className="font-bold text-base" style={{ color: '#f97316' }}>Available</span>
+                </div>
+              </div>
             </div>
 
             <div className="flex flex-wrap justify-center gap-3 mb-10">
@@ -1810,16 +1804,15 @@ const Roadmap = () => {
         {activeTab === 'trackmap' && (
           <div className="relative z-10">
             {/* Section Header */}
-            <div className="text-center mb-10">
-              <div className="inline-flex items-center gap-3 bg-gradient-to-r from-violet-900/60 to-fuchsia-900/40 border border-violet-500/30 px-8 py-4 rounded-2xl backdrop-blur-md shadow-xl mb-4">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl mb-3" style={{ background: 'transparent' }}>
                 <GitBranch className="text-violet-400" size={28} />
                 <h2 className="text-3xl font-black text-white">Track Map</h2>
               </div>
-              <p className="text-slate-400 text-base mt-2">
+              <p className="text-slate-400 text-base">
                 ดูเส้นทางการเรียนในแต่ละสาย พร้อม prerequisite chains ทั้งหมด
               </p>
             </div>
-
             {/* CurriculumMap Component */}
             <CurriculumMapTab />
           </div>
