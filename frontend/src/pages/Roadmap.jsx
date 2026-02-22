@@ -665,10 +665,35 @@ function CurriculumMapTab() {
   const tooltipTimeoutRef                 = useRef(null);
 
   // ── Load courseStates from profile ────────────────────────
+  // ⚠️ ต้องกรอง PE slot IDs ออกก่อน เพราะ courses.js ใช้ id เดียวกับ track course code
+  // เช่น PE slot id='040613604' = Digital Forensics ทำให้ auto-select ของ setup
+  // ไปเซต courseStates['040613604']='learning' แม้ผู้ใช้ไม่ได้เลือกวิชานั้น
   const courseStates = useMemo(() => {
     try {
       const saved = localStorage.getItem('userProfile');
-      return saved ? (JSON.parse(saved).courseStates || {}) : {};
+      if (!saved) return {};
+      const parsed = JSON.parse(saved);
+      const rawStates = parsed.courseStates || {};
+      const peAssignments = parsed.peAssignments || {};
+
+      // รวม id ของ PE slot ทั้งหมดใน roadmap
+      const peSlotIds = new Set(
+        roadmapData.flatMap(y => y.semesters.flatMap(s =>
+          s.courses.filter(c => c.isProfessionalElective).map(c => c.id)
+        ))
+      );
+      // code ที่ถูก assign เข้า PE slot จริง ๆ
+      const assignedCodes = new Set(Object.values(peAssignments).filter(Boolean));
+
+      // สร้าง courseStates ที่กรองแล้ว:
+      // PE slot id → ใช้ state ได้เฉพาะถ้าถูก assign จริง (อยู่ใน peAssignments)
+      // วิชาปกติ → ใช้ได้เลย
+      const adjusted = {};
+      Object.entries(rawStates).forEach(([id, state]) => {
+        if (peSlotIds.has(id) && !assignedCodes.has(id)) return; // กรองออก
+        adjusted[id] = state;
+      });
+      return adjusted;
     } catch { return {}; }
   }, []);
 
@@ -844,10 +869,29 @@ const Roadmap = () => {
 
   const [profile] = useState(() => {
     const saved = localStorage.getItem('userProfile');
-    return saved ? JSON.parse(saved) : {
+    if (!saved) return {
       passedCourses: [], learningCourses: [], courseStates: {},
       customElectives: {}, customTrackCourses: {}, peAssignments: {}, currentYear: 1, currentTerm: 1
     };
+    const parsed = JSON.parse(saved);
+    
+    // ✅ Step 1: กรอง PE slot IDs ออกจาก courseStates
+    const peSlotIds = new Set(
+      roadmapData.flatMap(y => y.semesters.flatMap(s =>
+        s.courses.filter(c => c.isProfessionalElective).map(c => c.id)
+      ))
+    );
+    const assignedCodes = new Set(Object.values(parsed.peAssignments || {}).filter(Boolean));
+    const step1 = {};
+    Object.entries(parsed.courseStates || {}).forEach(([id, state]) => {
+      if (peSlotIds.has(id) && !assignedCodes.has(id)) return;
+      step1[id] = state;
+    });
+
+    // ✅ Step 2: เก็บ step1 ทั้งหมด — ไม่ cascade delete
+    // เหตุผล: ผู้ใช้ mark passed เองใน Setup แล้ว ข้อมูลถูกต้องแน่นอน
+    // การ cascade delete อาจลบวิชาที่ passed จริงออกถ้า prereq chain มีปัญหา
+    return { ...parsed, courseStates: step1 };
   });
 
   const processedRoadmap = useMemo(() => {
@@ -860,12 +904,15 @@ const Roadmap = () => {
           return {
             ...sem,
             courses: sem.courses.map(course => {
+              // ✅ แปลงเป็น number ก่อนเปรียบ — profile อาจ save currentYear/Term เป็น string
+              const curYear = parseInt(profile.basicInfo?.currentYear || profile.currentYear) || 1;
+              const curTerm = parseInt(profile.basicInfo?.currentTerm || profile.currentTerm) || 1;
               let status = 'locked';
               const courseState = profile.courseStates?.[course.id];
               if (courseState === 'passed') status = 'passed';
               else if (courseState === 'learning') status = 'active';
-              else if (profile.currentYear === yearNum && profile.currentTerm === termNum) status = 'available';
-              else if (profile.currentYear > yearNum || (profile.currentYear === yearNum && profile.currentTerm > termNum)) status = 'missed';
+              else if (curYear === yearNum && curTerm === termNum) status = 'available';
+              else if (curYear > yearNum || (curYear === yearNum && curTerm > termNum)) status = 'missed';
               if (course.prereq) {
                 const prereqPassed = profile.courseStates?.[course.prereq] === 'passed';
                 if (!prereqPassed && status === 'locked') status = 'locked';
@@ -931,6 +978,8 @@ const Roadmap = () => {
     visibleRoadmap.forEach(year => {
       year.semesters.forEach(sem => {
         sem.courses.forEach(course => {
+          // ✅ ข้าม PE slot — ไม่วาดเส้นจากวิชาปกติ (Y2) มายัง PE slot (Y3+)
+          if (course.isProfessionalElective) return;
           if (course.prereq) {
             const startEl = document.getElementById(`core-${course.prereq}`);
             const endEl   = document.getElementById(`core-${course.id}`);

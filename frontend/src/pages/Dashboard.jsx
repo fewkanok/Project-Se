@@ -135,13 +135,19 @@ const Dashboard = () => {
                 const gpaKey = `Y${yearNum}/${termNum}`;
 
                 // แทนที่ PE slots ด้วย course จริงจาก peSlotCourseMap
-                let displayCourses = sem.courses.map(c => {
-                  if (c.isProfessionalElective && peSlotCourseMap[c.id]) {
-                    // ใช้ course object จาก allTrackCourses แทน placeholder
-                    return peSlotCourseMap[c.id];
+                // ⚠️ ถ้า PE slot ไม่ได้ assign → กรองออก ไม่นำไปแสดงหรือนับ
+                let displayCourses = sem.courses.reduce((acc, c) => {
+                  if (c.isProfessionalElective) {
+                    if (peSlotCourseMap[c.id]) {
+                      // assign แล้ว → ใช้ course object จริงจาก allTrackCourses
+                      acc.push(peSlotCourseMap[c.id]);
+                    }
+                    // ไม่ได้ assign → ข้ามไปเลย (ไม่ push)
+                    return acc;
                   }
-                  return c;
-                });
+                  acc.push(c);
+                  return acc;
+                }, []);
                 if (customElectives[termKey]) {
                     customElectives[termKey].forEach(elecId => {
                         const elecInfo = electiveCourses.find(c => c.id === elecId);

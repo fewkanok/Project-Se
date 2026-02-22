@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
+import { courses as allTrackCourses } from '../data/courseData';
 
 // ─── constants ────────────────────────────────────────────────────────────────
 const GRADE_VALUES = {
@@ -205,45 +206,82 @@ const GradeCalculator = () => {
       setLoadErr('รูปแบบ userProfile ไม่ถูกต้อง (ต้องเป็น object)'); return;
     }
 
-    // 1. learning courses — validate แต่ละ id อย่างละเอียด
-    const rawIds = parsed.learningCourses;
-    const currentIds = Array.isArray(rawIds)
-      ? rawIds.filter(id => typeof id === 'string' && id.trim() !== '')
-      : [];
+    // 1. learning courses — ใช้ logic เดียวกับ Dashboard
+    //    ต้องเช็ค peAssignments เพื่อแปลง PE slot → course จริง
+    const courseStatesRaw = (parsed.courseStates && typeof parsed.courseStates === 'object')
+      ? parsed.courseStates : {};
+    const peAssignments = (parsed.peAssignments && typeof parsed.peAssignments === 'object')
+      ? parsed.peAssignments : {};
+    const customElectivesRaw = (parsed.customElectives && typeof parsed.customElectives === 'object')
+      ? parsed.customElectives : {};
 
-    if (!Array.isArray(rawIds)) {
-      console.warn('[GradeCalc] learningCourses ไม่ใช่ array — ใช้ []');
-    }
+    // สร้าง set ของ PE slot ids ทั้งหมดใน roadmap
+    const peSlotIds = new Set(
+      roadmapData.flatMap(y => y.semesters?.flatMap(s =>
+        s.courses?.filter(c => c.isProfessionalElective).map(c => c.id) ?? []
+      ) ?? [])
+    );
+
+    // สร้าง map: peSlotId → course object จริงจาก allTrackCourses
+    const peSlotCourseMap = {};
+    Object.entries(peAssignments).forEach(([slotId, courseCode]) => {
+      const trackCourse = allTrackCourses?.[courseCode];
+      if (trackCourse) {
+        const cr = parseInt(trackCourse.credits, 10) || 3;
+        peSlotCourseMap[slotId] = {
+          ...trackCourse,
+          id: courseCode,
+          code: courseCode,
+          name: trackCourse.nameEn || trackCourse.name,
+          credits: cr,
+        };
+      }
+    });
 
     const seen = new Set();
     const details = [];
     const badCredits = [];
 
-    const tryPush = (c) => {
+    const tryPushCourse = (c) => {
       if (!c || typeof c.id !== 'string') return;
-      if (!currentIds.includes(c.id) || seen.has(c.id)) return;
-      seen.add(c.id);
-      const credits = normalizeCredits(c);
+      if (seen.has(c.id)) return;
+      // ถ้าเป็น PE slot ที่ไม่ได้ assign → ข้าม
+      if (peSlotIds.has(c.id) && !peSlotCourseMap[c.id]) return;
+      // ถ้าเป็น PE slot ที่ assign แล้ว → ใช้ course จริงแทน
+      const actualCourse = peSlotIds.has(c.id) ? peSlotCourseMap[c.id] : c;
+      if (!actualCourse) return;
+      // เช็คสถานะ: ต้องเป็น 'learning'
+      if (courseStatesRaw[actualCourse.id] !== 'learning') return;
+      seen.add(actualCourse.id);
+      const credits = normalizeCredits(actualCourse);
       if (credits === 0) {
-        badCredits.push(c.id);
-        console.warn(`[GradeCalc] credits ผิดปกติ (${c.credits}) — วิชา: ${c.id}`);
+        badCredits.push(actualCourse.id);
+        console.warn(`[GradeCalc] credits ผิดปกติ — วิชา: ${actualCourse.id}`);
       }
-      details.push({ ...c, credits });
+      details.push({ ...actualCourse, credits });
     };
 
     try {
-      roadmapData.forEach(y => y.semesters?.forEach(s => s.courses?.forEach(tryPush)));
+      roadmapData.forEach(y => y.semesters?.forEach(s => s.courses?.forEach(tryPushCourse)));
     } catch (e) { console.error('[GradeCalc] roadmapData error:', e); }
 
+    // เพิ่ม free electives ที่ learning
     try {
-      electiveCourses.forEach(tryPush);
+      Object.values(customElectivesRaw).forEach(arr => {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(elecId => {
+          if (typeof elecId !== 'string') return;
+          if (seen.has(elecId)) return;
+          if (courseStatesRaw[elecId] !== 'learning') return;
+          const elec = electiveCourses.find(e => e.id === elecId);
+          if (!elec) return;
+          seen.add(elecId);
+          const credits = normalizeCredits(elec);
+          details.push({ ...elec, credits });
+        });
+      });
     } catch (e) { console.error('[GradeCalc] electiveCourses error:', e); }
 
-    const missing = currentIds.filter(id => !seen.has(id));
-    if (missing.length > 0) {
-      console.warn('[GradeCalc] หา id ไม่เจอ:', missing);
-      pushToast(`หาวิชาไม่พบ ${missing.length} รายการ`, 'warn', 6000);
-    }
     if (badCredits.length > 0) {
       pushToast(`${badCredits.length} วิชามี credits ผิดปกติ — จะนับเป็น 0`, 'warn', 5000);
     }
@@ -251,9 +289,7 @@ const GradeCalculator = () => {
     setLoadErr(null);
 
     // 2. previous GPA — validate courseStates และ gpaHistory ก่อนใช้
-    const courseStates = (parsed.courseStates && typeof parsed.courseStates === 'object' && !Array.isArray(parsed.courseStates))
-      ? parsed.courseStates
-      : {};
+    const courseStates = courseStatesRaw;
 
     const parsedTerms = [];
     if (parsed.gpaHistory && typeof parsed.gpaHistory === 'object' && !Array.isArray(parsed.gpaHistory)) {

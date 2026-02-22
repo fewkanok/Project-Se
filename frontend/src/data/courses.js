@@ -660,7 +660,7 @@ export const roadmapData = [
             },
           },
           {
-            id: '040613703', code: '040613703', name: 'DEEP LEARNING', credits: 3, prereq: '040613702',
+            id: '040613704', code: '040613704', name: 'DEEP LEARNING', credits: 3, prereq: '040613702',
             isProfessionalElective: true, slotIndex: 7,
             description: 'Deep Learning เชิงลึก ครอบคลุม Neural Network Architecture, Convolutional Neural Network (CNN) สำหรับ Computer Vision, Recurrent Neural Network (RNN/LSTM) สำหรับ Sequential Data, Transformer & Attention Mechanism, Generative AI (GAN, Diffusion Model) และการ Fine-tune โมเดล Pre-trained (Hugging Face) ด้วย PyTorch/TensorFlow',
             professors: ['ผศ.ดร.ลือพล พิพานเมฆาภรณ์'],

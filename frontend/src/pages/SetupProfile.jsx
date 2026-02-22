@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil, Plus, Trash2, Search, Save } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
-import { courses as allTrackCourses, tracks } from '../data/courseData';
+import { courses as allTrackCourses, tracks, nodeTypeMap } from '../data/courseData';
 
 const SetupProfile = () => {
   const navigate = useNavigate();
@@ -75,7 +75,41 @@ const SetupProfile = () => {
   // State: Course States
   const [courseStates, setCourseStates] = useState(() => {
     try {
-        return savedData?.courseStates || {};
+        const raw = savedData?.courseStates || {};
+        const peAssignments = savedData?.peAssignments || {};
+
+        // ─── Cleanup: PE slot IDs ใน courses.js ตรงกับ track course code ───
+        // Auto-select รุ่นเก่าอาจเคย set courseStates[peSlotId] = learning/passed
+        // ต้องกรองออกตอน load เพื่อไม่ให้ Dashboard/Track map แสดงสถานะผิด
+        const peSlotIds = new Set(
+          roadmapData.flatMap(y => y.semesters.flatMap(s =>
+            s.courses.filter(c => c.isProfessionalElective).map(c => c.id)
+          ))
+        );
+        const assignedCodes = new Set(Object.values(peAssignments).filter(Boolean));
+
+        // ขั้น 1: กรอง PE slot IDs ที่ไม่ได้ assign
+        const preClean = {};
+        Object.entries(raw).forEach(([id, state]) => {
+          if (peSlotIds.has(id) && !assignedCodes.has(id)) return;
+          preClean[id] = state;
+        });
+
+        // ขั้น 2: กรอง cascade prereq — ถ้า prereq ไม่ passed → วิชานี้ไม่ควรเป็น learning/passed
+        const allCoursesMap = {};
+        roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => { allCoursesMap[c.id] = c; })));
+
+        const cleaned = {};
+        Object.entries(preClean).forEach(([id, state]) => {
+          const course = allCoursesMap[id] || allTrackCourses[id];
+          if (!course?.prereq) { cleaned[id] = state; return; }
+          const prereqState = preClean[course.prereq];
+          // prereq ต้อง passed ก่อน — ถ้า prereq ยัง learning อยู่ วิชานี้ไม่ควร passed/learning ด้วย
+          if (prereqState === 'passed') { cleaned[id] = state; }
+          else if (state === 'learning' && prereqState === 'learning') { cleaned[id] = state; }
+          // state === passed แต่ prereq ยังไม่ passed → ลบออก (ข้อมูลผิด)
+        });
+        return cleaned;
     } catch (error) {
         console.error('Error loading course states:', error);
         return {};
@@ -137,6 +171,27 @@ const SetupProfile = () => {
   const [saveStatus, setSaveStatus] = useState('saved'); // 'saving', 'saved', 'error'
   const saveTimeoutRef = useRef(null);
 
+
+  // ── Helper: รวม PE slot IDs ทั้งหมดจาก roadmap
+  // ใช้กรอง courseStates ก่อนบันทึก เพราะ courses.js ใช้ id เดียวกับ track course code
+  const getPeSlotIds = () => new Set(
+    roadmapData.flatMap(y => y.semesters.flatMap(s =>
+      s.courses.filter(c => c.isProfessionalElective).map(c => c.id)
+    ))
+  );
+
+  // ── Helper: กรอง courseStates ให้สะอาด — ลบ PE slot IDs ที่ไม่ได้ assign จริง
+  const getCleanCourseStates = (states, assignments) => {
+    const peSlotIds = getPeSlotIds();
+    const assignedCodes = new Set(Object.values(assignments || {}).filter(Boolean));
+    const clean = {};
+    Object.entries(states || {}).forEach(([id, state]) => {
+      if (peSlotIds.has(id) && !assignedCodes.has(id)) return;
+      clean[id] = state;
+    });
+    return clean;
+  };
+
   // --- 2. Auto-Save Function with Error Handling ---
   const autoSave = (dataToSave) => {
     setSaveStatus('saving');
@@ -156,13 +211,15 @@ const SetupProfile = () => {
             throw new Error('Invalid course states data');
         }
 
+        // ✅ กรอง courseStates ก่อนบันทึก — ลบ PE slot IDs ที่ไม่ได้ assign จริง
+        const cleanStates = getCleanCourseStates(dataToSave.courseStates, dataToSave.peAssignments);
         const userPayload = {
           basicInfo: dataToSave.basicInfo,
           ...dataToSave.basicInfo,
           gpaHistory: dataToSave.gpaHistory || {},
-          passedCourses: Object.keys(dataToSave.courseStates).filter(id => dataToSave.courseStates[id] === 'passed'),
-          learningCourses: Object.keys(dataToSave.courseStates).filter(id => dataToSave.courseStates[id] === 'learning'),
-          courseStates: dataToSave.courseStates,
+          passedCourses: Object.keys(cleanStates).filter(id => cleanStates[id] === 'passed'),
+          learningCourses: Object.keys(cleanStates).filter(id => cleanStates[id] === 'learning'),
+          courseStates: cleanStates,
           customElectives: dataToSave.customElectives || {},
           peAssignments: dataToSave.peAssignments || {},
           maxYear: dataToSave.maxYear || 4,
@@ -254,6 +311,10 @@ const SetupProfile = () => {
                     const t = semIdx + 1;
 
                     sem.courses.forEach(course => {
+                        // ⚠️ ข้าม PE slot — id ของ PE slot ตรงกับ track course code
+                        // ไม่ควร auto-set state ให้ PE slot เพราะยังไม่ได้เลือกวิชา
+                        if (course.isProfessionalElective) return;
+
                         const currentState = prevStates[course.id];
                         const newStatus = getStatus(y, t, currentState);
                         
@@ -421,16 +482,20 @@ const SetupProfile = () => {
               if (courseObj?.prereq) {
                   const prereqCode = courseObj.prereq;
                   // เช็ค prereq แบบครบ: courseStates + peAssignments (PE courses ที่วางแผนไว้)
+                  // prereq ต้องผ่านจริง (passed) เท่านั้น ไม่นับแค่ learning หรือแค่ assign ใน PE slot
+                  const prereqPassed = courseStates[prereqCode] === 'passed';
                   const prereqInCourseStates = courseStates[prereqCode] === 'passed' || courseStates[prereqCode] === 'learning';
-                  const prereqInPeSlot = Object.values(peAssignments).includes(prereqCode);
-                  const prereqSatisfied = prereqInCourseStates || prereqInPeSlot;
+                  const prereqInPeSlot = Object.values(peAssignments).includes(prereqCode) && prereqPassed;
+                  const prereqSatisfied = (nextState === 'learning') 
+                    ? prereqInCourseStates || prereqInPeSlot  // learning: prereq ต้องอยู่ใน learning/passed
+                    : prereqPassed || prereqInPeSlot;         // passed: prereq ต้อง passed จริง
                   
                   if (!prereqSatisfied) {
                       // หาชื่อวิชา prereq จากทุก source
                       const prereqCourse = findCourseById(prereqCode)
                           || electiveCourses.find(e => e.id === prereqCode)
                           || allTrackCourses[prereqCode];
-                      const prereqName = prereqCourse?.name || prereqCode;
+                      const prereqName = prereqCourse?.nameEn || prereqCourse?.name || prereqCode;
                       alert(`ต้องผ่าน "${prereqName}" ก่อนจึงจะลงวิชานี้ได้`);
                       return;
                   }
@@ -662,8 +727,10 @@ const SetupProfile = () => {
         }
         
         // 3. ถ้าผ่านหมด บันทึกและไปหน้าถัดไป
-        const passedCourses = Object.keys(courseStates).filter(id => courseStates[id] === 'passed');
-        const learningCourses = Object.keys(courseStates).filter(id => courseStates[id] === 'learning');
+        // ✅ กรอง courseStates ก่อนบันทึก — ลบ PE slot IDs ที่ไม่ได้ assign จริง
+        const cleanStatesSubmit = getCleanCourseStates(courseStates, peAssignments);
+        const passedCourses = Object.keys(cleanStatesSubmit).filter(id => cleanStatesSubmit[id] === 'passed');
+        const learningCourses = Object.keys(cleanStatesSubmit).filter(id => cleanStatesSubmit[id] === 'learning');
         
         const userPayload = { 
             basicInfo,
@@ -671,7 +738,7 @@ const SetupProfile = () => {
             gpaHistory,
             passedCourses, 
             learningCourses,
-            courseStates,
+            courseStates: cleanStatesSubmit,
             customElectives,
             peAssignments,
             maxYear,
@@ -726,11 +793,23 @@ const SetupProfile = () => {
     const track = tracks.find(t => t.id === selectedTrack);
     if (!track) return [];
 
-    // รวม code ทุกตัวจาก track
+    // รวมเฉพาะวิชาเอกจริง ๆ — กรองวิชาแกน (base) และวิชาที่อยู่ใน roadmap แต่ไม่ใช่ PE slot ออก
+    // วิชาที่อยู่ใน roadmapCourseIds จะโชว์ได้ก็ต่อเมื่อเป็น PE slot (isProfessionalElective === true) เท่านั้น
+    const trackNodeMap = nodeTypeMap[selectedTrack] || {};
+    const roadmapPeCodes = new Set(
+      roadmapData.flatMap(y => y.semesters.flatMap(s =>
+        s.courses.filter(c => c.isProfessionalElective).map(c => c.id)
+      ))
+    );
     const trackCodes = new Set();
     track.chains.forEach(chain => {
       chain.forEach(item => {
-        if (item !== 'arrow') trackCodes.add(item.replace('*', ''));
+        if (item !== 'arrow') {
+          const code = item.replace('*', '');
+          const isBase = trackNodeMap[code] === 'base';
+          const isRoadmapNonPe = roadmapCourseIds.has(code) && !roadmapPeCodes.has(code);
+          if (!isBase && !isRoadmapNonPe) trackCodes.add(code);
+        }
       });
     });
 
@@ -773,8 +852,11 @@ const SetupProfile = () => {
         const isAlreadyPassed = courseStates[course.code] === 'passed';
         const prereqOk = isPrereqSatisfied(course.prereq);
 
-        // ซ่อนถ้าถูก assign ที่ slot อื่น หรือ passed แล้ว
-        if (isAssignedElsewhere || isAlreadyPassed) return null;
+        // ซ่อนถ้าถูก assign ที่ slot อื่น
+        // หรือ passed เฉพาะกรณีที่ถูก assign เข้า PE slot จริง ๆ (ไม่ใช่แค่ courseStates ชน ID โดยบังเอิญ)
+        const isInPeSlot = Object.values(peAssignments).includes(course.code);
+        const isReallyPassed = isInPeSlot && isAlreadyPassed;
+        if (isAssignedElsewhere || isReallyPassed) return null;
 
         // สถานะ
         let status = 'available'; // ลงได้
@@ -812,6 +894,11 @@ const SetupProfile = () => {
     return results.sort((a, b) => order[a.status] - order[b.status]);
   };
 
+
+  // Set ของ id/code ทุกวิชาที่อยู่ใน roadmapData — ป้องกัน courseStates ถูกลบผิดพลาด
+  const roadmapCourseIds = new Set(
+    roadmapData.flatMap(y => y.semesters.flatMap(s => s.courses.map(c => c.id)))
+  );
   // ฟังก์ชัน cascade: ถ้าลบ courseCode ออกจาก slot → ลบ PE ทุกตัวที่ต้องการมันเป็น prereq ด้วย (ทอดต่อกันไป)
   const cascadeRemovePeAssignments = (removedCourseCode, assignments) => {
     let updated = { ...assignments };
@@ -840,7 +927,21 @@ const SetupProfile = () => {
       // toggle ออก → cascade ลบ PE ที่ depend ด้วย
       const afterRemove = { ...peAssignments };
       delete afterRemove[activePeSlotId];
-      setPeAssignments(cascadeRemovePeAssignments(courseCode, afterRemove));
+      const cascaded = cascadeRemovePeAssignments(courseCode, afterRemove);
+
+      // ✅ ลบ courseStates เฉพาะวิชาที่ไม่ได้อยู่ใน roadmap เพื่อให้วิชากลับมาแสดงใน modal
+      // (วิชาที่อยู่ใน roadmap เช่น AI track เก็บ state ไว้ตาม roadmap เดิม ไม่ต้องลบ)
+      const remainingCodes = new Set(Object.values(cascaded));
+      const removedCodes = Object.values(peAssignments).filter(
+        code => !remainingCodes.has(code) && !roadmapCourseIds.has(code)
+      );
+      setCourseStates(prev => {
+        const updated = { ...prev };
+        removedCodes.forEach(code => delete updated[code]);
+        return updated;
+      });
+
+      setPeAssignments(cascaded);
     } else {
       setPeAssignments(prev => ({ ...prev, [activePeSlotId]: courseCode }));
     }
@@ -854,7 +955,23 @@ const SetupProfile = () => {
     const afterRemove = { ...peAssignments };
     delete afterRemove[peSlotId];
     // cascade ลบ PE ที่ต้องการวิชานี้เป็น prereq ด้วย
-    setPeAssignments(cascadeRemovePeAssignments(removedCode, afterRemove));
+    const cascaded = cascadeRemovePeAssignments(removedCode, afterRemove);
+
+    // หา codes ทั้งหมดที่ถูกลบออก (รวม cascade)
+    const remainingCodes = new Set(Object.values(cascaded));
+    const removedCodes = Object.values(peAssignments).filter(code => !remainingCodes.has(code));
+
+    setPeAssignments(cascaded);
+
+    // ✅ ลบ courseStates เฉพาะวิชาที่ไม่ได้อยู่ใน roadmap เพื่อให้วิชากลับมาแสดงใน modal
+    // (วิชาที่อยู่ใน roadmap เช่น AI track เก็บ state ไว้ตาม roadmap เดิม ไม่ต้องลบ)
+    setCourseStates(prev => {
+      const updated = { ...prev };
+      removedCodes.forEach(code => {
+        if (!roadmapCourseIds.has(code)) delete updated[code];
+      });
+      return updated;
+    });
   };
 
   return (
