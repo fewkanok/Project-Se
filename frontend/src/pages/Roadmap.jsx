@@ -1715,7 +1715,7 @@ const Roadmap = () => {
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl mb-3">
                 <Sparkles className="text-orange-400" size={28} />
-                <h2 className="text-3xl font-black text-white">Elective Courses</h2>
+                <h2 className="text-3xl font-black text-white">กลุ่มวิชา เสรี</h2>
               </div>
               <p className="text-slate-400 text-base mb-6">เลือกวิชาเสรีตามความสนใจและเป้าหมายอาชีพของคุณ</p>
               <div className="flex flex-wrap items-center justify-center gap-8">
@@ -1807,7 +1807,7 @@ const Roadmap = () => {
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl mb-3" style={{ background: 'transparent' }}>
                 <GitBranch className="text-violet-400" size={28} />
-                <h2 className="text-3xl font-black text-white">Track Map</h2>
+                <h2 className="text-3xl font-black text-white">เเบ่งสาย</h2>
               </div>
               <p className="text-slate-400 text-base">
                 ดูเส้นทางการเรียนในแต่ละสาย พร้อม prerequisite chains ทั้งหมด

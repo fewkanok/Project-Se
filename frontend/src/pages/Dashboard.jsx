@@ -867,14 +867,14 @@ const Dashboard = () => {
 
                 <div className="flex items-center gap-2 mb-4">
                     <Award size={20} className={stats.coopStats.isFullyEligible ? "text-emerald-400" : "text-orange-400"} />
-                    <h3 className="text-white font-bold text-sm uppercase tracking-wide">Co-op Status</h3>
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wide">Co-op Status (คุณสมบัติ)</h3>
                 </div>
                 
                 <div className="space-y-3">
                     {/* หน่วยกิต */}
                     <Link to="/setup" className="block pointer-events-auto">
                       <CoopStatusItem 
-                          label="Credits"
+                          label="หน่วยกิต"
                           value={`${Math.round(stats.earnedCredits)} / 90`} 
                           passed={stats.coopStats.isCreditReady}
                       />
@@ -1026,7 +1026,7 @@ const Dashboard = () => {
                           <div className="flex items-center justify-between pt-3 border-t border-white/10">
                             <div className="flex items-center gap-2">
                               <Grid3x3 size={12} className="text-slate-500"/>
-                              <span className="text-xs text-slate-400 font-mono">{course.credits} CR</span>
+                              <span className="text-xs text-slate-400 font-mono">{course.credits} หน่วยกิต</span>
                             </div>
                             <span className="text-[10px] text-slate-600 font-mono uppercase tracking-wide">{course.termLabel}</span>
                           </div>
@@ -1211,7 +1211,7 @@ const Dashboard = () => {
                         <Shield size={18} className="text-white"/>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-white">Criteria</p>
+                        <p className="text-sm font-bold text-white">กฎเกณฑ์ทังหมด</p>
                         <p className="text-[10px] text-slate-500 font-mono">Timeline</p>
                       </div>
                     </div>
