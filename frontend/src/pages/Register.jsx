@@ -42,8 +42,8 @@ const Register = () => {
       
       // ✅ จุดสำคัญ: บันทึกข้อมูลลงเครื่อง (เปรียบเสมือน Database)
       const userData = {
-          name: formData.fullName,
-          studentId: formData.studentId,
+          name: formData.fullName.trim() || 'Anonymous',
+          studentId: formData.studentId.trim() || '',
           email: formData.email,
           password: formData.password
       };
@@ -85,18 +85,18 @@ const Register = () => {
         <form onSubmit={handleRegister} className="space-y-4">
           
           <div className="space-y-1 group">
-            <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-wider">Full Name</label>
+            <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-wider">Full Name <span className="text-slate-500 normal-case font-normal text-xs">(ถ้าไม่กรอก = Anonymous)</span></label>
             <div className="relative">
               <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-              <input name="fullName" type="text" placeholder="John Doe" onChange={handleChange} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm focus:border-orange-500/50 outline-none transition-all" required />
+              <input name="fullName" type="text" placeholder="John Doe (optional)" onChange={handleChange} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm focus:border-orange-500/50 outline-none transition-all" />
             </div>
           </div>
 
           <div className="space-y-1 group">
-            <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-wider">Student ID</label>
+            <label className="text-[10px] font-bold text-slate-400 ml-1 uppercase tracking-wider">Student ID <span className="text-slate-500 normal-case font-normal text-xs">(optional)</span></label>
             <div className="relative">
               <Terminal className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-              <input name="studentId" type="text" placeholder="660xxxxxxx" onChange={handleChange} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm focus:border-purple-500/50 outline-none transition-all" required />
+              <input name="studentId" type="text" placeholder="660xxxxxxx (optional)" onChange={handleChange} className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-sm focus:border-purple-500/50 outline-none transition-all" />
             </div>
           </div>
 

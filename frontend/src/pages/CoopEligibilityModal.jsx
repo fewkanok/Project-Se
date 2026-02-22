@@ -100,15 +100,17 @@ const saveCoopGrades = (grades) => {
 const loadUserProfile = () => {
   try {
     const raw = localStorage.getItem(LS_KEY_PROFILE);
-    if (!raw) return { courseStates: {}, gpaHistory: {} };
+    if (!raw) return { courseStates: {}, gpaHistory: {}, basicInfo: {}, totalCredits: null };
     const parsed = JSON.parse(raw);
     return {
       courseStates: parsed.courseStates || {},
       gpaHistory: parsed.gpaHistory || {},
-      basicInfo: parsed.basicInfo || {}
+      basicInfo: parsed.basicInfo || {},
+      // totalCredits ที่ SetupProfile คำนวณและบันทึกไว้แล้ว
+      totalCredits: typeof parsed.totalCredits === 'number' ? parsed.totalCredits : null,
     };
   } catch {
-    return { courseStates: {}, gpaHistory: {} };
+    return { courseStates: {}, gpaHistory: {}, basicInfo: {}, totalCredits: null };
   }
 };
 
@@ -361,7 +363,7 @@ const CoopEligibilityPage = () => {
   // โหลดข้อมูลจาก localStorage เมื่อ component mount
   const [courseStates, setCourseStates] = useState({});
   const [courseGrades, setCourseGrades] = useState({});
-  const [userProfile, setUserProfile] = useState({ gpaHistory: {}, basicInfo: {} });
+  const [userProfile, setUserProfile] = useState({ gpaHistory: {}, basicInfo: {}, totalCredits: null });
 
   useEffect(() => {
     // โหลดข้อมูลจาก SetupProfile
@@ -376,26 +378,38 @@ const CoopEligibilityPage = () => {
 
   // คำนวณสถิติต่างๆ
   const stats = useMemo(() => {
+    // ─── หน่วยกิต: ใช้ totalCredits จาก SetupProfile ก่อน (แม่นยำที่สุด)
+    // ถ้าไม่มี fallback ไปนับจาก COURSES_DATA ที่ hardcode ไว้
     let earnedCredits = 0;
+
+    if (userProfile.totalCredits !== null && userProfile.totalCredits !== undefined) {
+      // ✅ ใช้ค่าจาก SetupProfile ที่คำนวณจาก roadmapData จริง (รวม elective ด้วย)
+      earnedCredits = userProfile.totalCredits;
+    } else {
+      // Fallback: นับจาก COURSES_DATA + courseStates
+      COURSES_DATA.forEach(course => {
+        if (courseStates[course.code] === 'passed') {
+          earnedCredits += course.credit;
+        }
+      });
+    }
+
     let totalGradePoints = 0;
-    let totalCredits = 0;
+    let totalCreditsGraded = 0;
 
     COURSES_DATA.forEach(course => {
       const state = courseStates[course.code];
       if (state === 'passed') {
-        earnedCredits += course.credit;
-        
-        // ถ้ามีเกรดจาก courseGrades (ที่ user เลือกใน Coop modal) ให้นำมาคำนวณ GPAX
         const grade = courseGrades[course.code];
         if (grade !== null && grade !== undefined) {
           totalGradePoints += grade * course.credit;
-          totalCredits += course.credit;
+          totalCreditsGraded += course.credit;
         }
       }
     });
 
     // ถ้ายังไม่มีเกรดจาก Coop modal ให้ใช้ gpaHistory จาก SetupProfile
-    let calculatedGPAX = totalCredits > 0 ? totalGradePoints / totalCredits : 0;
+    let calculatedGPAX = totalCreditsGraded > 0 ? totalGradePoints / totalCreditsGraded : 0;
     
     // ถ้ายังคำนวณไม่ได้ ให้ดึงจาก gpaHistory ล่าสุด
     if (calculatedGPAX === 0 && userProfile.gpaHistory) {
@@ -549,7 +563,7 @@ const CoopEligibilityPage = () => {
               <RequirementCard
                 icon={BookOpen}
                 title="หน่วยกิตสะสม"
-                description="ลงทะเบียนเรียนครบตามตารางที่ภาควิชากำหนด"
+                description={userProfile.totalCredits !== null ? "อ้างอิงจากข้อมูลใน Setup Profile ของคุณ" : "ลงทะเบียนเรียนครบตามตารางที่ภาควิชากำหนด"}
                 current={Math.round(stats.earnedCredits)}
                 required={90}
                 isPassed={stats.coopStats.isCreditReady}
