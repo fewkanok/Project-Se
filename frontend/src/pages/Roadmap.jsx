@@ -252,11 +252,10 @@ function CMNodeBox({ code, t, onHover, onLeave, courseStates, navigate }) {
   // ── Course status from profile ────────────────────────────
   const courseState = courseStates?.[code];
   const isPassed    = courseState === 'passed';
-  // isLearning ได้ก็ต่อเมื่อ prereq เป็น 'passed' แล้วเท่านั้น
-  // ถ้า prereq ยัง learning/null อยู่ → ถือว่า locked (แสดงสีปกติ)
+  // isLearning ได้ก็ต่อเมื่อ prereq ทุกวิชาเป็น 'passed' แล้วเท่านั้น
+  // รองรับ prereq หลายวิชา เช่น "040613502, 040613601"
   const prereqCode     = course?.prereq;
-  const prereqState    = prereqCode ? courseStates?.[prereqCode] : 'passed';
-  const prereqSatisfied = !prereqCode || prereqState === 'passed';
+  const prereqSatisfied = !prereqCode || prereqCode.split(',').map(s => s.trim()).every(p => courseStates?.[p] === 'passed');
   const isLearning  = courseState === 'learning' && prereqSatisfied;
   const isLocked    = courseState === 'learning' && !prereqSatisfied;
 
@@ -676,21 +675,26 @@ function CurriculumMapTab() {
       const rawStates = parsed.courseStates || {};
       const peAssignments = parsed.peAssignments || {};
 
-      // รวม id ของ PE slot ทั้งหมดใน roadmap
       const peSlotIds = new Set(
         roadmapData.flatMap(y => y.semesters.flatMap(s =>
           s.courses.filter(c => c.isProfessionalElective).map(c => c.id)
         ))
       );
-      // code ที่ถูก assign เข้า PE slot จริง ๆ
       const assignedCodes = new Set(Object.values(peAssignments).filter(Boolean));
+      const allTrackIds = new Set(Object.keys(trackCoursesData));
+      // วิชาที่อยู่ใน roadmapData ปกติ (ไม่ใช่ PE slot) — ห้ามกรองออก
+      const roadmapNonPeIds = new Set(
+        roadmapData.flatMap(y => y.semesters.flatMap(s =>
+          s.courses.filter(c => !c.isProfessionalElective).map(c => c.id)
+        ))
+      );
 
-      // สร้าง courseStates ที่กรองแล้ว:
-      // PE slot id → ใช้ state ได้เฉพาะถ้าถูก assign จริง (อยู่ใน peAssignments)
-      // วิชาปกติ → ใช้ได้เลย
       const adjusted = {};
       Object.entries(rawStates).forEach(([id, state]) => {
-        if (peSlotIds.has(id) && !assignedCodes.has(id)) return; // กรองออก
+        // กรอง PE slot placeholder ที่ไม่ได้ assign
+        if (peSlotIds.has(id) && !assignedCodes.has(id)) return;
+        // กรองเฉพาะ pure track course (ไม่ได้อยู่ใน roadmap) ที่ไม่ได้ assign
+        if (allTrackIds.has(id) && !roadmapNonPeIds.has(id) && !assignedCodes.has(id)) return;
         adjusted[id] = state;
       });
       return adjusted;
@@ -727,15 +731,14 @@ function CurriculumMapTab() {
         {/* Filter Tabs */}
         <div className="flex flex-nowrap justify-center gap-2 overflow-x-auto pb-1 w-full">
           {[
-            { id:"all", icon:"⚡", label:"All" },
-            { id:"ai",   icon:"🧠", label:"AI",                color:"#7c3aed" },
-            { id:"fs",   icon:"🌐", label:"Full-Stack",        color:"#db2777" },
-            { id:"net",  icon:"🔐", label:"Security & Network",color:"#0891b2" },
-            { id:"game", icon:"🎮", label:"Game & Graphic",    color:"#d97706" },
-            { id:"iot",  icon:"🤖", label:"IoT & Robot",       color:"#059669" },
+            { id:"all",  icon:"⚡", label:"All",                color:null },
+            { id:"ai",   icon:"🧠", label:"AI",                 color:"#7c3aed" },
+            { id:"fs",   icon:"🌐", label:"Full-Stack",         color:"#db2777" },
+            { id:"net",  icon:"🔐", label:"Security & Network", color:"#0891b2" },
+            { id:"game", icon:"🎮", label:"Game & Graphic",     color:"#d97706" },
+            { id:"iot",  icon:"🤖", label:"IoT & Robot",        color:"#059669" },
           ].map(t => {
             const active = activeCMTrack === t.id;
-            // นับ unique nodes
             const countNodes = (roots) => {
               const seen = new Set();
               const walk = (n) => { if(seen.has(n.code))return; seen.add(n.code); (n.children||[]).forEach(walk); };
@@ -767,7 +770,7 @@ function CurriculumMapTab() {
                 <span className="whitespace-nowrap">{t.label}</span>
                 <span style={{
                   background: active ? 'rgba(255,255,255,0.25)' : 'rgba(255,255,255,0.08)',
-                  borderRadius: '999px', padding: '1px 7px', fontSize: '0.68rem', fontWeight: 800,
+                  borderRadius:'999px', padding:'1px 7px', fontSize:'0.68rem', fontWeight:800,
                 }}>{count}</span>
               </button>
             );
@@ -899,36 +902,31 @@ const Roadmap = () => {
     };
     const parsed = JSON.parse(saved);
     
-    // ✅ Step 1: กรอง PE slot IDs ออกจาก courseStates
+    // ✅ Step 1: กรอง PE slot IDs + track courses ที่ไม่ได้ assign ออกจาก courseStates
     const peSlotIds = new Set(
       roadmapData.flatMap(y => y.semesters.flatMap(s =>
         s.courses.filter(c => c.isProfessionalElective).map(c => c.id)
       ))
     );
     const assignedCodes = new Set(Object.values(parsed.peAssignments || {}).filter(Boolean));
+    const allTrackCourseIds = new Set(Object.keys(trackCoursesData));
+    // วิชาที่อยู่ใน roadmapData ปกติ (ไม่ใช่ PE slot) — ห้ามกรองออก
+    const roadmapNonPeIds = new Set(
+      roadmapData.flatMap(y => y.semesters.flatMap(s =>
+        s.courses.filter(c => !c.isProfessionalElective).map(c => c.id)
+      ))
+    );
     const step1 = {};
     Object.entries(parsed.courseStates || {}).forEach(([id, state]) => {
+      // กรอง PE slot placeholder ที่ไม่ได้ assign
       if (peSlotIds.has(id) && !assignedCodes.has(id)) return;
+      // กรองเฉพาะ pure track course (ไม่ได้อยู่ใน roadmap) ที่ไม่ได้ assign
+      if (allTrackCourseIds.has(id) && !roadmapNonPeIds.has(id) && !assignedCodes.has(id)) return;
       step1[id] = state;
     });
 
-    // ✅ Step 2: cascade prereq validation
-    // ถ้า prereq ยังไม่ passed → วิชาที่ต่อจากมันไม่ควรเป็น passed (ข้อมูลมั่วจาก old data)
-    const allCoursesFlat = {};
-    roadmapData.forEach(y => y.semesters.forEach(s => s.courses.forEach(c => { allCoursesFlat[c.id] = c; })));
-    Object.entries(trackCoursesData).forEach(([id, c]) => { allCoursesFlat[id] = c; });
-
-    const cleanedStates = {};
-    Object.entries(step1).forEach(([id, state]) => {
-      const course = allCoursesFlat[id];
-      if (!course?.prereq) { cleanedStates[id] = state; return; }
-      const prereqState = step1[course.prereq];
-      if (prereqState === 'passed') { cleanedStates[id] = state; }
-      else if (state === 'learning' && prereqState === 'learning') { cleanedStates[id] = state; }
-      // prereq ยังไม่ passed แต่ตัวเองอ้างว่า passed → ลบทิ้ง
-    });
-    
-    return { ...parsed, courseStates: cleanedStates };
+    // ✅ Step 2: ไม่ cascade delete — ผู้ใช้ mark เองใน Setup แล้ว
+    return { ...parsed, courseStates: step1 };
   });
 
   const processedRoadmap = useMemo(() => {
@@ -941,12 +939,14 @@ const Roadmap = () => {
           return {
             ...sem,
             courses: sem.courses.map(course => {
+              const curYear = parseInt(profile.basicInfo?.currentYear || profile.currentYear) || 1;
+              const curTerm = parseInt(profile.basicInfo?.currentTerm || profile.currentTerm) || 1;
               let status = 'locked';
               const courseState = profile.courseStates?.[course.id];
               if (courseState === 'passed') status = 'passed';
               else if (courseState === 'learning') status = 'active';
-              else if (profile.currentYear === yearNum && profile.currentTerm === termNum) status = 'available';
-              else if (profile.currentYear > yearNum || (profile.currentYear === yearNum && profile.currentTerm > termNum)) status = 'missed';
+              else if (curYear === yearNum && curTerm === termNum) status = 'available';
+              else if (curYear > yearNum || (curYear === yearNum && curTerm > termNum)) status = 'missed';
               if (course.prereq) {
                 const prereqPassed = profile.courseStates?.[course.prereq] === 'passed';
                 if (!prereqPassed && status === 'locked') status = 'locked';
@@ -1479,13 +1479,8 @@ const Roadmap = () => {
                                 const assignedState = profile.courseStates?.[assignedCode];
                                 // เช็ค prereq ก่อนแสดงสถานะ — ถ้า prereq ยังไม่ passed → locked
                                 const assignedPrereq = assignedCourse?.prereq;
-                                const assignedPrereqState = assignedPrereq ? profile.courseStates?.[assignedPrereq] : 'passed';
-                                // prereq อาจอยู่ใน peAssignments (PE course อื่น)
-                                const prereqInPe = assignedPrereq
-                                  ? Object.values(profile.peAssignments || {}).includes(assignedPrereq) &&
-                                    profile.courseStates?.[assignedPrereq] === 'passed'
-                                  : true;
-                                const prereqOk = !assignedPrereq || assignedPrereqState === 'passed' || prereqInPe;
+                                const assignedPrereqList = assignedPrereq ? assignedPrereq.split(",").map(s => s.trim()) : [];
+                                const prereqOk = assignedPrereqList.length === 0 || assignedPrereqList.every(p => profile.courseStates?.[p] === 'passed');
                                 const effectiveState = !prereqOk && assignedState === 'learning' ? 'locked' : assignedState;
                                 const status = effectiveState === 'passed' ? 'passed'
                                   : effectiveState === 'learning' ? 'active'
@@ -1811,14 +1806,14 @@ const Roadmap = () => {
           </div>
         )}
 
-        {/* ════ TRACK MAP TAB (แบ่งสาย) ════ */}
+        {/* ════ TRACK MAP TAB ════ */}
         {activeTab === 'trackmap' && (
           <div className="relative z-10">
             {/* Section Header */}
             <div className="text-center mb-10">
               <div className="inline-flex items-center gap-3 bg-gradient-to-r from-violet-900/60 to-fuchsia-900/40 border border-violet-500/30 px-8 py-4 rounded-2xl backdrop-blur-md shadow-xl mb-4">
                 <GitBranch className="text-violet-400" size={28} />
-                <h2 className="text-3xl font-black text-white">แผนที่การแบ่งสาย</h2>
+                <h2 className="text-3xl font-black text-white">Track Map</h2>
               </div>
               <p className="text-slate-400 text-base mt-2">
                 ดูเส้นทางการเรียนในแต่ละสาย พร้อม prerequisite chains ทั้งหมด

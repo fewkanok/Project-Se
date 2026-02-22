@@ -180,13 +180,23 @@ const SetupProfile = () => {
     ))
   );
 
-  // ── Helper: กรอง courseStates ให้สะอาด — ลบ PE slot IDs ที่ไม่ได้ assign จริง
+  // ── Helper: กรอง courseStates ให้สะอาด — ลบ PE slot IDs ที่ไม่ได้ assign จริง + pure track courses ที่ไม่ได้ assign
   const getCleanCourseStates = (states, assignments) => {
     const peSlotIds = getPeSlotIds();
     const assignedCodes = new Set(Object.values(assignments || {}).filter(Boolean));
+    const allTrackIds = new Set(Object.keys(allTrackCourses));
+    // วิชาที่อยู่ใน roadmap ปกติ (ไม่ใช่ PE slot) — ห้ามกรองออก เพราะ user เรียนจริง
+    const roadmapNonPeIds = new Set(
+      roadmapData.flatMap(y => y.semesters.flatMap(s =>
+        s.courses.filter(c => !c.isProfessionalElective).map(c => c.id)
+      ))
+    );
     const clean = {};
     Object.entries(states || {}).forEach(([id, state]) => {
+      // กรอง PE slot placeholder ที่ไม่ได้ assign
       if (peSlotIds.has(id) && !assignedCodes.has(id)) return;
+      // กรองเฉพาะ pure track course (ไม่ได้อยู่ใน roadmap) ที่ไม่ได้ assign
+      if (allTrackIds.has(id) && !roadmapNonPeIds.has(id) && !assignedCodes.has(id)) return;
       clean[id] = state;
     });
     return clean;
