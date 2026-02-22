@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PlayCircle, Award, BookOpen, Zap, TrendingUp, Calendar, Clock, AlertCircle, LogOut, Settings, Target, Trophy, Star, Sparkles, ArrowUpRight, ChevronRight, Activity, Flame, BarChart3, Cpu, Layers, Grid3x3, CheckCircle2, XCircle, AlertTriangle, X, Check, FileText, Shield, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { PlayCircle, Award, BookOpen, Zap, TrendingUp, Calendar, Clock, AlertCircle, LogOut, Settings, Target, Trophy, Star, Sparkles, ArrowUpRight, ChevronRight, Activity, Flame, BarChart3, Cpu, Layers, Grid3x3, CheckCircle2, XCircle, AlertTriangle, X, Check, FileText, Shield, ShieldAlert, ShieldCheck, Medal, GraduationCap } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
@@ -28,6 +28,22 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [animatedGPA, setAnimatedGPA] = useState(0);
   const [animatedCredits, setAnimatedCredits] = useState(0);
+
+  // --- Honors Checklist State (เกณฑ์ที่ user ต้องยืนยันเอง) ---
+  const [honorsChecks, setHonorsChecks] = useState(() => {
+    try {
+      const saved = localStorage.getItem('honorsChecks');
+      return saved ? JSON.parse(saved) : { noFGrade: false, noRegrade: false };
+    } catch { return { noFGrade: false, noRegrade: false }; }
+  });
+
+  const toggleHonorsCheck = (key) => {
+    setHonorsChecks(prev => {
+      const updated = { ...prev, [key]: !prev[key] };
+      try { localStorage.setItem('honorsChecks', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  };
 
   // --- 1. Load Data ---
   const [profile] = useState(() => {
@@ -476,6 +492,73 @@ const Dashboard = () => {
 
   const gradeInfo = getGradeInfo(stats.calculatedGPAX);
 
+  // ─── Honors / เกียรตินิยม (อ้างอิงเกณฑ์คณะวิศวกรรมศาสตร์ มจพ.) ──────────
+  // เงื่อนไข:
+  //   1) GPAX ≥ 3.50 → อันดับ 1 / GPAX ≥ 3.25 → อันดับ 2
+  //   2) ไม่เคยได้ F, FE, FA, U (user ยืนยัน)
+  //   3) ไม่เคยลงทะเบียนเรียนซ้ำ / Regrade (user ยืนยัน)
+  //   4) ต้องศึกษาครบหน่วยกิตตามหลักสูตร (earnedCredits >= totalCredits)
+  //   * W ยังได้รับการพิจารณา (ไม่นับเป็นการตัดสิทธิ์)
+  //   * เรียนเกินหน่วยกิตยังได้รับการพิจารณา
+  const getHonorsInfo = (gpax, earnedCredits, totalCredits, checks) => {
+    const hasEnoughCredits = totalCredits > 0 && earnedCredits >= totalCredits;
+    const noFGrade   = checks.noFGrade;   // user ยืนยัน: ไม่เคยได้ F/FE/FA/U
+    const noRegrade  = checks.noRegrade;  // user ยืนยัน: ไม่เคย Regrade
+
+    // เกณฑ์ที่ผ่านทั้งหมด (ไม่นับ GPAX — ดูแยก)
+    const allConditionsMet = noFGrade && noRegrade && hasEnoughCredits;
+
+    if (gpax >= 3.50) {
+      return {
+        tier: allConditionsMet ? 1 : 'pending',
+        label: 'เกียรตินิยมอันดับ 1',
+        labelEn: '1st Class Honors',
+        gradient: 'from-yellow-400 via-amber-400 to-orange-400',
+        bg: 'from-yellow-500/20 via-amber-500/15 to-orange-500/10',
+        border: allConditionsMet ? 'border-yellow-500/50' : 'border-yellow-500/20',
+        glow: 'shadow-yellow-500/20',
+        icon: '🥇',
+        gpaxOk: true,
+        allConditionsMet,
+        hasEnoughCredits,
+        needed: null,
+      };
+    } else if (gpax >= 3.25) {
+      return {
+        tier: allConditionsMet ? 2 : 'pending',
+        label: 'เกียรตินิยมอันดับ 2',
+        labelEn: '2nd Class Honors',
+        gradient: 'from-slate-300 via-slate-200 to-white',
+        bg: 'from-slate-400/15 via-slate-300/10 to-slate-200/5',
+        border: allConditionsMet ? 'border-slate-400/50' : 'border-slate-500/20',
+        glow: 'shadow-slate-400/10',
+        icon: '🥈',
+        gpaxOk: true,
+        allConditionsMet,
+        hasEnoughCredits,
+        needed: null,
+      };
+    } else {
+      const needed = (3.25 - gpax).toFixed(2);
+      return {
+        tier: 0,
+        label: 'ยังไม่ถึงเกณฑ์ GPA',
+        labelEn: 'No Honors',
+        gradient: 'from-slate-500 via-slate-400 to-slate-300',
+        bg: 'from-slate-500/10 via-slate-400/5 to-slate-300/5',
+        border: 'border-slate-600/30',
+        glow: 'shadow-slate-500/10',
+        icon: '📚',
+        gpaxOk: false,
+        allConditionsMet: false,
+        hasEnoughCredits,
+        needed,
+      };
+    }
+  };
+
+  const honorsInfo = getHonorsInfo(stats.calculatedGPAX, stats.earnedCredits, stats.totalCredits, honorsChecks);
+
   const CoopStatusItem = ({ label, value, passed, subtext }) => (
     <div className="flex items-center justify-between p-3 rounded-lg bg-slate-800/40 border border-slate-700/50">
         <div>
@@ -659,6 +742,148 @@ const Dashboard = () => {
                     <span className="text-xs font-black text-white tracking-wider">{gradeInfo.label}</span>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* 🎓 Honors Card */}
+            <div className={`tech-card p-6 rounded-2xl relative overflow-hidden border ${honorsInfo.border} shadow-lg`}>
+              <div className={`absolute inset-0 bg-gradient-to-br ${honorsInfo.bg} opacity-60`}></div>
+              {(honorsInfo.tier === 1 || honorsInfo.tier === 'pending') && honorsInfo.gpaxOk && (
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-yellow-300/5 to-transparent animate-pulse pointer-events-none"></div>
+              )}
+
+              <div className="relative">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap size={18} className={honorsInfo.gpaxOk ? 'text-yellow-400' : 'text-slate-400'} />
+                    <h3 className="text-white font-bold text-sm uppercase tracking-wide">เกียรตินิยม</h3>
+                  </div>
+                  <span className="text-2xl">{honorsInfo.icon}</span>
+                </div>
+
+                {/* Status Badge */}
+                <div className={`mb-4 px-4 py-3 rounded-xl bg-gradient-to-r ${honorsInfo.gradient}`}>
+                  <p className={`text-sm font-black ${honorsInfo.tier === 0 ? 'text-slate-300' : 'text-black/80'}`}>
+                    {honorsInfo.label}
+                  </p>
+                  <p className={`text-[10px] font-mono ${honorsInfo.tier === 0 ? 'text-slate-500' : 'text-black/60'}`}>
+                    {honorsInfo.labelEn}
+                    {honorsInfo.tier === 'pending' && ' · รอยืนยันเงื่อนไข'}
+                  </p>
+                </div>
+
+                {/* GPA Progress bars */}
+                <div className="space-y-3 mb-4">
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-slate-400 font-mono">🥇 อันดับ 1</span>
+                      <span className={`font-bold ${stats.calculatedGPAX >= 3.50 ? 'text-yellow-400' : 'text-slate-500'}`}>
+                        {stats.calculatedGPAX.toFixed(2)} / 3.50
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-700/60 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full transition-all duration-1000"
+                        style={{ width: `${Math.min(100, (stats.calculatedGPAX / 3.50) * 100)}%` }} />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-1">
+                      <span className="text-slate-400 font-mono">🥈 อันดับ 2</span>
+                      <span className={`font-bold ${stats.calculatedGPAX >= 3.25 ? 'text-slate-300' : 'text-slate-500'}`}>
+                        {stats.calculatedGPAX.toFixed(2)} / 3.25
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-700/60 rounded-full overflow-hidden">
+                      <div className="h-full bg-gradient-to-r from-slate-300 to-slate-400 rounded-full transition-all duration-1000"
+                        style={{ width: `${Math.min(100, (stats.calculatedGPAX / 3.25) * 100)}%` }} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ─── Checklist เงื่อนไขจริง ─── */}
+                <div className="space-y-2 mb-3">
+                  <p className="text-[10px] text-slate-500 font-mono uppercase tracking-wide mb-1">เงื่อนไขเพิ่มเติม (ยืนยันเอง)</p>
+
+                  {/* เงื่อนไข 1: ไม่เคยได้ F/FE/FA/U */}
+                  <button
+                    onClick={() => toggleHonorsCheck('noFGrade')}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                      honorsChecks.noFGrade
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                        : 'bg-slate-800/40 border-slate-700/50 text-slate-400'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 transition-all ${
+                      honorsChecks.noFGrade ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600'
+                    }`}>
+                      {honorsChecks.noFGrade && <Check size={12} className="text-white" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold leading-tight">ไม่เคยได้ F, FE, FA, U</p>
+                      <p className="text-[9px] text-slate-500 mt-0.5">*W ยังได้รับการพิจารณาเกียรตินิยม</p>
+                    </div>
+                  </button>
+
+                  {/* เงื่อนไข 2: ไม่เคย Regrade */}
+                  <button
+                    onClick={() => toggleHonorsCheck('noRegrade')}
+                    className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all text-left ${
+                      honorsChecks.noRegrade
+                        ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-300'
+                        : 'bg-slate-800/40 border-slate-700/50 text-slate-400'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 transition-all ${
+                      honorsChecks.noRegrade ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600'
+                    }`}>
+                      {honorsChecks.noRegrade && <Check size={12} className="text-white" />}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold leading-tight">ไม่เคยลงทะเบียนเรียนซ้ำ (Regrade)</p>
+                    </div>
+                  </button>
+
+                  {/* เงื่อนไข 3: หน่วยกิตครบ (auto) */}
+                  <div className={`flex items-center gap-3 p-3 rounded-xl border ${
+                    honorsInfo.hasEnoughCredits
+                      ? 'bg-emerald-500/15 border-emerald-500/40'
+                      : 'bg-slate-800/40 border-slate-700/50'
+                  }`}>
+                    <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 border-2 transition-all ${
+                      honorsInfo.hasEnoughCredits ? 'bg-emerald-500 border-emerald-500' : 'border-slate-600'
+                    }`}>
+                      {honorsInfo.hasEnoughCredits && <Check size={12} className="text-white" />}
+                    </div>
+                    <div>
+                      <p className={`text-xs font-bold ${honorsInfo.hasEnoughCredits ? 'text-emerald-300' : 'text-slate-400'}`}>
+                        ศึกษาครบหน่วยกิตตามหลักสูตร
+                      </p>
+                      <p className="text-[9px] text-slate-500">
+                        {Math.round(stats.earnedCredits)} / {stats.totalCredits} หน่วยกิต · คำนวณอัตโนมัติ
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ผลสรุป */}
+                {honorsInfo.gpaxOk ? (
+                  honorsInfo.allConditionsMet ? (
+                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center">
+                      <p className="text-xs font-black text-emerald-400">✓ ผ่านเกณฑ์ทั้งหมด!</p>
+                      <p className="text-[9px] text-slate-500 mt-0.5">*เรียนเกินหน่วยกิตยังได้รับการพิจารณา</p>
+                    </div>
+                  ) : (
+                    <div className="p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/20 text-center">
+                      <p className="text-xs font-bold text-yellow-400">GPA ผ่าน — ยืนยันเงื่อนไขด้านบนด้วย</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/40 flex items-center justify-between">
+                    <p className="text-[10px] text-slate-500 font-mono">ต้องการอีก</p>
+                    <span className="text-lg font-black text-amber-400">+{honorsInfo.needed}</span>
+                  </div>
+                )}
               </div>
             </div>
 
