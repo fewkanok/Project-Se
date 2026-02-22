@@ -510,7 +510,7 @@ const CourseDetail = () => {
 
           {/* Difficulty Card */}
           <div className="bg-black/40 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
-            <h4 className="text-slate-400 mb-2 font-medium">Difficulty Level</h4>
+            <h4 className="text-slate-400 mb-2 font-medium">ความยากของเนื้อหา</h4>
             <div className="flex items-end gap-2 mb-2">
               <span className="text-4xl font-black text-red-400">{courseDetails.difficulty.toFixed(1)}</span>
               <span className="text-sm text-slate-500 mb-1">/ 5.0</span>
@@ -524,7 +524,7 @@ const CourseDetail = () => {
 
           {/* Satisfaction Card */}
           <div className="bg-black/40 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
-            <h4 className="text-slate-400 mb-2 font-medium">Satisfaction</h4>
+            <h4 className="text-slate-400 mb-2 font-medium">ความประทับใจต่อรายวิชา</h4>
             <div className="flex items-end gap-2 mb-2">
               <span className="text-4xl font-black text-emerald-400">{courseDetails.satisfaction.toFixed(1)}</span>
               <span className="text-sm text-slate-500 mb-1">/ 5.0</span>
@@ -537,7 +537,7 @@ const CourseDetail = () => {
           {/* Instructors */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
             <h4 className="text-white font-bold mb-4 flex items-center gap-2">
-                <Users size={18} className="text-blue-400"/> Instructors
+                <Users size={18} className="text-blue-400"/> ผู้สอน
             </h4>
             <ul className="space-y-3">
                 {courseDetails.professors.map((prof, idx) => (

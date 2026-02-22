@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { PlayCircle, Award, BookOpen, Zap, TrendingUp, Calendar, Clock, AlertCircle, LogOut, Settings, Target, Trophy, Star, Sparkles, ArrowUpRight, ChevronRight, Activity, Flame, BarChart3, Cpu, Layers, Grid3x3, CheckCircle2, XCircle, AlertTriangle, X, Check, FileText, Shield, ShieldAlert, ShieldCheck, Medal, GraduationCap } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts';
 import { roadmapData } from '../data/courses';
@@ -465,7 +465,7 @@ const Dashboard = () => {
             {data.gpa.toFixed(2)}
           </div>
           <p className="text-xs text-slate-400 font-medium">
-            {data.credits} Credits
+            {data.credits} หน่วยกิต
           </p>
         </div>
       );
@@ -605,7 +605,7 @@ const Dashboard = () => {
                 <div className="w-1 h-12 bg-gradient-to-b from-cyan-400 to-blue-500 rounded-full"></div>
                 <div>
                   <h1 className="text-5xl lg:text-6xl font-black text-white tracking-tight">
-                    DASHBOARD
+                    HOME
                   </h1>
                   <div className="flex items-center gap-3 mt-2">
                     <div className="relative flex h-2 w-2">
@@ -652,7 +652,7 @@ const Dashboard = () => {
                   <Target size={20} className="text-white"/>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-mono uppercase">Credits</p>
+                  <p className="text-xs text-slate-500 font-mono uppercase">หน่วยกิต</p>
                   <p className="text-2xl font-black text-white">{Math.round(animatedCredits)}<span className="text-base text-slate-500">/{stats.totalCredits}</span></p>
                 </div>
               </div>
@@ -663,7 +663,7 @@ const Dashboard = () => {
                   <Flame size={20} className="text-white"/>
                 </div>
                 <div>
-                  <p className="text-xs text-slate-500 font-mono uppercase">Active</p>
+                  <p className="text-xs text-slate-500 font-mono uppercase">กำลังศึกษา</p>
                   <p className="text-2xl font-black text-white">{stats.activeCoursesList.length}</p>
                 </div>
               </div>
@@ -870,13 +870,16 @@ const Dashboard = () => {
                     <h3 className="text-white font-bold text-sm uppercase tracking-wide">Co-op Status</h3>
                 </div>
                 
-                <div className="space-y-3 pointer-events-none">
+                <div className="space-y-3">
                     {/* หน่วยกิต */}
-                    <CoopStatusItem 
-                        label="Credits" 
-                        value={`${Math.round(stats.earnedCredits)} / 90`} 
-                        passed={stats.coopStats.isCreditReady}
-                    />
+                    <Link to="/setup" className="block pointer-events-auto">
+                      <CoopStatusItem 
+                          label="Credits"
+                          value={`${Math.round(stats.earnedCredits)} / 90`} 
+                          passed={stats.coopStats.isCreditReady}
+                      />
+                    </Link>
+
                     
                     {/* GPA */}
                     <CoopStatusItem 
@@ -983,9 +986,8 @@ const Dashboard = () => {
                 <div>
                   <h3 className="text-2xl font-black text-white flex items-center gap-3 mb-1">
                     <Flame size={24} className="text-orange-400"/>
-                    ACTIVE COURSES
+                    รายวิชาที่กำลัง ศึกษาอยู่
                   </h3>
-                  <p className="text-xs text-slate-500 font-mono">Currently Learning</p>
                 </div>
                 <div className="px-4 py-2 rounded-lg tech-card">
                   <span className="text-lg font-black text-orange-400">{stats.activeCoursesList.length}</span>
@@ -1063,7 +1065,7 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between mb-4 relative z-10">
                     <div className="flex items-center gap-2">
                         {getStatusIcon(academicStatus.color)}
-                        <h3 className="text-white font-bold text-sm uppercase tracking-wide">Academic Status</h3>
+                        <h3 className="text-white font-bold text-sm uppercase tracking-wide">Academic Status(ความเสี่ยง ติด pro)</h3>
                     </div>
                     <div className={`px-2 py-1 rounded text-[10px] font-bold uppercase bg-${academicStatus.color}-500/10 text-${academicStatus.color}-400 border border-${academicStatus.color}-500/20`}>
                         {academicStatus.status}
@@ -1123,7 +1125,7 @@ const Dashboard = () => {
                 <div>
                   <h3 className="text-lg font-black text-white flex items-center gap-2 mb-1">
                     <Activity size={18} className="text-cyan-400"/>
-                    ANALYTICS
+                    GPA Graph
                   </h3>
                   <p className="text-[10px] text-slate-500 font-mono uppercase">GPA Trend</p>
                 </div>

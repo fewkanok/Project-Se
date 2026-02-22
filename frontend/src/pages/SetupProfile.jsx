@@ -1545,9 +1545,9 @@ const SetupProfile = () => {
                         </div>
                     </div>
                     <div className="text-right bg-white/5 p-3 rounded-xl border border-white/5 min-w-[120px]">
-                        <span className="text-[10px] text-slate-500 uppercase block font-bold tracking-wider">Credits Passed </span>
+                        <span className="text-[10px] text-slate-500 uppercase block font-bold tracking-wider">หน่วยกิตสะสม </span>
                         <span className="text-3xl font-mono font-black text-orange-400">{totalCredits}</span>
-                        <span className="text-[9px] text-slate-600 block mt-1">(Learning courses not counted)</span>
+                        
                     </div>
                 </div>
 
@@ -1729,19 +1729,16 @@ const SetupProfile = () => {
         </div>
 
         {/* Footer */}
-        <div className="fixed bottom-0 left-0 w-full bg-[#050505]/80 backdrop-blur-xl border-t border-white/10 p-4 z-50">
-            <div className="max-w-7xl mx-auto flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                    <Terminal className="text-orange-500" size={22}/>
-                    <span className="text-white font-black text-lg tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-orange-400 to-purple-400">CS SURVIVOR</span>
-                </div>
-                <button onClick={handleSubmit}
-                    className="bg-white text-black hover:bg-orange-50 font-bold py-3 px-10 rounded-full shadow-[0_0_25px_rgba(255,255,255,0.2)] flex items-center gap-2 transition-transform hover:-translate-y-1 active:scale-95 text-lg">
-                    Generate Dashboard <ChevronRight size={24}/>
+        <div className="fixed bottom-0 left-0 w-full bg-[#050505]/80 backdrop-blur-xl border-t border-white/10 p-4 z-50 flex items-center justify-center">
+               <button onClick={handleSubmit}
+                    className="bg-white text-black hover:bg-orange-50 font-bold py-3 px-10 rounded-full 
+                              shadow-[0_0_25px_rgba(255,255,255,0.2)] 
+                              flex items-center justify-center gap-2 
+                              transition-transform hover:-translate-y-1 active:scale-95 
+                              ">
+                    Generate Dashboard<ChevronRight size={24}/>
                 </button>
             </div>
-        </div>
-
       </div>
     </div>
   );

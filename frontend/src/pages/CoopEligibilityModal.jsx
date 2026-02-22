@@ -573,7 +573,7 @@ const CoopEligibilityPage = () => {
                 icon={TrendingUp}
                 title="เกรดเฉลี่ยรวม (GPA)"
                 description="ผลการเรียน 5 ภาคการศึกษา"
-                current={stats.calculatedGPAX.toFixed(2)}
+                current={Number(stats.calculatedGPAX || 0).toFixed(2)}
                 required={2.75}
                 isPassed={stats.coopStats.isGPAReady}
                 unit=""

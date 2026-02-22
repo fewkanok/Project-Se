@@ -1175,7 +1175,7 @@ const Roadmap = () => {
           CS Curriculum Roadmap
         </h1>
         <p className="text-slate-300 text-lg md:text-xl font-medium">
-          Interactive Learning Path & Course Explorer
+          แผนผังเส้นทางการเรียนสาขาวิทยาการคอมพิวเตอร์
         </p>
 
         {/* ── Tab Navigation (3 tabs) ── */}
@@ -1189,7 +1189,7 @@ const Roadmap = () => {
             }`}
           >
             <Code size={20} />
-            Core Courses
+            กลุ่มวิชา หลัก
           </button>
 
           <button
@@ -1201,7 +1201,7 @@ const Roadmap = () => {
             }`}
           >
             <Sparkles size={20} />
-            Elective Courses
+            กลุ่มวิชา เสรี
           </button>
 
           <button
@@ -1213,7 +1213,7 @@ const Roadmap = () => {
             }`}
           >
             <GitBranch size={20} />
-            Track Map
+            เเบ่งสาย
           </button>
         </div>
       </div>
@@ -1362,7 +1362,7 @@ const Roadmap = () => {
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl mb-3">
                 <Code className="text-cyan-400" size={28} />
-                <h2 className="text-3xl font-black text-white">Core Courses</h2>
+                <h2 className="text-3xl font-black text-white">กลุ่มวิชา หลัก</h2>
               </div>
               <p className="text-slate-400 text-base mb-6">วิชาหลักตามหลักสูตร พร้อม prerequisite และสถานะการเรียน</p>
               <div className="flex flex-wrap items-center justify-center gap-8">
