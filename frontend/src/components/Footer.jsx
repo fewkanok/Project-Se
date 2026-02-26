@@ -106,35 +106,38 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Resources - Enhanced */}
+          {/* contet คนที่รับ ผิดชอบ */}
           <div className="lg:col-span-3">
             <div className="mb-6">
               <h4 className="text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2 mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_12px_rgba(168,85,247,0.6)]"></span> 
-                Resources
+                CONNECT
               </h4>
               <div className="h-[2px] w-12 bg-gradient-to-r from-purple-500 to-transparent rounded-full"></div>
             </div>
             <ul className="space-y-3">
-              {[
-                'University Registration',
-                'Academic Calendar',
-                'Download Syllabus',
-                'Course Reviews',
-                'Study Materials',
-                'Report Issue'
-              ].map((item, idx) => (
-                <li key={idx}>
-                  <a 
-                    href="#" 
+               {[
+               { label: 'IG : sta.kit ( UX/UI )', link: 'https://www.instagram.com/sta.kit/' },
+               { label: 'IG : XSX ( TESTTER )', link: 'https://www.instagram.com/chayang_koo.l' },
+               { label: 'IG : kt_k1tt1111 ( PM ALL ROLE )', link: 'https://www.instagram.com/kt_k1tt1111/' },
+               { label: 'IG : fiwkanokkk ( CODE )', link: 'https://www.instagram.com/fiwkanokkk/' },
+               { label: 'IG : ppeemstt_ ( GET REQUIREMENT ) ', link: 'https://www.instagram.com/ppeemstt_/' },
+               ].map((item, idx) => (
+               <li key={idx}>
+                    <a
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="group flex items-center gap-2 text-slate-400 hover:text-purple-400 transition-all text-sm"
-                  >
+                    >
                     <span className="w-1 h-1 rounded-full bg-purple-500/0 group-hover:bg-purple-500 transition-all"></span>
-                    <span className="group-hover:translate-x-1 transition-transform duration-300">{item}</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
+                    <span className="group-hover:translate-x-1 transition-transform duration-300">
+                         {item.label}
+                    </span>
+                    </a>
+               </li>
+               ))}
+               </ul>
           </div>
 
           {/* Social / Connect - Enhanced */}
@@ -142,7 +145,7 @@ const Footer = () => {
             <div className="mb-6">
               <h4 className="text-white font-bold text-sm uppercase tracking-wider flex items-center gap-2 mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)]"></span> 
-                Connect
+                เพิ่มเติม
               </h4>
               <div className="h-[2px] w-12 bg-gradient-to-r from-emerald-500 to-transparent rounded-full"></div>
             </div>

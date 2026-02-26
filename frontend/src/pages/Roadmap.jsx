@@ -20,6 +20,7 @@ const CURRICULUM_COURSES = {
   "040613204": { code:"040613204", name:"การโปรแกรมเชิงวัตถุ", nameEn:"Object-Oriented Programming", credits:"3(2-2-5)", prereq:"040613203" },
   "040613205": { code:"040613205", name:"โครงสร้างข้อมูล", nameEn:"Data Structure", credits:"3(2-2-5)", prereq:"040613201" },
   "040613301": { code:"040613301", name:"ระบบฐานข้อมูล", nameEn:"Database System", credits:"3(2-2-5)", prereq:"040613201" },
+  "040613302": { code:"040613302", name:"การวิเคราะห์และออกแบบ", nameEn:"System Analysis and Design", credits:"3(3-0-6)", prereq:"040613201" },
   "040613104": { code:"040613104", name:"คณิตศาสตร์สำหรับการคณนา", nameEn:"Mathematics for Computing", credits:"3(3-0-6)", prereq:"040203101" },
   "040613112": { code:"040613112", name:"การออกแบบวงจรดิจิทัล", nameEn:"Digital Circuit Design", credits:"3(3-0-6)", prereq:null },
   // ─── AI Track ───────────────────────────────────────────────
@@ -61,42 +62,13 @@ const CURRICULUM_COURSES = {
   "040613412": { code:"040613412", name:"เว็บเฟรมเวิร์ค", nameEn:"Web Framework", credits:"3(2-2-5)", prereq:"040613411" },
   "040613421": { code:"040613421", name:"การพัฒนาโปรแกรมประยุกต์เคลื่อนที่", nameEn:"Mobile Application Development", credits:"3(2-2-5)", prereq:"040613204" },
   "040613521": { code:"040613521", name:"การศึกษาเฉพาะเรื่องทางวิทยาการคอมพิวเตอร์ 1", nameEn:"Selected Topics in Computer Science I", credits:"3(3-0-6)", prereq:null },
-  // ─── outside of track  ───────────────────────────────────────
-  "040613207": {
-    code: "040613207",
-    name: "หลักภาษาโปรแกรม",
-    nameEn: "Principles of Programming Languages",
-    credits: "3(2-2-5)",
-    prereq: "040613204",
-  },
-  "040613304": {
-    code: "040613304",
-    name: "การบริหารโครงการ",
-    nameEn: "Project Management",
-    credits: "3(2-2-5)",
-    prereq: "040613302",
-  },
-  "040613111": {
-    code: "040613111",
-    name: "ดิจิทัลและระบบตรรกะ",
-    nameEn: "Digital and Logic Systems",
-    credits: "3(3-0-6)",
-    prereq: null,
-  },
-  "040613305": {
-    code: "040613305",
-    name: "สถาปัตยกรรมซอฟต์แวร์",
-    nameEn: "Software Architecture",
-    credits: "3(3-0-6)",
-    prereq: "040613302",
-  },
-  "040613307": {
-    code: "040613307",
-    name: "การทดสอบซอฟต์แวร์",
-    nameEn: "Software Testing",
-    credits: "3(3-0-6)",
-    prereq: "040613302",
-  },
+  // ─── Outside of track ──────────────────────────────────────────────
+  "040613207": { code:"040613207", name:"หลักภาษาโปรแกรม", nameEn:"Principle of Programming Language", credits:"3(2-2-5)", prereq:"040613203" },
+  "040613307": { code:"040613307", name:"การทดสอบซอฟต์แวร์", nameEn:"Software Testing", credits:"3(3-0-6)", prereq:"040613302" },
+  "040613305": { code:"040613305", name:"สถาปัตยกรรมซอฟต์แวร์", nameEn:"Software Architecture", credits:"3(3-0-6)", prereq:"040613302" },
+  "040613308": { code:"040613308", name:"วิศวกรรมความต้องการ", nameEn:"Requirements Engineering", credits:"3(3-0-6)", prereq:"040613302" },
+  "040613111": { code:"040613111", name:"ดิจิทัลและระบบตรรกะ", nameEn:"Digital and Logic Systems", credits:"3(3-0-6)", prereq: null},
+  "040613304": { code:"040613304", name:"การบริหารโครงการ", nameEn:"Project Management", credits:"3(3-0-6)", prereq:"040613201" },
 };
 
 const CURRICULUM_TRACKS = [
@@ -151,14 +123,11 @@ const CURRICULUM_TRACKS = [
     ],
   },
   {
-    id: "Outside", label: "Outside of Track", color: "#6b7280", icon: "📚",
+    id: "Outside", label: "Outside of Track", color: "#db2777", icon: "🌐",
     chains: [
-      ["040613201", "arrow", "040613203", "arrow", "040613204", "arrow", "040613207"],
+      ["040613201", "arrow", "040613302", "arrow", ["040613304", "040613305", "040613307", "040613308"]],
+      ["040613201", "arrow", "040613203", "arrow", "040613203", "arrow", "040613207"],
       ["040613111"],
-      ["040613104", "arrow", "040613205"],
-      ["040613301", "arrow", "040613305"],
-      ["040613307"],
-      ["040613304"],
     ],
   },
 ];
@@ -169,7 +138,6 @@ const CURRICULUM_NODE_TYPE_MAP = {
   game: { "040613104":"base","040613201":"base","040613801":"game-major","040613802":"game-major","040613804":"game","040613805":"game","040613806":"game","040613803":"game" },
   iot:  { "040613112":"base","040613201":"base","040613301":"base","040613901":"iot-major","040613902":"iot-major","040613904":"iot","040613903":"iot","040613153":"iot","040613905":"iot" },
   fs:   { "040613201":"base","040613204":"base","040613411":"fs-major","040613412":"fs","040613421":"fs-major","040613521":"fs" },
-  Outside:  {"040613201":"base","040613203":"base","040613204":"base","040613207":"minor","040613301":"base","040613305":"minor","040613304":"minor","040613307":"minor","040613111":"base" },
 };
 
 // ════════════════════════════════════════════════════════════
@@ -275,23 +243,20 @@ const CM_TREES = [
       { code:"040613152", t:"major", children:[] },
     ]
   },
+    // ── Outside of Track ─────────────────────────────────────────────
   {
-    id:"Outside", label:"Outside of Track", icon:"📚", color:"#6b7280",
-    gradient:"from-slate-600 to-gray-600", shadow:"shadow-slate-500/50", activeBg:"from-slate-900/60 to-gray-900/40",
+    id:"outside", label:"Outside of Track", icon:"🌐", color:"#7c3aed",
+    gradient:"from-violet-600 to-purple-600", shadow:"shadow-violet-500/50", activeBg:"from-violet-900/60 to-purple-900/40",
     roots:[
       { code:"040613201", t:"base", children:[
-        { code:"040613203", t:"base", children:[
-          { code:"040613204", t:"base", children:[
-            { code:"040613207", t:"minor", children:[] },
-          ]},
-        ]},
-        { code:"040613301", t:"base", children:[
-          { code:"040613305", t:"minor", children:[] },
-          { code:"040613304", t:"minor", children:[] },
-          { code:"040613307", t:"minor", children:[] },
+        { code:"040613302", t:"base", children:[
+          { code:"040613304", t:"major", children:[] },
+          { code:"040613305", t:"major", children:[] },
+          { code:"040613307", t:"major", children:[] },
+          { code:"040613308", t:"major", children:[] },
         ]},
       ]},
-      { code:"040613111", t:"base", children:[] },
+      { code:"040613111", t:"major", children:[] },
     ]
   },
 ];
@@ -796,15 +761,15 @@ function CurriculumMapTab() {
       {/* ── Filter Tabs + Legend in one row ── */}
       <div className="flex flex-col gap-6 mb-8">
         {/* Filter Tabs */}
-        <div className="flex flex-nowrap justify-center gap-2 overflow-x-auto pb-1 w-full">
+        <div className="flex flex-wrap justify-center gap-2 w-full">
           {[
-            { id:"all",  icon:"⚡", label:"All",                color:null },
+            { id:"all",  icon:"⚡", label:"All",                color:"#94a3b8" },
             { id:"ai",   icon:"🧠", label:"AI",                 color:"#7c3aed" },
             { id:"fs",   icon:"🌐", label:"Full-Stack",         color:"#db2777" },
             { id:"net",  icon:"🔐", label:"Security & Network", color:"#0891b2" },
             { id:"game", icon:"🎮", label:"Game & Graphic",     color:"#d97706" },
             { id:"iot",  icon:"🤖", label:"IoT & Robot",        color:"#059669" },
-            { id: "Outside", icon:"📚", label:"Outside of Track",   color:"#6b7280" } ,
+            { id:"outside",  icon:"🌐", label:"Outside of Track",        color:"#FEE12B" },
           ].map(t => {
             const active = activeCMTrack === t.id;
             const countNodes = (roots) => {
@@ -1783,7 +1748,7 @@ const Roadmap = () => {
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl mb-3">
                 <Sparkles className="text-orange-400" size={28} />
-                <h2 className="text-3xl font-black text-white">Elective Courses</h2>
+                <h2 className="text-3xl font-black text-white">กลุ่มวิชา เสรี</h2>
               </div>
               <p className="text-slate-400 text-base mb-6">เลือกวิชาเสรีตามความสนใจและเป้าหมายอาชีพของคุณ</p>
               <div className="flex flex-wrap items-center justify-center gap-8">
@@ -1875,7 +1840,7 @@ const Roadmap = () => {
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl mb-3" style={{ background: 'transparent' }}>
                 <GitBranch className="text-violet-400" size={28} />
-                <h2 className="text-3xl font-black text-white">Track Map</h2>
+                <h2 className="text-3xl font-black text-white">เเบ่งสาย</h2>
               </div>
               <p className="text-slate-400 text-base">
                 ดูเส้นทางการเรียนในแต่ละสาย พร้อม prerequisite chains ทั้งหมด
