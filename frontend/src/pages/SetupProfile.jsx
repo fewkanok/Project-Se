@@ -10,27 +10,43 @@ const SetupProfile = () => {
   const fileInputRef = useRef(null);
   
   // --- 1. Load Data with Error Handling ---
-  const getSavedData = () => {
-      try {
-          const saved = localStorage.getItem('userProfile');
-          if (!saved) return null;
+//   const getSavedData = () => {
+//       try {
+//           const saved = localStorage.getItem('userProfile');
+//           if (!saved) return null;
           
-          const parsed = JSON.parse(saved);
+//           const parsed = JSON.parse(saved);
           
-          // Validate data structure
-          if (typeof parsed !== 'object') {
-              console.warn('Invalid saved data structure');
-              return null;
-          }
+//           // Validate data structure
+//           if (typeof parsed !== 'object') {
+//               console.warn('Invalid saved data structure');
+//               return null;
+//           }
           
-          return parsed;
-      } catch (error) {
-          console.error('Error loading saved profile:', error);
-          // Clear corrupted data
-          localStorage.removeItem('userProfile');
-          return null;
-      }
-  };
+//           return parsed;
+//       } catch (error) {
+//           console.error('Error loading saved profile:', error);
+//           // Clear corrupted data
+//           localStorage.removeItem('userProfile');
+//           return null;
+//       }
+//   };
+    const getSavedData = () => {
+        try {
+            // ✅ เปลี่ยนมาดึงจาก active_session ที่ได้จาก Backend ของโก๋
+            const saved = localStorage.getItem('active_session');
+            if (!saved) return null;
+            
+            const parsed = JSON.parse(saved);
+            
+            // ถ้าข้อมูลที่ได้มามีก้อนโปรไฟล์อยู่ข้างใน (กรณีเซฟทับไปแล้ว) 
+            // หรือเป็นข้อมูลดิบจาก Login ให้ return ออกไปใช้
+            return parsed;
+        } catch (error) {
+            console.error('Error loading saved profile:', error);
+            return null;
+        }
+    };
 
   const savedData = getSavedData();
   const hasExistingData = useRef(savedData?.courseStates && Object.keys(savedData.courseStates).length > 0);
@@ -39,38 +55,68 @@ const SetupProfile = () => {
   const isFirstRun = useRef(true);
 
   // State: Basic Info
-  const [basicInfo, setBasicInfo] = useState(() => {
-    try {
-        if (savedData) {
-            return {
-                name: savedData.basicInfo?.name || savedData.name || '',
-                studentId: savedData.basicInfo?.studentId || savedData.studentId || '',
-                currentYear: parseInt(savedData.basicInfo?.currentYear || savedData.currentYear || 1),
-                currentTerm: parseInt(savedData.basicInfo?.currentTerm || savedData.currentTerm || 1),
-                image: savedData.basicInfo?.image || savedData.image || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
-            };
-        }
+//   const [basicInfo, setBasicInfo] = useState(() => {
+//     try {
+//         if (savedData) {
+//             return {
+//                 name: savedData.basicInfo?.name || savedData.name || '',
+//                 studentId: savedData.basicInfo?.studentId || savedData.studentId || '',
+//                 currentYear: parseInt(savedData.basicInfo?.currentYear || savedData.currentYear || 1),
+//                 currentTerm: parseInt(savedData.basicInfo?.currentTerm || savedData.currentTerm || 1),
+//                 image: savedData.basicInfo?.image || savedData.image || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+//             };
+//         }
         
-        const sessionData = localStorage.getItem('active_session');
-        const user = sessionData ? JSON.parse(sessionData) : {};
-        return {
-            name: user.name || '',
-            studentId: user.studentId || '',
-            currentYear: 1,
-            currentTerm: 1,
-            image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
-        };
-    } catch (error) {
-        console.error('Error initializing basic info:', error);
-        return {
-            name: '',
-            studentId: '',
-            currentYear: 1,
-            currentTerm: 1,
-            image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
-        };
-    }
-  });
+//         const sessionData = localStorage.getItem('active_session');
+//         const user = sessionData ? JSON.parse(sessionData) : {};
+//         return {
+//             name: user.name || '',
+//             studentId: user.studentId || '',
+//             currentYear: 1,
+//             currentTerm: 1,
+//             image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+//         };
+//     } catch (error) {
+//         console.error('Error initializing basic info:', error);
+//         return {
+//             name: '',
+//             studentId: '',
+//             currentYear: 1,
+//             currentTerm: 1,
+//             image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+//         };
+//     }
+//   });
+// แก้ช่วงบรรทัดที่ 50-70
+    const [basicInfo, setBasicInfo] = useState(() => {
+        try {
+            const sessionData = localStorage.getItem('active_session');
+            const user = sessionData ? JSON.parse(sessionData) : null;
+
+            if (user) {
+                return {
+                    // ✅ ดึงชื่อและรหัสจากฐานข้อมูลที่ Login มาโชว์เลย
+                    name: user.name || '',
+                    studentId: user.studentId || '',
+                    currentYear: parseInt(user.currentYear || 1),
+                    currentTerm: parseInt(user.currentTerm || 1),
+                    image: user.image || 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+                };
+            }
+            
+            // กรณีไม่มีข้อมูล (Failsafe)
+            return {
+                name: '',
+                studentId: '',
+                currentYear: 1,
+                currentTerm: 1,
+                image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
+            };
+        } catch (error) {
+            console.error('Error initializing basic info:', error);
+            return { name: '', studentId: '', currentYear: 1, currentTerm: 1, image: '...' };
+        }
+    });
 
   // State: Course States
   const [courseStates, setCourseStates] = useState(() => {

@@ -63,8 +63,8 @@ function App() {
         
         {/* ✅ 2. เพิ่ม Route สำหรับ Admin (วางไว้นอก MainLayout เพราะมีดีไซน์ของตัวเอง) */}
         <Route path="/admin"    element={<AdminDashboard />} />
-        {/* <Route path="/setup"    element={<SetupProfile />} /> */}
-
+        <Route path="/setup"    element={<SetupProfile />} />
+  
         <Route element={<ProtectedRoute />}>
           <Route element={<MainLayout />}>
             <Route path="/"                  element={<Navigate to="/dashboard" replace />} />
@@ -74,7 +74,7 @@ function App() {
             <Route path="/course/:id"        element={<CourseDetail />} />
             <Route path="/coop"              element={<CoopEligibilityModal />} />
             <Route path="/academic-criteria" element={<AcademicCriteriaPage />} />
-            <Route path="/setup"             element={<SetupProfile />} />
+            
           </Route>
         </Route>
       </Routes>
