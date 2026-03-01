@@ -4,9 +4,12 @@ import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Cal
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
 import { courses as allTrackCourses, tracks, nodeTypeMap } from '../data/courseData';
+import axios from 'axios';
+
 
 const SetupProfile = () => {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const fileInputRef = useRef(null);
   
   // --- 1. Load Data with Error Handling ---
@@ -728,39 +731,109 @@ const SetupProfile = () => {
   };
 
   // ✅✅✅ แก้ไขส่วนนี้: เพิ่มการเช็ค GPA with Enhanced Error Handling
-  const handleSubmit = () => {
+//   const handleSubmit = () => {
+//     try {
+//         // 1. เช็คชื่อและรหัสนิสิต
+//         if (!basicInfo.name || basicInfo.name.trim() === '') {
+//             alert("กรุณากรอก ชื่อ (Name) ให้ครบถ้วน");
+//             return;
+//         }
+        
+//      //    if (!basicInfo.studentId || basicInfo.studentId.trim() === '') {
+//      //        alert("กรุณากรอก รหัสนิสิต (Student ID) ให้ครบถ้วน");
+//      //        return;
+//      //    }
+        
+//         // Validate student ID format (optional - adjust as needed)
+//      //    if (!/^\d{7,10}$/.test(basicInfo.studentId.trim())) {
+//      //        const confirmProceed = window.confirm(
+//      //            "รหัสนิสิตไม่ตรงตามรูปแบบทั่วไป (7-10 หลัก)\nต้องการดำเนินการต่อหรือไม่?"
+//      //        );
+//      //        if (!confirmProceed) return;
+//      //    }
+
+//         // 2. เช็คเกรด (GPA) ย้อนหลังให้ครบ
+//         const curYear = parseInt(basicInfo.currentYear);
+//         const curTerm = parseInt(basicInfo.currentTerm);
+        
+//         if (isNaN(curYear) || isNaN(curTerm)) {
+//             alert("ข้อมูลปีและเทอมไม่ถูกต้อง");
+//             return;
+//         }
+        
+//         let missingGpaTerm = null;
+
+//         // วนลูปเช็คทุกเทอมที่ผ่านแล้ว (Y1 ถึง currentYear/currentTerm)
+//         outer: for (let y = 1; y <= curYear; y++) {
+//             for (let t = 1; t <= 2; t++) {
+//                 const isPast = (y < curYear) || (y === curYear && t < curTerm);
+//                 if (isPast) {
+//                     const termKey = `Y${y}/${t}`;
+//                     const gpaValue = gpaHistory[termKey];
+//                     if (!gpaValue || gpaValue.toString().trim() === '') { missingGpaTerm = termKey; break outer; }
+//                     const gpaNum = parseFloat(gpaValue);
+//                     if (isNaN(gpaNum) || gpaNum < 0 || gpaNum > 4) {
+//                         alert(`เกรดเฉลี่ยของเทอม ${termKey} ไม่ถูกต้อง (ต้องอยู่ระหว่าง 0-4)`);
+//                         return;
+//                     }
+//                 }
+//             }
+//         }
+
+//         if (missingGpaTerm) {
+//             alert(`กรุณากรอกเกรดเฉลี่ย (GPA) ของเทอม ${missingGpaTerm} ให้เรียบร้อยก่อนดำเนินการต่อ`);
+//             return;
+//         }
+        
+//         // 3. ถ้าผ่านหมด บันทึกและไปหน้าถัดไป
+//         // ✅ กรอง courseStates ก่อนบันทึก — ลบ PE slot IDs ที่ไม่ได้ assign จริง
+//         const cleanStatesSubmit = getCleanCourseStates(courseStates, peAssignments);
+//         const passedCourses = Object.keys(cleanStatesSubmit).filter(id => cleanStatesSubmit[id] === 'passed');
+//         const learningCourses = Object.keys(cleanStatesSubmit).filter(id => cleanStatesSubmit[id] === 'learning');
+        
+//         const userPayload = { 
+//             basicInfo,
+//             ...basicInfo,
+//             gpaHistory,
+//             passedCourses, 
+//             learningCourses,
+//             courseStates: cleanStatesSubmit,
+//             customElectives,
+//             peAssignments,
+//             maxYear,
+//             totalCredits, 
+//             lastUpdated: new Date().toISOString() 
+//         };
+        
+//         // Validate payload before saving
+//         const payloadString = JSON.stringify(userPayload);
+//         if (payloadString.length > 5000000) { // 5MB limit
+//             alert('ข้อมูลมีขนาดใหญ่เกินไป กรุณาติดต่อผู้ดูแลระบบ');
+//             return;
+//         }
+        
+//         localStorage.setItem('userProfile', payloadString);
+        
+//         // Navigate with error handling
+//         navigate('/dashboard');
+//     } catch (error) {
+//         console.error('Error in handleSubmit:', error);
+//         alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองอีกครั้ง หรือติดต่อผู้ดูแลระบบ');
+//     }
+//   };
+const handleSubmit = async () => { // 1. เพิ่ม async ตรงนี้
     try {
-        // 1. เช็คชื่อและรหัสนิสิต
+        // เช็คชื่อ (เหมือนเดิม)
         if (!basicInfo.name || basicInfo.name.trim() === '') {
             alert("กรุณากรอก ชื่อ (Name) ให้ครบถ้วน");
             return;
         }
-        
-     //    if (!basicInfo.studentId || basicInfo.studentId.trim() === '') {
-     //        alert("กรุณากรอก รหัสนิสิต (Student ID) ให้ครบถ้วน");
-     //        return;
-     //    }
-        
-        // Validate student ID format (optional - adjust as needed)
-     //    if (!/^\d{7,10}$/.test(basicInfo.studentId.trim())) {
-     //        const confirmProceed = window.confirm(
-     //            "รหัสนิสิตไม่ตรงตามรูปแบบทั่วไป (7-10 หลัก)\nต้องการดำเนินการต่อหรือไม่?"
-     //        );
-     //        if (!confirmProceed) return;
-     //    }
 
-        // 2. เช็คเกรด (GPA) ย้อนหลังให้ครบ
+        // 2. เช็คเกรด (เหมือนเดิม)
         const curYear = parseInt(basicInfo.currentYear);
         const curTerm = parseInt(basicInfo.currentTerm);
-        
-        if (isNaN(curYear) || isNaN(curTerm)) {
-            alert("ข้อมูลปีและเทอมไม่ถูกต้อง");
-            return;
-        }
-        
         let missingGpaTerm = null;
 
-        // วนลูปเช็คทุกเทอมที่ผ่านแล้ว (Y1 ถึง currentYear/currentTerm)
         outer: for (let y = 1; y <= curYear; y++) {
             for (let t = 1; t <= 2; t++) {
                 const isPast = (y < curYear) || (y === curYear && t < curTerm);
@@ -768,55 +841,48 @@ const SetupProfile = () => {
                     const termKey = `Y${y}/${t}`;
                     const gpaValue = gpaHistory[termKey];
                     if (!gpaValue || gpaValue.toString().trim() === '') { missingGpaTerm = termKey; break outer; }
-                    const gpaNum = parseFloat(gpaValue);
-                    if (isNaN(gpaNum) || gpaNum < 0 || gpaNum > 4) {
-                        alert(`เกรดเฉลี่ยของเทอม ${termKey} ไม่ถูกต้อง (ต้องอยู่ระหว่าง 0-4)`);
-                        return;
-                    }
                 }
             }
         }
 
         if (missingGpaTerm) {
-            alert(`กรุณากรอกเกรดเฉลี่ย (GPA) ของเทอม ${missingGpaTerm} ให้เรียบร้อยก่อนดำเนินการต่อ`);
+            alert(`กรุณากรอกเกรดเฉลี่ยของเทอม ${missingGpaTerm} ให้เรียบร้อย`);
             return;
         }
-        
-        // 3. ถ้าผ่านหมด บันทึกและไปหน้าถัดไป
-        // ✅ กรอง courseStates ก่อนบันทึก — ลบ PE slot IDs ที่ไม่ได้ assign จริง
+        // --- ✅ ส่วนที่เพิ่มเข้ามา: ส่งข้อมูลไป Database จริง ---
+        setLoading(true); // เปิด Loading เผื่อเพื่อนทำ UI ไว้
+        // 3. เตรียมข้อมูล Payload
         const cleanStatesSubmit = getCleanCourseStates(courseStates, peAssignments);
-        const passedCourses = Object.keys(cleanStatesSubmit).filter(id => cleanStatesSubmit[id] === 'passed');
-        const learningCourses = Object.keys(cleanStatesSubmit).filter(id => cleanStatesSubmit[id] === 'learning');
-        
         const userPayload = { 
             basicInfo,
-            ...basicInfo,
             gpaHistory,
-            passedCourses, 
-            learningCourses,
             courseStates: cleanStatesSubmit,
             customElectives,
             peAssignments,
-            maxYear,
             totalCredits, 
             lastUpdated: new Date().toISOString() 
         };
+
+    
+        // ดึง id จาก active_session ที่ได้ตอน Login
+        const sessionData = JSON.parse(localStorage.getItem('active_session'));
+        const session = JSON.parse(localStorage.getItem('active_session'));
         
-        // Validate payload before saving
-        const payloadString = JSON.stringify(userPayload);
-        if (payloadString.length > 5000000) { // 5MB limit
-            alert('ข้อมูลมีขนาดใหญ่เกินไป กรุณาติดต่อผู้ดูแลระบบ');
-            return;
-        }
+        console.log("Current Session:", session);
+        if (session && session.id) {
+        // ✅ ยิง Axios ไปที่ Path profile ของโก๋
+        await axios.patch(`${import.meta.env.VITE_API_URL}/auth/profile/${session.id}`, userPayload);
         
-        localStorage.setItem('userProfile', payloadString);
-        
-        // Navigate with error handling
+        localStorage.setItem('userProfile', JSON.stringify(userPayload));
+        alert("บันทึกข้อมูลและแผนการเรียนลงฐานข้อมูลสำเร็จ!");
         navigate('/dashboard');
-    } catch (error) {
-        console.error('Error in handleSubmit:', error);
-        alert('เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองอีกครั้ง หรือติดต่อผู้ดูแลระบบ');
-    }
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert("บันทึกไม่สำเร็จ! ตรวจสอบว่า Backend รันอยู่และรัน --force-reset หรือยัง");
+        } finally {
+            setLoading(false);
+        }
   };
 
   const getFilteredElectives = () => {

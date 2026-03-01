@@ -16,10 +16,14 @@ datasource db {
 
 // ตารางข้อมูลนักศึกษา
 model Student {
-  id        String   @id // เปลี่ยนจาก Int เป็น String เพื่อรับ UUID จาก Supabase
-  studentId String   @unique
-  email     String   @unique // เพิ่ม email เพื่อใช้ตรวจสอบการ Login
-  name      String
+  id             String   @id // ตรงกับ UUID ใน Supabase Auth
+  email          String   @unique
+  name           String?
+  studentId      String?
+  // ✅ เพิ่มฟิลด์เก็บข้อมูล Profile ทั้งหมดเป็น JSON
+  profileData    Json?    
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
   enrollments Enrollment[]
 }
 

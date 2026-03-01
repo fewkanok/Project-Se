@@ -1,26 +1,37 @@
 // src/components/Navbar.jsx
-import { User, Terminal } from 'lucide-react'; // ✅ เปลี่ยน Settings เป็น Terminal เพื่อใช้ทำ Logo
+import { User, Terminal } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 
 const Navbar = () => {
   const location = useLocation();
 
-  // ดึงชื่อจาก LocalStorage มาแสดง (ถ้ามี) ถ้าไม่มีใช้ 'Guest'
-  const userProfile = JSON.parse(localStorage.getItem('userProfile')) || { name: 'Guest' };
+  // ✅ แก้ไข: ดึงข้อมูลจาก active_session (ชื่อที่ได้ตอน Login) หรือ userProfile (ชื่อที่กรอกใน Setup)
+  const getDisplayName = () => {
+    try {
+      const session = JSON.parse(localStorage.getItem('active_session'));
+      const profile = JSON.parse(localStorage.getItem('userProfile'));
+      
+      // ลำดับการเลือกชื่อ: 1. จาก Login Session -> 2. จาก Profile Setup -> 3. ค่าเริ่มต้น
+      return session?.name || profile?.basicInfo?.name || profile?.name || 'Survivor';
+    } catch (e) {
+      return 'Survivor';
+    }
+  };
+
+  const displayName = getDisplayName();
 
   const navLinks = [
     { path: '/dashboard', label: 'Home' },
     { path: '/roadmap', label: 'Roadmap' },
     { path: '/grade-calculator', label: 'คำนวณเกรด' }, 
-    // ✅ ย้าย: Setup มาอยู่ตรงนี้ (หลังคำนวณเกรด)
     { path: '/setup', label: 'Setup' }, 
   ];
 
   return (
     <nav className="flex items-center justify-between px-6 py-4 text-white">
       
-      {/* ✅ แก้ไข: เปลี่ยนปุ่ม Setup เดิม เป็น Logo "CS ต้องรอด" */}
+      {/* Logo Section */}
       <Link 
         to="/dashboard" 
         className="flex items-center gap-3 group select-none hover:opacity-90 transition-opacity"
@@ -59,13 +70,14 @@ const Navbar = () => {
         })}
       </div>
 
-      {/* Profile */}
+      {/* Profile Section */}
       <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md rounded-full pl-2 pr-4 py-1.5 border border-white/20 cursor-default hover:bg-white/20 transition-all duration-300">
         <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full p-1.5 shadow-inner">
           <User size={18} className="text-white" />
         </div>
-        <span className="font-medium text-sm truncate max-w-[100px] hidden md:block">
-            {userProfile.name}
+        <span className="font-medium text-sm truncate max-w-[120px] hidden md:block">
+            {/* ✅ แสดงชื่อที่ดึงมาได้ */}
+            {displayName}
         </span>
       </div>
     </nav>

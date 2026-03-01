@@ -45,16 +45,27 @@ export class AuthService {
       throw new UnauthorizedException('Email หรือ Password ไม่ถูกต้อง');
     }
 
-    // ดึง Profile จากตาราง Student มาด้วย
     const profile = await this.prisma.student.findUnique({
       where: { id: data.user.id },
     });
 
+    // ✅ ปรับให้เหลือแค่ profile และ token ให้ตรงกับที่ Login.jsx รอรับ
     return {
-      message: 'Login สำเร็จ',
-      user: data.user,
-      profile: profile,
+      profile: profile, // ในนี้จะมี id, name, studentId, profileData
       access_token: data.session?.access_token,
     };
   }
+  async updateProfile(userId: string, data: any) {
+    return this.prisma.student.update({
+      where: { id: userId },
+      data: { profileData: data },
+    });
+  }
+async getProfile(userId: string) {
+  const student = await this.prisma.student.findUnique({
+    where: { id: userId },
+    select: { profileData: true } // ดึงเฉพาะข้อมูลเกรด/วิชาที่เซฟไว้
+  });
+  return student;
+}
 }

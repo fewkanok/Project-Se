@@ -80,8 +80,13 @@ const Login = () => {
         localStorage.setItem('active_session', JSON.stringify(profile));
         localStorage.setItem('token', access_token);
 
-        alert("Login สำเร็จ! เข้าสู่ระบบ Survival");
-        navigate('/setup');
+        if (profile && profile.profileData) {
+          alert("ยินดีต้อนรับกลับ! กำลังพาไปหน้า Dashboard");
+          navigate('/dashboard'); // 🚀 ส่งไปหน้า Dashboard เลย
+        } else {
+          alert("Login สำเร็จ! กรุณาตั้งค่าโปรไฟล์เริ่มต้นก่อนเข้าใช้งาน");
+          navigate('/setup'); // 📝 ส่งไปหน้า Setup (สำหรับ User ใหม่)
+        }
       }
     } catch (err) {
       // ถ้า Login พลาด (รหัสผิด/ไม่มีเมลนี้) Axios จะดีดมาที่นี่
