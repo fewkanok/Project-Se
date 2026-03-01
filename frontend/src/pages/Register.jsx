@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, User, Mail, ArrowRight, Terminal, AlertCircle } from 'lucide-react';
+import axios from 'axios';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -20,40 +21,74 @@ const Register = () => {
     setError('');
   };
 
-  const handleRegister = (e) => {
-    e.preventDefault();
+  // const handleRegister = (e) => {
+  //   e.preventDefault();
 
-    // 1. Validation Logic
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match!");
-      return;
-    }
+  //   // 1. Validation Logic
+  //   if (formData.password !== formData.confirmPassword) {
+  //     setError("Passwords do not match!");
+  //     return;
+  //   }
     
-    if (formData.password.length < 4) {
-      setError("Password must be at least 4 characters.");
-      return;
-    }
+  //   if (formData.password.length < 4) {
+  //     setError("Password must be at least 4 characters.");
+  //     return;
+  //   }
 
-    setLoading(true);
+  //   setLoading(true);
 
-    // 2. Save Data & Simulate API Call
-    setTimeout(() => {
-      setLoading(false);
+  //   // 2. Save Data & Simulate API Call
+  //   setTimeout(() => {
+  //     setLoading(false);
       
-      // ✅ จุดสำคัญ: บันทึกข้อมูลลงเครื่อง (เปรียบเสมือน Database)
-      const userData = {
-          name: formData.fullName.trim() || 'Anonymous',
-          studentId: formData.studentId.trim() || '',
-          email: formData.email,
-          password: formData.password
-      };
+  //     // ✅ จุดสำคัญ: บันทึกข้อมูลลงเครื่อง (เปรียบเสมือน Database)
+  //     const userData = {
+  //         name: formData.fullName.trim() || 'Anonymous',
+  //         studentId: formData.studentId.trim() || '',
+  //         email: formData.email,
+  //         password: formData.password
+  //     };
       
-      localStorage.setItem('registered_user', JSON.stringify(userData));
+  //     localStorage.setItem('registered_user', JSON.stringify(userData));
 
+  //     alert("Registration Successful! Please Login.");
+  //     navigate('/login');
+  //   }, 1500);
+  // };
+  const handleRegister = async (e) => {
+  e.preventDefault();
+
+  if (formData.password !== formData.confirmPassword) {
+    setError("Passwords do not match!");
+    return;
+  }
+  
+  setLoading(true);
+  setError('');
+
+  try {
+    // ✅ ใช้ Axios ยิงไปที่ Backend ของโก๋
+    const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/signup`, {
+      email: formData.email,
+      password: formData.password,
+      name: formData.fullName.trim() || 'Anonymous',
+      studentId: formData.studentId.trim() || '',
+    });
+
+    // Axios จะเอาข้อมูลใส่ไว้ใน response.data ให้เลย
+    if (response.status === 201 || response.status === 200) {
       alert("Registration Successful! Please Login.");
       navigate('/login');
-    }, 1500);
-  };
+    }
+  } catch (err) {
+    // Axios จัดการ Error ให้ง่ายขึ้น ดึง message จาก NestJS มาโชว์ได้เลย
+    const errorMessage = err.response?.data?.message || "Registration failed";
+    setError(errorMessage);
+    console.error("Axios Error:", err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#0a0a0a] text-white relative overflow-hidden font-sans py-10">

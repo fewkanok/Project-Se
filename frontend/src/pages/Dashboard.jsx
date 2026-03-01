@@ -473,12 +473,19 @@ const Dashboard = () => {
     return null;
   };
 
+  // const handleLogout = () => {
+  //     if(window.confirm('ต้องการออกจากระบบหรือไม่?')) {
+  //         localStorage.removeItem('userProfile'); 
+  //         localStorage.removeItem('active_session');
+  //         navigate('/login'); 
+  //     }
+  // };
   const handleLogout = () => {
-      if(window.confirm('ต้องการออกจากระบบหรือไม่?')) {
-          localStorage.removeItem('userProfile'); 
-          localStorage.removeItem('active_session');
-          navigate('/login'); 
-      }
+    if(window.confirm('ต้องการออกจากระบบหรือไม่?')){
+      localStorage.removeItem('active_session');
+      localStorage.removeItem('token');
+      navigate('/login');
+    }
   };
 
   const handleEditSetup = () => navigate('/setup');

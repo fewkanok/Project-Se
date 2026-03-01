@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, ArrowRight, Terminal } from 'lucide-react';
-
+import axios from 'axios';
 const Login = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -15,49 +15,80 @@ const Login = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleLogin = (e) => {
+  // const handleLogin = (e) => {
+  //   e.preventDefault();
+
+  //   // 1. อ่านข้อมูลจากที่ลงทะเบียนไว้
+  //   const registeredUser = JSON.parse(localStorage.getItem('registered_user'));
+
+  //   let isValid = false;
+  //   let currentUserData = null;
+
+  //   // 2. เช็คว่ามีข้อมูลตรงกันไหม (Email & Password)
+  //   if (registeredUser && registeredUser.email === formData.email) {
+  //       if (registeredUser.password === formData.password) {
+  //           isValid = true;
+  //           currentUserData = registeredUser;
+  //       } else {
+  //           alert("Wrong password for this Survivor!");
+  //           return;
+  //       }
+  //   } else {
+  //       // Backdoor สำหรับการ Test (Optional)
+  //       if (formData.email === "test@example.com" && formData.password === "1234") {
+  //           isValid = true;
+  //           currentUserData = { 
+  //               name: 'Survivor Guest', 
+  //               studentId: '6609999999', 
+  //               email: 'test@example.com' 
+  //           };
+  //       } else {
+  //           alert("Email not found! Please register first.");
+  //           return;
+  //       }
+  //   }
+
+  //   if (isValid) {
+  //       setLoading(true);
+  //       setTimeout(() => {
+  //           setLoading(false);
+            
+  //           // ✅ จุดสำคัญ: บันทึก Session ว่าใครล็อกอินอยู่ (Active Session)
+  //           localStorage.setItem('active_session', JSON.stringify(currentUserData));
+            
+  //           navigate('/setup');
+  //       }, 1500);
+  //   }
+  // };
+  const handleLogin = async (e) => { // อย่าลืมใส่ async
     e.preventDefault();
+    setLoading(true);
 
-    // 1. อ่านข้อมูลจากที่ลงทะเบียนไว้
-    const registeredUser = JSON.parse(localStorage.getItem('registered_user'));
+    try {
+      // ✅ ยิงไปที่ Backend เส้น /auth/login ที่โก๋เพิ่งเขียน
+      const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/login`, {
+        email: formData.email,
+        password: formData.password
+      });
 
-    let isValid = false;
-    let currentUserData = null;
+      if (response.status === 200|| response.status === 201) {
+        // ข้อมูลที่ได้กลับมาจะมี profile (จากตาราง Student) และ access_token (จาก Supabase)
+        const { profile, access_token } = response.data;
 
-    // 2. เช็คว่ามีข้อมูลตรงกันไหม (Email & Password)
-    if (registeredUser && registeredUser.email === formData.email) {
-        if (registeredUser.password === formData.password) {
-            isValid = true;
-            currentUserData = registeredUser;
-        } else {
-            alert("Wrong password for this Survivor!");
-            return;
-        }
-    } else {
-        // Backdoor สำหรับการ Test (Optional)
-        if (formData.email === "test@example.com" && formData.password === "1234") {
-            isValid = true;
-            currentUserData = { 
-                name: 'Survivor Guest', 
-                studentId: '6609999999', 
-                email: 'test@example.com' 
-            };
-        } else {
-            alert("Email not found! Please register first.");
-            return;
-        }
-    }
+        // ✅ บันทึก Session ลงเครื่องเพื่อให้หน้าอื่นดึงไปใช้ต่อได้
+        // เก็บทั้งข้อมูล User และ Token ไว้ใช้ยืนยันตัวตนใน API อื่นๆ
+        localStorage.setItem('active_session', JSON.stringify(profile));
+        localStorage.setItem('token', access_token);
 
-    if (isValid) {
-        setLoading(true);
-        setTimeout(() => {
-            setLoading(false);
-            
-            // ✅ จุดสำคัญ: บันทึก Session ว่าใครล็อกอินอยู่ (Active Session)
-            localStorage.setItem('active_session', JSON.stringify(currentUserData));
-            
-            navigate('/setup');
-        }, 1500);
+        alert("Login สำเร็จ! เข้าสู่ระบบ Survival");
+        navigate('/setup');
+      }
+    } catch (err) {
+      // ถ้า Login พลาด (รหัสผิด/ไม่มีเมลนี้) Axios จะดีดมาที่นี่
+      const errorMessage = err.response?.data?.message || "Login Failed! Please try again.";
+      alert(errorMessage);
+    } finally {
+      setLoading(false);
     }
   };
 

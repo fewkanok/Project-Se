@@ -14,15 +14,16 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
-// ตารางข้อมูลนักศึกษา Test
+// ตารางข้อมูลนักศึกษา
 model Student {
-  id        Int      @id @default(autoincrement())
+  id        String   @id // เปลี่ยนจาก Int เป็น String เพื่อรับ UUID จาก Supabase
   studentId String   @unique
+  email     String   @unique // เพิ่ม email เพื่อใช้ตรวจสอบการ Login
   name      String
   enrollments Enrollment[]
 }
 
-// ตารางข้อมูลวิชาเรียน
+// ตารางข้อมูลวิชาเรียน (เหมือนเดิม)
 model Course {
   id          Int      @id @default(autoincrement())
   courseCode  String   @unique 
@@ -33,10 +34,10 @@ model Course {
 
 // ตารางเก็บเกรด
 model Enrollment {
-  id        Int     @id @default(autoincrement())
-  grade     Float?  
-  student   Student @relation(fields: [studentId], references: [id])
-  studentId Int
-  course    Course  @relation(fields: [courseId], references: [id])
+  id        Int      @id @default(autoincrement())
+  grade     Float?   
+  student   Student  @relation(fields: [studentId], references: [id])
+  studentId String   // เปลี่ยนเป็น String ให้ตรงกับ Student.id
+  course    Course   @relation(fields: [courseId], references: [id])
   courseId  Int
 }
