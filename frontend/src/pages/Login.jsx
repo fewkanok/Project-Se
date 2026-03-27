@@ -60,38 +60,50 @@ const Login = () => {
   //       }, 1500);
   //   }
   // };
-  const handleLogin = async (e) => { // อย่าลืมใส่ async
+  const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // ✅ ยิงไปที่ Backend เส้น /auth/login ที่โก๋เพิ่งเขียน
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/login`, {
         email: formData.email,
         password: formData.password
       });
 
-      if (response.status === 200|| response.status === 201) {
-        // ข้อมูลที่ได้กลับมาจะมี profile (จากตาราง Student) และ access_token (จาก Supabase)
-        const { profile, access_token } = response.data;
+      if (response.status === 200 || response.status === 201) {
+        // ✅ 1. เพิ่มการดึง user ออกมาด้วย (เพื่อให้ได้สถานะ email_confirmed_at)
+        const { profile, access_token, user } = response.data;
 
-        // ✅ บันทึก Session ลงเครื่องเพื่อให้หน้าอื่นดึงไปใช้ต่อได้
-        // เก็บทั้งข้อมูล User และ Token ไว้ใช้ยืนยันตัวตนใน API อื่นๆ
+        // ✅ 2. เช็กว่ากดยืนยันเมลหรือยัง (สำหรับระบบที่เปิด Email Confirmation ไว้)
+        // ถ้า user.email_confirmed_at เป็น null แปลว่ายังไม่ได้กดปุ่มในเมล
+        if (user && !user.email_confirmed_at) {
+          alert("📧 กรุณายืนยัน Email ก่อนเข้าสู่ระบบ! (เช็กใน Inbox หรือ Junk Mail นะครับ)");
+          setLoading(false);
+          return; // หยุดทำงาน ไม่พาไปหน้าอื่น
+        }
+
+        // 3. บันทึก Session ลงเครื่องตามปกติ
         localStorage.setItem('active_session', JSON.stringify(profile));
         localStorage.setItem('token', access_token);
 
+        // 4. แยกเส้นทางตามข้อมูลที่มีใน Database
         if (profile && profile.profileData) {
-          alert("ยินดีต้อนรับกลับ! กำลังพาไปหน้า Dashboard");
-          navigate('/dashboard'); // 🚀 ส่งไปหน้า Dashboard เลย
+          alert("ยินดีต้อนรับกลับ! ระบบกำลังโหลดข้อมูลเกรดของคุณ...");
+          navigate('/dashboard'); 
         } else {
-          alert("Login สำเร็จ! กรุณาตั้งค่าโปรไฟล์เริ่มต้นก่อนเข้าใช้งาน");
-          navigate('/setup'); // 📝 ส่งไปหน้า Setup (สำหรับ User ใหม่)
+          alert("Login สำเร็จ! เนื่องจากเป็นครั้งแรก กรุณาตั้งค่าโปรไฟล์ก่อนนะครับ");
+          navigate('/setup'); 
         }
       }
     } catch (err) {
-      // ถ้า Login พลาด (รหัสผิด/ไม่มีเมลนี้) Axios จะดีดมาที่นี่
-      const errorMessage = err.response?.data?.message || "Login Failed! Please try again.";
-      alert(errorMessage);
+      // ✅ 5. ดักจับ Error กรณี Supabase บล็อกตั้งแต่ตอนยิง API
+      const errorMessage = err.response?.data?.message || "Login Failed! โปรดตรวจสอบ Email และ Password หรือยืนยัน Email";
+      
+      if (errorMessage.includes("Email not confirmed")) {
+          alert("⚠️ อีเมลนี้ยังไม่ได้รับการยืนยัน กรุณาเช็กอีเมลของคุณครับ");
+      } else {
+          alert(errorMessage);
+      }
     } finally {
       setLoading(false);
     }
