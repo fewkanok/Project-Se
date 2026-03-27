@@ -19,7 +19,6 @@ export class AuthService {
       email,
       password: pass,
       options: {
-      // ✅ ระบุ URL ที่ต้องการให้เด้งกลับมา (ต้องตรงกับที่ตั้งใน Site URL)
       emailRedirectTo: 'https://project-se-kappa.vercel.app/login', 
      },
     });

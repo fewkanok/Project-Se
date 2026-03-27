@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------
+  # หลังบ้าน (NestJS)
+  # ----------------------------------------
+  backend:
+    build: 
+      context: ./backend      # ชี้ไปที่โฟลเดอร์ backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"           # เข้าถึงผ่าน localhost:3000
+    env_file:
+      - ./backend/.env        # ดึง DATABASE_URL ของ Supabase มาใช้
+    restart: always
+
+  # ----------------------------------------
+  # หน้าบ้าน (React/Vite)
+  # ----------------------------------------
+  frontend:
+    build: 
+      context: ./frontend     # ชี้ไปที่โฟลเดอร์ frontend
+      dockerfile: Dockerfile
+      args:
+        # ตอนรันในเครื่อง ให้หน้าบ้านยิง API ไปที่ localhost:3000
+        - VITE_API_URL=http://localhost:3000
+    ports:
+      - "5173:80"             # เข้าถึงผ่าน localhost:5173 (แมปกับพอร์ต 80 ของ Nginx)
+    depends_on:
+      - backend               # สั่งให้รอ backend รันเสร็จก่อนค่อยรันหน้าบ้าน
+    restart: always
