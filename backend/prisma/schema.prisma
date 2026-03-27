@@ -1,9 +1,6 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -16,32 +13,55 @@ datasource db {
 
 // ตารางข้อมูลนักศึกษา
 model Student {
-  id             String   @id // ตรงกับ UUID ใน Supabase Auth
-  email          String   @unique
-  name           String?
-  studentId      String?
-  // ✅ เพิ่มฟิลด์เก็บข้อมูล Profile ทั้งหมดเป็น JSON
-  profileData    Json?    
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  enrollments Enrollment[]
+  id            String       @id // ตรงกับ UUID ใน Supabase Auth
+  email         String       @unique
+  name          String?
+  studentId     String?
+  profileData   Json?    
+  role          String       @default("student") // ✅ 1. เพิ่ม role (ตั้งค่าเริ่มต้นเป็น student)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  enrollments   Enrollment[]
+  reviews       Review[]     // ✅ 2. เพิ่มความสัมพันธ์ว่านักศึกษามีการเขียนรีวิว
 }
 
-// ตารางข้อมูลวิชาเรียน (เหมือนเดิม)
+// ตารางข้อมูลวิชาเรียน
 model Course {
-  id          Int      @id @default(autoincrement())
-  courseCode  String   @unique 
-  name        String
-  credits     Int
-  enrollments Enrollment[]
+  id            Int          @id @default(autoincrement())
+  courseCode    String       @unique 
+  name          String
+  credits       Int
+  
+  enrollments   Enrollment[]
+  reviews       Review[]     // ✅ 2. เพิ่มความสัมพันธ์ว่าวิชานี้มีคนมารีวิว
 }
 
 // ตารางเก็บเกรด
 model Enrollment {
-  id        Int      @id @default(autoincrement())
-  grade     Float?   
-  student   Student  @relation(fields: [studentId], references: [id])
-  studentId String   // เปลี่ยนเป็น String ให้ตรงกับ Student.id
-  course    Course   @relation(fields: [courseId], references: [id])
-  courseId  Int
+  id            Int          @id @default(autoincrement())
+  grade         Float?   
+  student       Student      @relation(fields: [studentId], references: [id])
+  studentId     String   
+  course        Course       @relation(fields: [courseId], references: [id])
+  courseId      Int
+}
+
+// ✅ 3. สร้างตาราง Review ใหม่ล่าสุด!
+model Review {
+  id            Int          @id @default(autoincrement())
+  comment       String       // ข้อความรีวิว
+  rating        Int          // คะแนนดาว (1-5)
+  sentiment     String?      // เก็บ Tag อารมณ์จาก n8n AI (เช่น "ชิลๆ", "งานเดือด")
+  likes         Int          @default(0) // ยอดกดไลก์
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  // ใครเป็นคนเขียนรีวิว? (เชื่อมไปตาราง Student)
+  studentId     String
+  author        Student      @relation(fields: [studentId], references: [id])
+
+  // รีวิววิชาอะไร? (เชื่อมไปตาราง Course)
+  courseId      Int
+  course        Course       @relation(fields: [courseId], references: [id])
 }

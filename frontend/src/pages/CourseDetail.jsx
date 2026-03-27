@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEf } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses'; // ✅ เพิ่ม import
 import { ArrowLeft, Star, Users, BookOpen, Clock, BarChart3, MessageSquare, Send, ThumbsUp, Trash2, Sparkles, CheckCircle, Reply, Quote } from 'lucide-react';
+import axios from 'axios';
+
 
 const CourseDetail = () => {
   const { id } = useParams();
