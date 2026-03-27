@@ -17,7 +17,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         rateLimit: true,
         jwksRequestsPerMinute: 5,
         // ✅ ก๊อป URL จากช่อง Discovery URL ในรูปมาวางตรงนี้
-        jwksUri: process.env.SUPABASE_JWKS_URL|| 'https://xibmfulctvyewbhbifoz.supabase.co/auth/v1/.well-known/jwks.json',
+        jwksUri: 'https://xibmfulctvyewbhbifoz.supabase.co/auth/v1/.well-known/jwks.json',
       }),
       
       // 3. ระบุ Algorithm ให้ตรงกับในรูป (ES256)
