@@ -37,7 +37,7 @@ export class AuthService {
     });
   }
 
-  // ระบบเข้าสู่ระบบ
+  // ระบบเข้าสู่ระบบ (ฉบับแก้ไขให้ Frontend รอด)
   async signIn(email: string, pass: string) {
     const { data, error } = await this.supabase.auth.signInWithPassword({
       email,
@@ -48,14 +48,28 @@ export class AuthService {
       throw new UnauthorizedException('Email หรือ Password ไม่ถูกต้อง');
     }
 
-    const profile = await this.prisma.student.findUnique({
+    // 1. ดึงข้อมูลจาก Prisma
+    let profile = await this.prisma.student.findUnique({
       where: { id: data.user.id },
     });
 
-    // ✅ ปรับให้เหลือแค่ profile และ token ให้ตรงกับที่ Login.jsx รอรับ
+    // 🛡️ 2. กันเหนียว: ถ้าหา profile ไม่เจอ (อาจเพราะสมัครแล้ว DB ยังไม่สร้าง) 
+    // ให้สร้างหลอกๆ หรือดึงข้อมูลพื้นฐานจาก Supabase ไปก่อน
+    if (!profile) {
+      profile = await this.prisma.student.create({
+        data: {
+          id: data.user.id,
+          email: data.user.email || email,
+          name: data.user.user_metadata?.name || '',
+        }
+      });
+    }
+
+    // ✅ 3. ส่งกลับให้ครบตามที่ Login.jsx ต้องการ
     return {
-      profile: profile, // ในนี้จะมี id, name, studentId, profileData
+      profile: profile, 
       access_token: data.session?.access_token,
+      user: data.user, // <--- ต้องส่งก้อนนี้กลับไปด้วยเพื่อให้เช็ก email_confirmed_at ได้
     };
   }
   async updateProfile(userId: string, data: any) {

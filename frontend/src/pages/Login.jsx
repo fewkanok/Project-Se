@@ -65,44 +65,67 @@ const Login = () => {
     setLoading(true);
 
     try {
+      // 1. ยิง API ไปที่ Backend
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/login`, {
         email: formData.email,
         password: formData.password
       });
 
       if (response.status === 200 || response.status === 201) {
-        // ✅ 1. เพิ่มการดึง user ออกมาด้วย (เพื่อให้ได้สถานะ email_confirmed_at)
+        // 2. ดึงข้อมูลออกมา (ตรวจสอบว่า Backend ส่ง profile, access_token มาให้)
         const { profile, access_token, user } = response.data;
 
-        // ✅ 2. เช็กว่ากดยืนยันเมลหรือยัง (สำหรับระบบที่เปิด Email Confirmation ไว้)
-        // ถ้า user.email_confirmed_at เป็น null แปลว่ายังไม่ได้กดปุ่มในเมล
+        // 3. เช็กเรื่องการยืนยัน Email (ถ้ามีข้อมูล user ส่งมา)
+        // ถ้า Supabase ตั้งค่าให้ต้องคอนเฟิร์มเมลก่อน user.email_confirmed_at จะเป็นค่าว่าง
         if (user && !user.email_confirmed_at) {
-          alert("📧 กรุณายืนยัน Email ก่อนเข้าสู่ระบบ! (เช็กใน Inbox หรือ Junk Mail นะครับ)");
+          alert("📧 กรุณายืนยัน Email ในกล่องจดหมายของคุณก่อนเข้าสู่ระบบนะครับ!");
           setLoading(false);
-          return; // หยุดทำงาน ไม่พาไปหน้าอื่น
+          return;
         }
 
-        // 3. บันทึก Session ลงเครื่องตามปกติ
-        localStorage.setItem('active_session', JSON.stringify(profile));
-        localStorage.setItem('token', access_token);
+        // 4. บันทึกข้อมูลลง LocalStorage (จุดชี้เป็นชี้ตาย!)
+        if (profile) {
+          // เก็บก้อน Profile ทั้งหมด
+          localStorage.setItem('active_session', JSON.stringify(profile));
+          
+          // เก็บ userId (UUID) แยกไว้ เพื่อให้หน้า Setup เรียกใช้ง่ายๆ
+          if (profile.id) {
+            localStorage.setItem('userId', profile.id);
+          }
+          
+          // เก็บชื่อผู้ใช้
+          localStorage.setItem('userName', profile.name || '');
+          
+          // เก็บ Email ไว้ดูเล่นๆ
+          localStorage.setItem('userEmail', profile.email || formData.email);
+        }
+        
+        // เก็บ Token สำหรับเรียก API ที่ต้องใช้การยืนยันตัวตน
+        if (access_token) {
+          localStorage.setItem('token', access_token);
+        }
 
-        // 4. แยกเส้นทางตามข้อมูลที่มีใน Database
+        console.log("Login Success! Data saved to LocalStorage.");
+
+        // 5. แยกเส้นทาง (Logic: ถ้ามีข้อมูลในเบสแล้วไป Dashboard ถ้ายังไม่มีไป Setup)
         if (profile && profile.profileData) {
-          alert("ยินดีต้อนรับกลับ! ระบบกำลังโหลดข้อมูลเกรดของคุณ...");
+          alert("ยินดีต้อนรับกลับ! กำลังโหลดข้อมูลแผนการเรียนของคุณ...");
           navigate('/dashboard'); 
         } else {
-          alert("Login สำเร็จ! เนื่องจากเป็นครั้งแรก กรุณาตั้งค่าโปรไฟล์ก่อนนะครับ");
+          alert("Login สำเร็จ! เนื่องจากเป็นครั้งแรก กรุณาตั้งค่าโปรไฟล์ก่อนนะครับโก๋");
           navigate('/setup'); 
         }
       }
     } catch (err) {
-      // ✅ 5. ดักจับ Error กรณี Supabase บล็อกตั้งแต่ตอนยิง API
-      const errorMessage = err.response?.data?.message || "Login Failed! โปรดตรวจสอบ Email และ Password หรือยืนยัน Email";
+      // 6. ดักจับ Error ต่างๆ
+      console.error("Login Error Details:", err.response?.data);
+      
+      const errorMessage = err.response?.data?.message || "Login Failed! โปรดตรวจสอบ Email/Password หรือยืนยัน Email";
       
       if (errorMessage.includes("Email not confirmed")) {
-          alert("⚠️ อีเมลนี้ยังไม่ได้รับการยืนยัน กรุณาเช็กอีเมลของคุณครับ");
+        alert("⚠️ อีเมลนี้ยังไม่ได้ยืนยัน! กรุณาเช็ก Inbox หรือ Junk Mail นะครับ");
       } else {
-          alert(errorMessage);
+        alert(errorMessage);
       }
     } finally {
       setLoading(false);
