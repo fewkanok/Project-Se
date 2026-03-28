@@ -1,11 +1,13 @@
 generator client {
   provider = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
+  schemas  = ["public"]
 }
 
 model Student {
@@ -19,6 +21,7 @@ model Student {
   role        String       @default("student")
   enrollments Enrollment[]
   reviews     Review[]
+  @@schema("public")
 }
 
 model Course {
@@ -28,6 +31,7 @@ model Course {
   credits     Int
   enrollments Enrollment[]
   reviews     Review[]
+  @@schema("public")
 }
 
 model Enrollment {
@@ -37,6 +41,7 @@ model Enrollment {
   courseId  Int
   course    Course  @relation(fields: [courseId], references: [id])
   student   Student @relation(fields: [studentId], references: [id])
+  @@schema("public")
 }
 
 model Review {
@@ -51,4 +56,5 @@ model Review {
   courseId  Int
   course    Course   @relation(fields: [courseId], references: [id])
   author    Student  @relation(fields: [studentId], references: [id])
+  @@schema("public")
 }
