@@ -140,7 +140,7 @@ const CourseDetail = () => {
     try {
       setReviews(prev => prev.map(r => {
         if (r.id === reviewId) {
-          const isLiked = r.likes?.some(l => l.studentId === currentUserId);
+          const isLiked = Array.isArray(r.likes) && r.likes.some(l => l.studentId === currentUserId);
           const newLikes = isLiked 
             ? r.likes.filter(l => l.studentId !== currentUserId)
             : [...(r.likes || []), { studentId: currentUserId }];

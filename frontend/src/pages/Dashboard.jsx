@@ -281,7 +281,13 @@ const Dashboard = () => {
     return null;
   };
 
-  const handleLogout = () => { if(window.confirm('ต้องการออกจากระบบหรือไม่?')) { localStorage.removeItem('userProfile'); localStorage.removeItem('active_session'); navigate('/login'); } };
+  const handleLogout = () => {
+  if (window.confirm('ต้องการออกจากระบบหรือไม่?')) {
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = '/login';
+  }
+};
   const handleEditSetup = () => navigate('/setup');
 
   const getGradeInfo = (gpa) => {
