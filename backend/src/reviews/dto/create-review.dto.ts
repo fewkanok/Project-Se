@@ -1,4 +1,4 @@
-import { IsString, IsInt, Min, Max, IsNotEmpty } from 'class-validator';
+import { IsString, IsInt, Min, Max, IsNotEmpty, IsOptional } from 'class-validator';
 
 export class CreateReviewDto {
   @IsInt()
@@ -12,4 +12,9 @@ export class CreateReviewDto {
   @Min(1)
   @Max(5)
   rating: number;   // ดาว 1-5
+
+  // ✅ เพิ่มตัวนี้ครับ เพื่อรองรับการ Reply
+  @IsInt()
+  @IsOptional()
+  parentId?: number; // ID ของรีวิวหลักที่ต้องการตอบกลับ (ถ้ามี)
 }

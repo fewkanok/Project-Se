@@ -9,7 +9,6 @@ datasource db {
   directUrl = env("DIRECT_URL")
   schemas  = ["public"]
 }
-
 model Student {
   id          String       @id
   email       String       @unique
@@ -21,6 +20,8 @@ model Student {
   role        String       @default("student")
   enrollments Enrollment[]
   reviews     Review[]
+  reviewLikes ReviewLike[] 
+
   @@schema("public")
 }
 
@@ -49,12 +50,32 @@ model Review {
   comment   String
   rating    Int
   sentiment String?
-  likes     Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
   studentId String
   courseId  Int
   course    Course   @relation(fields: [courseId], references: [id])
   author    Student  @relation(fields: [studentId], references: [id])
+
+  // ✅ 1. ระบบ Reply: รีวิวตัวลูกจะเก็บ ID ของตัวแม่ (parentId)
+  parentId  Int?
+  parent    Review?  @relation("ReviewReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Review[] @relation("ReviewReplies")
+
+  likes     ReviewLike[]
+
+  @@schema("public")
+}
+
+model ReviewLike {
+  id        Int      @id @default(autoincrement())
+  reviewId  Int
+  studentId String
+  
+  review    Review   @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, studentId])
   @@schema("public")
 }
