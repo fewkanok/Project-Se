@@ -13,14 +13,14 @@ export class AuthService {
     );
   }
 
-  // ระบบสมัครสมาชิก
+  // --- ระบบสมัครสมาชิก (เหมือนเดิม) ---
   async signUp(email: string, pass: string, name: string, studentId: string) {
     const { data: authData, error: authError } = await this.supabase.auth.signUp({
       email,
       password: pass,
       options: {
-      emailRedirectTo: 'https://project-se-kappa.vercel.app/login', 
-     },
+        emailRedirectTo: 'https://project-se-kappa.vercel.app/login', 
+      },
     });
 
     if (authError || !authData.user) {
@@ -37,7 +37,7 @@ export class AuthService {
     });
   }
 
-  // ระบบเข้าสู่ระบบ (ฉบับแก้ไขให้ Frontend รอด)
+  // --- ระบบเข้าสู่ระบบ (เหมือนเดิม) ---
   async signIn(email: string, pass: string) {
     const { data, error } = await this.supabase.auth.signInWithPassword({
       email,
@@ -48,13 +48,10 @@ export class AuthService {
       throw new UnauthorizedException('Email หรือ Password ไม่ถูกต้อง');
     }
 
-    // 1. ดึงข้อมูลจาก Prisma
     let profile = await this.prisma.student.findUnique({
       where: { id: data.user.id },
     });
 
-    // 🛡️ 2. กันเหนียว: ถ้าหา profile ไม่เจอ (อาจเพราะสมัครแล้ว DB ยังไม่สร้าง) 
-    // ให้สร้างหลอกๆ หรือดึงข้อมูลพื้นฐานจาก Supabase ไปก่อน
     if (!profile) {
       profile = await this.prisma.student.create({
         data: {
@@ -65,24 +62,35 @@ export class AuthService {
       });
     }
 
-    // ✅ 3. ส่งกลับให้ครบตามที่ Login.jsx ต้องการ
     return {
       profile: profile, 
       access_token: data.session?.access_token,
-      user: data.user, // <--- ต้องส่งก้อนนี้กลับไปด้วยเพื่อให้เช็ก email_confirmed_at ได้
+      user: data.user,
     };
   }
+
+  // ✅ แก้ไขตรงนี้ครับโก๋! เพื่อให้ชื่อในตารางหลักอัปเดตตามก้อน JSON
   async updateProfile(userId: string, data: any) {
     return this.prisma.student.update({
       where: { id: userId },
-      data: { profileData: data },
+      data: { 
+        // 1. เก็บก้อน JSON ทั้งหมดเหมือนเดิม
+        profileData: data, 
+        
+        // 2. ✅ ดึง name และ studentId ออกมาเซฟลง Column หลักด้วย
+        // (อ้างอิงจากโครงสร้าง payload.basicInfo ที่โก๋ส่งมาจาก Frontend)
+        name: data.basicInfo?.name, 
+        studentId: data.basicInfo?.studentId,
+      },
     });
   }
-async getProfile(userId: string) {
-  const student = await this.prisma.student.findUnique({
-    where: { id: userId },
-    select: { profileData: true } // ดึงเฉพาะข้อมูลเกรด/วิชาที่เซฟไว้
-  });
-  return student;
-}
+
+  // --- ดึง Profile (เหมือนเดิม) ---
+  async getProfile(userId: string) {
+    const student = await this.prisma.student.findUnique({
+      where: { id: userId },
+      select: { profileData: true } 
+    });
+    return student;
+  }
 }

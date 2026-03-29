@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
-import { ArrowLeft, Star, Users, BookOpen, Clock, BarChart3, MessageSquare, Send, ThumbsUp, Trash2, Sparkles, CheckCircle, Reply, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Star, Users, BookOpen, Clock, BarChart3, MessageSquare, Send, ThumbsUp, Trash2, Sparkles, CheckCircle, Reply, Loader2, ChevronLeft, ChevronRight, User } from 'lucide-react';
 import axios from 'axios';
 
 const CourseDetail = () => {
@@ -10,18 +10,39 @@ const CourseDetail = () => {
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-  // 🛡️ 1. ดึงข้อมูล Session มาไว้ข้างบนสุดเพื่อใช้เช็คสิทธิ์
+  // 🛡️ 1. โหลดข้อมูล Profile ล่าสุด (Sync กับ DB เหมือน Navbar)
+  const [profile, setProfile] = useState(null);
+  
   const session = useMemo(() => {
     try {
       const data = localStorage.getItem('active_session');
       return data ? JSON.parse(data) : null;
-    } catch (e) {
-      return null;
-    }
+    } catch (e) { return null; }
   }, []);
 
-  const isAdmin = session?.role === 'admin';
+  useEffect(() => {
+    const fetchFreshProfile = async () => {
+      const saved = localStorage.getItem('userProfile');
+      if (saved) setProfile(JSON.parse(saved));
+
+      if (session?.id) {
+        try {
+          const res = await axios.get(`${API_URL}/auth/profile/${session.id}`);
+          if (res.data?.profileData) {
+            setProfile(res.data.profileData);
+            localStorage.setItem('userProfile', JSON.stringify(res.data.profileData));
+          }
+        } catch (e) { console.log("Sync profile failed"); }
+      }
+    };
+    fetchFreshProfile();
+  }, [session?.id, API_URL]);
+
+  const isAdmin = profile?.role === 'admin';
   const currentUserId = session?.id;
+  const currentUserName = profile?.basicInfo?.name || profile?.name || 'Survivor';
+  // ✅ ดึงรูปตัวเองจากจุดที่ถูกต้อง
+  const currentUserImage = profile?.basicInfo?.image || null;
 
   // --- Logic ค้นหาวิชา ---
   const findCourse = (courseId) => {
@@ -44,13 +65,10 @@ const CourseDetail = () => {
   const [newComment, setNewComment] = useState("");
   const [newRating, setNewRating] = useState(0);
   const [replyingTo, setReplyingTo] = useState(null);
-  const [replyText, setReplyText] = useState("");
 
-  // ✅ Pagination States
   const [currentPage, setCurrentPage] = useState(1);
   const reviewsPerPage = 5;
 
-  // 🔄 ดึงรีวิว
   const fetchReviews = async () => {
     try {
       setLoading(true);
@@ -68,7 +86,6 @@ const CourseDetail = () => {
     if (id) fetchReviews();
   }, [id]);
 
-  // ✅ Pagination Calculation
   const indexOfLastReview = currentPage * reviewsPerPage;
   const indexOfFirstReview = indexOfLastReview - reviewsPerPage;
   const currentReviews = reviews.slice(indexOfFirstReview, indexOfLastReview);
@@ -154,13 +171,11 @@ const CourseDetail = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           
-          {/* Description */}
           <section className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-sm">
             <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2"><BookOpen className="text-blue-400" size={20}/> Course Description</h3>
             <p className="text-slate-300 leading-relaxed">{courseDetails.description}</p>
           </section>
 
-          {/* Topics */}
           <section className="bg-white/5 border border-white/10 rounded-2xl p-8">
             <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><CheckCircle className="text-green-400" size={20}/> Topics Covered</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -175,7 +190,6 @@ const CourseDetail = () => {
             </div>
           </section>
 
-          {/* Grading */}
           <section className="bg-white/5 border border-white/10 rounded-2xl p-8">
              <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><BarChart3 className="text-purple-400" size={20}/> Grading Criteria</h3>
              <div className="space-y-5">
@@ -199,20 +213,30 @@ const CourseDetail = () => {
               <MessageSquare className="text-emerald-400" size={20}/> Community Reviews
             </h3>
 
-            {/* Post Review Input */}
+            {/* Post Review Input (ใช้รูปและชื่อปัจจุบัน) */}
             <div className="bg-white/5 border border-white/5 rounded-2xl p-6 mb-10">
+                <div className="flex items-center gap-4 mb-4">
+                    {/* ✅ แก้ไขจุดที่ 1: รูปโปรไฟล์ตัวเองตอนจะโพสต์ */}
+                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/20 bg-slate-800 flex items-center justify-center shadow-lg">
+                        {currentUserImage ? <img src={currentUserImage} className="w-full h-full object-cover" alt="Me" /> : <User size={20} className="text-slate-500" />}
+                    </div>
+                    <div>
+                        <p className="text-xs font-black text-white uppercase tracking-tight">{currentUserName}</p>
+                        <p className="text-[10px] text-slate-500 font-mono">กำลังเขียนรีวิว...</p>
+                    </div>
+                </div>
                 <div className="flex items-center gap-3 mb-4">
-                    <span className="text-slate-400 text-sm">Rate:</span>
+                    <span className="text-slate-400 text-sm font-bold">Rate:</span>
                     <div className="flex gap-1">
                         {[1, 2, 3, 4, 5].map((star) => (
-                            <Star key={star} size={20} className={`cursor-pointer transition-all ${star <= newRating ? "fill-yellow-400 text-yellow-400 shadow-yellow-400" : "text-slate-700"}`} onClick={() => setNewRating(star)} />
+                            <Star key={star} size={20} className={`cursor-pointer transition-all ${star <= newRating ? "fill-yellow-400 text-yellow-400" : "text-slate-700 hover:text-slate-500"}`} onClick={() => setNewRating(star)} />
                         ))}
                     </div>
                 </div>
                 <textarea value={newComment} onChange={(e) => setNewComment(e.target.value)} placeholder="แชร์ประสบการณ์วิชานี้ให้เพื่อนๆ ฟังหน่อย..." className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white h-28 mb-4 focus:border-blue-500 outline-none transition-all text-sm" />
                 <div className="flex justify-end">
-                    <button onClick={handleSubmitReview} disabled={!newComment || newRating === 0 || isSubmitting} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${!newComment || newRating === 0 || isSubmitting ? 'bg-slate-800 text-slate-500' : 'bg-blue-600 hover:bg-blue-500 text-white'}`}>
-                        {isSubmitting ? <Loader2 className="animate-spin" size={16}/> : <Send size={16} />} Post
+                    <button onClick={handleSubmitReview} disabled={!newComment || newRating === 0 || isSubmitting} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${!newComment || newRating === 0 || isSubmitting ? 'bg-slate-800 text-slate-500' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'}`}>
+                        {isSubmitting ? <Loader2 className="animate-spin" size={16}/> : <Send size={16} />} Post Review
                     </button>
                 </div>
             </div>
@@ -225,16 +249,26 @@ const CourseDetail = () => {
                     <div key={r.id} className="border border-white/5 rounded-2xl p-6 bg-white/[0.02] group transition-all hover:bg-white/[0.04]">
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white bg-gradient-to-br from-slate-700 to-slate-900 border border-white/10 uppercase">{(r.author?.name || "S").charAt(0)}</div>
+                                {/* ✅ แก้ไขจุดที่ 2: ดึงรูปจาก profileData.basicInfo.image ที่เรา include มาจาก Backend */}
+                                <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10 bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shrink-0 shadow-md">
+                                    {r.author?.profileData?.basicInfo?.image || r.author?.profileData?.image ? (
+                                        <img 
+                                          src={r.author.profileData.basicInfo?.image || r.author.profileData.image} 
+                                          className="w-full h-full object-cover" 
+                                          alt="Author" 
+                                        />
+                                    ) : (
+                                        <User size={18} className="text-slate-500" />
+                                    )}
+                                </div>
                                 <div>
-                                    <h4 className="font-bold text-white text-sm">{r.author?.name || "Student"}</h4>
-                                    <span className="text-[10px] text-slate-500">{new Date(r.createdAt).toLocaleDateString()}</span>
+                                    <h4 className="font-bold text-white text-sm uppercase leading-tight">{r.author?.name || "Student Survivor"}</h4>
+                                    <span className="text-[10px] text-slate-500 font-mono">{new Date(r.createdAt).toLocaleDateString()}</span>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <div className="flex gap-0.5">{[...Array(5)].map((_, i) => <Star key={i} size={12} className={i < r.rating ? "fill-yellow-400 text-yellow-400" : "text-slate-800"} />)}</div>
                                 
-                                {/* ✅ ปุ่มลบ: จะขึ้นเฉพาะ Admin หรือ เจ้าของรีวิวเท่านั้น */}
                                 {(isAdmin || r.studentId === currentUserId) && (
                                   <button onClick={() => handleDeleteReview(r.id)} className="text-slate-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"><Trash2 size={14} /></button>
                                 )}
@@ -245,61 +279,28 @@ const CourseDetail = () => {
                             <button className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-blue-400 transition-colors font-bold uppercase tracking-tight"><ThumbsUp size={14} /> Helpful ({r.likes || 0})</button>
                             <button onClick={() => setReplyingTo(replyingTo === r.id ? null : r.id)} className="flex items-center gap-1.5 text-[11px] text-slate-500 hover:text-emerald-400 transition-colors font-bold uppercase tracking-tight"><Reply size={14} /> Reply</button>
                         </div>
-                        
-                        {/* Reply Input */}
-                        {replyingTo === r.id && (
-                          <div className="mt-4 p-4 bg-black/20 rounded-xl border border-white/5 animate-in slide-in-from-top-2">
-                            <textarea value={replyText} onChange={(e) => setReplyText(e.target.value)} placeholder="Write a reply..." className="w-full bg-slate-900/50 p-3 text-white text-xs h-20 mb-2 rounded-lg outline-none" />
-                            <div className="flex justify-end gap-2">
-                              <button onClick={() => setReplyingTo(null)} className="text-[10px] text-slate-500 font-bold uppercase">Cancel</button>
-                              <button className="px-4 py-1.5 rounded-lg text-[10px] bg-emerald-600 font-bold uppercase">Submit</button>
-                            </div>
-                          </div>
-                        )}
                     </div>
                 ))}
             </div>
 
-            {/* ✅ Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex justify-center items-center gap-4 mt-10">
-                <button 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className={`p-2 rounded-full border border-white/10 transition-all ${currentPage === 1 ? 'opacity-20 cursor-not-allowed' : 'hover:bg-white/10 text-white'}`}
-                >
-                  <ChevronLeft size={20} />
-                </button>
-                
+                <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className={`p-2 rounded-full border border-white/10 transition-all ${currentPage === 1 ? 'opacity-20 cursor-not-allowed' : 'hover:bg-white/10 text-white'}`}><ChevronLeft size={20} /></button>
                 <div className="flex gap-2">
                   {[...Array(totalPages)].map((_, i) => (
-                    <button 
-                      key={i} 
-                      onClick={() => setCurrentPage(i + 1)}
-                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all border ${currentPage === i + 1 ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/20'}`}
-                    >
-                      {i + 1}
-                    </button>
+                    <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-8 h-8 rounded-lg text-xs font-bold transition-all border ${currentPage === i + 1 ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-white/5 border-white/5 text-slate-500 hover:border-white/20'}`}>{i + 1}</button>
                   ))}
                 </div>
-
-                <button 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className={`p-2 rounded-full border border-white/10 transition-all ${currentPage === totalPages ? 'opacity-20 cursor-not-allowed' : 'hover:bg-white/10 text-white'}`}
-                >
-                  <ChevronRight size={20} />
-                </button>
+                <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className={`p-2 rounded-full border border-white/10 transition-all ${currentPage === totalPages ? 'opacity-20 cursor-not-allowed' : 'hover:bg-white/10 text-white'}`}><ChevronRight size={20} /></button>
               </div>
             )}
           </section>
         </div>
 
-        {/* Right Column Stats */}
         <div className="space-y-6">
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <h4 className="text-slate-500 text-xs font-bold uppercase mb-4 tracking-widest">Difficulty Level</h4>
-            <div className="flex items-end gap-2 mb-3">
+            <h4 className="text-slate-500 text-xs font-bold uppercase mb-4 tracking-widest text-center">Difficulty Level</h4>
+            <div className="flex items-end gap-2 mb-3 justify-center">
               <span className="text-4xl font-black text-red-500">{courseDetails.difficulty.toFixed(1)}</span>
               <span className="text-xs text-slate-600 mb-1.5 font-bold">/ 5.0</span>
             </div>
@@ -307,9 +308,9 @@ const CourseDetail = () => {
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
-            <h4 className="text-slate-500 text-xs font-bold uppercase mb-4 tracking-widest">Satisfaction</h4>
-            <div className="flex items-end gap-2 mb-3">
-              <span className="text-4xl font-black text-emerald-400">{courseDetails.satisfaction.toFixed(1)}</span>
+            <h4 className="text-slate-500 text-xs font-bold uppercase mb-4 tracking-widest text-center">Satisfaction</h4>
+            <div className="flex items-end gap-2 mb-3 justify-center">
+              <span className="text-4xl font-black text-emerald-400">{courseDetails.satisfaction.toFixed(2)}</span>
               <span className="text-xs text-slate-600 mb-1.5 font-bold">/ 5.0</span>
             </div>
             <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden"><div className="bg-emerald-500 h-full shadow-[0_0_10px_rgba(16,185,129,0.5)]" style={{ width: `${(courseDetails.satisfaction / 5) * 100}%` }} /></div>
@@ -320,7 +321,7 @@ const CourseDetail = () => {
             <ul className="space-y-4">
               {courseDetails.professors.map((p, i) => (
                 <li key={i} className="flex items-center gap-3 group">
-                  <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-xs font-bold border border-white/5 group-hover:border-blue-500/50 transition-all">{p.charAt(0)}</div>
+                  <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-xs font-bold border border-white/5 group-hover:border-blue-500/50 transition-all">{p.charAt(0)}</div>
                   <span className="text-slate-400 text-xs group-hover:text-white transition-colors">{p}</span>
                 </li>
               ))}

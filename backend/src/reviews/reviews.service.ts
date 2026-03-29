@@ -6,7 +6,7 @@ import { CreateReviewDto } from './dto/create-review.dto';
 export class ReviewsService {
   constructor(private prisma: PrismaService) {}
 
-  // --- 1. สร้างรีวิว (แบบปกติ ไม่ใช้ n8n) ---
+  // --- 1. สร้างรีวิว ---
   async create(studentId: string, createReviewDto: CreateReviewDto) {
     const { courseId, comment, rating } = createReviewDto;
 
@@ -15,17 +15,23 @@ export class ReviewsService {
         data: {
           comment,
           rating,
-          sentiment: 'ทั่วไป', // ค่า Default หรือจะเอาออกก็ได้ถ้า Schema ไม่บังคับ
+          sentiment: 'ทั่วไป',
           courseId: Number(courseId),
-          studentId: studentId, // UUID จาก Token
+          studentId: studentId,
         },
         include: {
-          author: { select: { name: true } }
+          // ✅ แก้ตรงนี้: ดึงทั้งชื่อและ profileData (ที่มีรูป)
+          author: { 
+            select: { 
+              name: true,
+              profileData: true 
+            } 
+          }
         }
       });
     } catch (error) {
       console.error('Create Review Error:', error.message);
-      throw new BadRequestException('ไม่สามารถบันทึกรีวิวได้ กรุณาตรวจสอบข้อมูล');
+      throw new BadRequestException('ไม่สามารถบันทึกรีวิวได้');
     }
   }
 
@@ -36,7 +42,13 @@ export class ReviewsService {
         courseId: Number(courseId) 
       },
       include: {
-        author: { select: { name: true } } 
+        // ✅ แก้ตรงนี้เหมือนกัน: เพื่อให้คอมเมนต์เก่าดึงชื่อและรูปปัจจุบันมาโชว์
+        author: { 
+          select: { 
+            name: true,
+            profileData: true 
+          } 
+        }
       },
       orderBy: { 
         createdAt: 'desc' 
@@ -44,27 +56,20 @@ export class ReviewsService {
     });
   }
 
-  // --- 3. ลบรีวิว (เช็ก Role Admin หรือ เจ้าของ) ---
+  // --- 3. ลบรีวิว (คงเดิม) ---
   async remove(reviewId: number, userId: string, userRole: string) {
-    // ค้นหารีวิวก่อนว่ามีจริงไหม
     const review = await this.prisma.review.findUnique({
       where: { id: reviewId }
     });
 
-    if (!review) {
-      throw new NotFoundException('ไม่พบรีวิวที่ต้องการลบ');
-    }
+    if (!review) throw new NotFoundException('ไม่พบรีวิวที่ต้องการลบ');
 
     if (userRole !== 'admin' && review.studentId !== userId) {
       throw new ForbiddenException('คุณไม่มีสิทธิ์ลบรีวิวของคนอื่น!');
     }
 
-    try {
-      return await this.prisma.review.delete({
-        where: { id: reviewId }
-      });
-    } catch (error) {
-      throw new BadRequestException('เกิดข้อผิดพลาดในการลบข้อมูล');
-    }
+    return await this.prisma.review.delete({
+      where: { id: reviewId }
+    });
   }
 }
