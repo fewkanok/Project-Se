@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 
@@ -6,47 +6,31 @@ import { CreateReviewDto } from './dto/create-review.dto';
 export class ReviewsService {
   constructor(private prisma: PrismaService) {}
 
+  // --- 1. สร้างรีวิว (แบบปกติ ไม่ใช้ n8n) ---
   async create(studentId: string, createReviewDto: CreateReviewDto) {
     const { courseId, comment, rating } = createReviewDto;
-    const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL || 'http://localhost:5678/webhook/check-review';
 
     try {
-      // 1. ส่งไปให้ n8n AI วิเคราะห์
-      const response = await fetch(n8nWebhookUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ comment }), 
-      });
-
-      const aiResult = await response.json();
-
-      // 2. ถ้า AI บอกว่า Toxic เตะกลับทันที
-      if (aiResult.isToxic === true) {
-        throw new BadRequestException('ตรวจพบคำไม่สุภาพ กรุณาใช้คำที่เหมาะสมนะเพื่อน!');
-      }
-
-      // 3. บันทึกลง Supabase
       return await this.prisma.review.create({
         data: {
           comment,
           rating,
-          sentiment: aiResult.sentiment || 'ทั่วไป',
+          sentiment: 'ทั่วไป', // ค่า Default หรือจะเอาออกก็ได้ถ้า Schema ไม่บังคับ
           courseId: Number(courseId),
           studentId: studentId, // UUID จาก Token
         },
         include: {
-          author: { select: { name: true } } // ดึงชื่อคนรีวิวมาโชว์ด้วย
+          author: { select: { name: true } }
         }
       });
-
     } catch (error) {
-      if (error instanceof BadRequestException) throw error;
-      console.error('รายละเอียด Error:', error.message);
-      throw new BadRequestException('ระบบวิเคราะห์ขัดข้อง (Check n8n status)');
+      console.error('Create Review Error:', error.message);
+      throw new BadRequestException('ไม่สามารถบันทึกรีวิวได้ กรุณาตรวจสอบข้อมูล');
     }
   }
 
-    async findAllByCourse(courseId: number) {
+  // --- 2. ดึงรีวิวตามวิชา ---
+  async findAllByCourse(courseId: number) {
     return this.prisma.review.findMany({
       where: { 
         courseId: Number(courseId) 
@@ -58,5 +42,29 @@ export class ReviewsService {
         createdAt: 'desc' 
       }
     });
+  }
+
+  // --- 3. ลบรีวิว (เช็ก Role Admin หรือ เจ้าของ) ---
+  async remove(reviewId: number, userId: string, userRole: string) {
+    // ค้นหารีวิวก่อนว่ามีจริงไหม
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId }
+    });
+
+    if (!review) {
+      throw new NotFoundException('ไม่พบรีวิวที่ต้องการลบ');
+    }
+
+    if (userRole !== 'admin' && review.studentId !== userId) {
+      throw new ForbiddenException('คุณไม่มีสิทธิ์ลบรีวิวของคนอื่น!');
+    }
+
+    try {
+      return await this.prisma.review.delete({
+        where: { id: reviewId }
+      });
+    } catch (error) {
+      throw new BadRequestException('เกิดข้อผิดพลาดในการลบข้อมูล');
+    }
   }
 }

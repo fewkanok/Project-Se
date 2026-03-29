@@ -1,32 +1,38 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { passportJwtSecret } from 'jwks-rsa'; // ✅ เพิ่มตัวนี้
+import { passportJwtSecret } from 'jwks-rsa';
+import { PrismaService } from '../../prisma/prisma.service'; // ✅ Import Prisma เข้ามา
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor() {
+  constructor(private prisma: PrismaService) { // ✅ ฉีด PrismaService เข้ามาใช้งาน
     super({
-      // 1. ดึง Token จาก Header
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      
-      // 2. แทนที่จะใช้รหัสลับ ให้ชี้ไปที่ Discovery URL ในรูปของโก๋เลย!
       secretOrKeyProvider: passportJwtSecret({
         cache: true,
         rateLimit: true,
         jwksRequestsPerMinute: 5,
-        // ✅ ก๊อป URL จากช่อง Discovery URL ในรูปมาวางตรงนี้
         jwksUri: 'https://xibmfulctvyewbhbifoz.supabase.co/auth/v1/.well-known/jwks.json',
       }),
-      
-      // 3. ระบุ Algorithm ให้ตรงกับในรูป (ES256)
       algorithms: ['ES256'],
     });
   }
 
   async validate(payload: any) {
-    // Supabase จะเก็บ ID ไว้ใน sub
-    return { id: payload.sub, email: payload.email };
+    // 🔍 1. เอา sub (ID จาก Supabase) ไปหาในตาราง Student ของเรา
+    const user = await this.prisma.student.findUnique({
+      where: { id: payload.sub },
+      select: { id: true, email: true, role: true } // ดึงมาเฉพาะที่ต้องใช้
+    });
+
+    // 🛡️ 2. ถ้าไม่เจอ User ใน DB ของเราเอง ให้เตะออก
+    if (!user) {
+      throw new UnauthorizedException('ไม่พบข้อมูลนักศึกษาในระบบ');
+    }
+
+    // 🚀 3. คืนค่า user object กลับไป ซึ่งตอนนี้จะมี user.role ที่เป็น "admin" หรือ "student" จริงๆ แล้ว
+    return user; 
   }
 }

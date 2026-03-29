@@ -49,10 +49,17 @@ const Dashboard = () => {
       return updated;
     });
   };
-
-  // --- 2. Data Fetching (เชื่อมระบบหลังบ้านของโก๋) ---
+  
   useEffect(() => {
     const fetchProfile = async () => {
+      // 1. เช็คก่อนว่าในเครื่องมีข้อมูลที่ "สดใหม่" หรือยัง
+      const savedLocal = localStorage.getItem('userProfile');
+      if (savedLocal) {
+        setProfile(JSON.parse(savedLocal));
+        setLoading(false); // หยุดโหลดทันทีถ้ามีของเก่าในเครื่อง
+        // (Optional) อาจจะหยุด fetch เลย หรือ fetch เงียบๆ ข้างหลังก็ได้
+      }
+
       try {
         const sessionData = localStorage.getItem('active_session');
         const session = sessionData ? JSON.parse(sessionData) : null;
@@ -62,18 +69,10 @@ const Dashboard = () => {
           if (response.data && response.data.profileData) {
             setProfile(response.data.profileData);
             localStorage.setItem('userProfile', JSON.stringify(response.data.profileData));
-          } else {
-            const saved = localStorage.getItem('userProfile');
-            setProfile(saved ? JSON.parse(saved) : null);
           }
-        } else {
-          const saved = localStorage.getItem('userProfile');
-          setProfile(saved ? JSON.parse(saved) : null);
         }
       } catch (error) {
         console.error("Fetch Profile Error:", error);
-        const saved = localStorage.getItem('userProfile');
-        setProfile(saved ? JSON.parse(saved) : null);
       } finally {
         setLoading(false);
       }
@@ -412,22 +411,62 @@ const Dashboard = () => {
 
           {/* Middle Column: Active Courses */}
           <div className="lg:col-span-5">
-            <div className="tech-card p-6 rounded-2xl h-full flex flex-col">
-              <div className="flex items-center justify-between mb-6"><div><h3 className="text-2xl font-black text-white flex items-center gap-3 mb-1"><Flame size={24} className="text-orange-400"/> รายวิชาที่กำลังศึกษา</h3></div><div className="px-4 py-2 rounded-lg tech-card"><span className="text-lg font-black text-orange-400">{stats.activeCoursesList.length}</span></div></div>
-              <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-4">
-                {stats.activeCoursesList.map((course, idx) => (
-                  <button key={idx} onClick={() => navigate(`/course/${course.id}`)} className="tech-card-hover p-5 rounded-xl group text-left relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-purple-500/0 group-hover:from-cyan-500/10 group-hover:to-purple-500/10 transition-all duration-500"></div>
-                    <div className="relative z-10">
-                      <div className="flex items-start justify-between mb-3"><div className={`px-3 py-1.5 rounded-lg font-mono font-bold text-xs ${course.isElective ? 'bg-orange-500/20 text-orange-400' : 'bg-cyan-500/20 text-cyan-400'}`}>{course.code}</div><ArrowUpRight size={16} className="text-slate-600 group-hover:text-cyan-400 transition-all"/></div>
-                      <h4 className="font-bold text-sm text-white mb-3 line-clamp-2">{course.name}</h4>
-                      <div className="flex items-center justify-between pt-3 border-t border-white/10"><div className="flex items-center gap-2"><Grid3x3 size={12}/><span className="text-xs text-slate-400">{course.credits} หน่วยกิต</span></div><span className="text-[10px] text-slate-600 uppercase">{course.termLabel}</span></div>
-                    </div>
-                  </button>
-                ))}
+  {/* 1. เปลี่ยน h-full เป็น h-fit และจำกัดความสูงด้วย max-h, ลด padding p-6 -> p-4 */}
+  <div className="tech-card p-4 rounded-2xl h-fit max-h-[500px] flex flex-col">
+    
+    {/* 2. ลดขนาดส่วนหัว และ margin bottom mb-6 -> mb-4 */}
+    <div className="flex items-center justify-between mb-4">
+      <div>
+        <h3 className="text-xl font-black text-white flex items-center gap-2">
+          <Flame size={20} className="text-orange-400"/> 
+          รายวิชาที่กำลังศึกษา
+        </h3>
+      </div>
+      <div className="px-3 py-1 rounded-lg tech-card border-orange-500/20">
+        <span className="text-md font-black text-orange-400">{stats.activeCoursesList.length}</span>
+      </div>
+    </div>
+
+        {/* 3. ส่วนรายการวิชา: ปรับ gap-4 -> gap-3 และลด padding ในปุ่ม */}
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-3">
+          {stats.activeCoursesList.map((course, idx) => (
+            <button 
+              key={idx} 
+              onClick={() => navigate(`/course/${course.id}`)} 
+              className="tech-card-hover p-3 rounded-xl group text-left relative overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-purple-500/0 group-hover:from-cyan-500/10 group-hover:to-purple-500/10 transition-all duration-500"></div>
+              
+              <div className="relative z-10">
+                {/* 4. ลดขนาด Badge และ Spacing */}
+                <div className="flex items-start justify-between mb-2">
+                  <div className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] ${course.isElective ? 'bg-orange-500/20 text-orange-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
+                    {course.code}
+                  </div>
+                  <ArrowUpRight size={14} className="text-slate-600 group-hover:text-cyan-400 transition-all"/>
+                </div>
+
+                {/* 5. ใช้ line-clamp-1 เพื่อให้ Card เตี้ยและสูงเท่ากันเป๊ะ */}
+                <h4 className="font-bold text-xs text-white mb-2 line-clamp-1 group-hover:text-cyan-400 transition-colors">
+                  {course.name}
+                </h4>
+
+                {/* 6. ปรับส่วนล่างให้เล็กและคลีนขึ้น */}
+                <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                  <div className="flex items-center gap-1.5">
+                    <Grid3x3 size={10} className="text-slate-500"/>
+                    <span className="text-[10px] text-slate-400">{course.credits} Cr.</span>
+                  </div>
+                  <span className="text-[9px] text-slate-600 font-mono uppercase tracking-tighter">
+                    {course.termLabel}
+                  </span>
+                </div>
               </div>
-            </div>
-          </div>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
 
           {/* Right Column: Risk & Trend */}
           <div className="lg:col-span-3 space-y-6">
