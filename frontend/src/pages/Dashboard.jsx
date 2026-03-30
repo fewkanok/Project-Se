@@ -7,21 +7,12 @@ import { electiveCourses } from '../data/electiveCourses';
 import { courses as allTrackCourses } from '../data/courseData';
 import axios from 'axios';
 
-// --- Configuration: Co-op Requirements ---
 const COOP_REQUIREMENTS = {
   minCredits: 90,
   minGPA: 2.75,
   targetCourses: [
-    "040613203", // Structured Programming
-    "040613205", // Data Structure
-    "040613204", // Object-oriented Programming
-    "040613302", // System Analysis and Design
-    "040613501", // Computer Organization and OS
-    "040613306", // Software Engineering
-    "040613502", // Computer Network
-    "040613301", // Database System
-    "040613601", // Computer System Security
-    "040613701"  // Intelligent System
+    "040613203", "040613205", "040613204", "040613302", "040613501", 
+    "040613306", "040613502", "040613301", "040613601", "040613701"
   ]
 };
 
@@ -29,12 +20,9 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [animatedGPA, setAnimatedGPA] = useState(0);
   const [animatedCredits, setAnimatedCredits] = useState(0);
-
-  // --- 1. State Management (เพิ่ม loading และแก้ไข profile ให้รับจาก API) ---
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // --- Honors Checklist State ---
   const [honorsChecks, setHonorsChecks] = useState(() => {
     try {
       const saved = localStorage.getItem('honorsChecks');
@@ -78,7 +66,6 @@ const Dashboard = () => {
     fetchProfile();
   }, []);
 
-  // --- 3. Calculation Logic (คงเดิมตามที่โก๋ส่งมา) ---
   const stats = useMemo(() => {
     if (!profile) return { totalCredits: 0, earnedCredits: 0, activeCoursesList: [], calculatedGPAX: 0, graphData: [], progressPercent: 0, coopStats: { isFullyEligible: false, courseDetails: [] } };
     
@@ -104,9 +91,25 @@ const Dashboard = () => {
       return 3;
     };
 
+    // ✅ FIX 3.1: ทำให้ค้นหาวิชา Track Course เจอแน่นอน ไม่ว่าจะเก็บมาเป็น Array หรือ Object ก้อนใหญ่
     const peSlotCourseMap = {};
     Object.entries(peAssignments).forEach(([slotId, courseCode]) => {
-      const trackCourse = allTrackCourses?.[courseCode];
+      let trackCourse = null;
+      if (Array.isArray(allTrackCourses)) {
+        trackCourse = allTrackCourses.find(c => c.id === courseCode || c.code === courseCode);
+      } else if (allTrackCourses) {
+        trackCourse = allTrackCourses[courseCode];
+        // ถ้าหาไม่เจอ ลองควานหาใน Group ย่อยๆ
+        if (!trackCourse) {
+          for (const key in allTrackCourses) {
+            if (Array.isArray(allTrackCourses[key])) {
+              const found = allTrackCourses[key].find(c => c.id === courseCode || c.code === courseCode);
+              if (found) { trackCourse = found; break; }
+            }
+          }
+        }
+      }
+
       if (trackCourse) {
         peSlotCourseMap[slotId] = {
           ...trackCourse,
@@ -151,9 +154,11 @@ const Dashboard = () => {
 
                 let termPassedCredits = 0;
                 displayCourses.forEach(c => {
-                    const status = profile.courseStates?.[c.id];
+                    // ✅ FIX 3.2: เช็ค Status ทั้ง 2 ทาง (รหัสวิชาตรงๆ และ รหัส Slot อย่าง pe1, pe2)
+                    const status = profile.courseStates?.[c.id] || (c._peSlot ? profile.courseStates?.[c._peSlot] : undefined);
                     const safeCredits = parseCredits(c.credits);
-                    if (!c.isElective) totalStructureCredits += safeCredits;
+                    if (!c.isElective) totalStructureCredits += safeCredits; 
+                    
                     if (status === 'learning') {
                         activeCoursesList.push({
                             ...c,
@@ -206,7 +211,6 @@ const Dashboard = () => {
     };
   }, [profile]);
 
-  // --- 4. Academic Status Analysis Logic ---
   const academicStatus = useMemo(() => {
     const sortedHistory = [...stats.graphData].sort((a, b) => (a.year !== b.year) ? a.year - b.year : a.semester - b.semester);
     let statusState = { status: 'NORMAL', message: 'สถานะปกติ', detail: 'รอผลการเรียน', color: 'emerald', riskLevel: 0, prediction: null };
@@ -248,7 +252,6 @@ const Dashboard = () => {
     return statusState;
   }, [stats.graphData]);
 
-  // --- 5. Animated Counter Effect ---
   useEffect(() => {
     if (!profile) return;
     const duration = 2000, steps = 60;
@@ -264,7 +267,6 @@ const Dashboard = () => {
     return () => clearInterval(timer);
   }, [profile, stats.calculatedGPAX, stats.earnedCredits]);
 
-  // --- 6. UI Helper Functions (เป๊ะตามแบบเพื่อน) ---
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
@@ -321,7 +323,6 @@ const Dashboard = () => {
       }
   };
 
-  // --- 7. Final Mirror UI (JSX เป๊ะทุกระเบียบนิ้ว) ---
   if (loading) return <div className="h-screen bg-[#020617] flex items-center justify-center text-cyan-400 font-mono animate-pulse">INITIALIZING SYSTEM...</div>;
   if (!profile) return <ErrorScreen onRetry={() => navigate('/setup')} />;
 
@@ -375,7 +376,7 @@ const Dashboard = () => {
               <div className="space-y-3"><div className="tech-card p-3 rounded-lg"><div className="flex items-center justify-between"><div className="flex items-center gap-2"><Calendar size={14} className="text-purple-400"/><span className="text-xs text-slate-400 font-mono">TERM</span></div><span className="text-sm font-black text-white">Y{profile.basicInfo?.currentYear}/{profile.basicInfo?.currentTerm}</span></div></div></div>
             </div>
 
-            {/* GPAX + Honors Card (The Side-by-Side one) */}
+            {/* GPAX + Honors Card */}
             <div className={`tech-card rounded-2xl relative overflow-hidden border ${honorsInfo.border}`}>
               <div className={`absolute inset-0 bg-gradient-to-br ${gradeInfo.bg} opacity-30`}></div>
               <div className="relative flex">
@@ -415,10 +416,8 @@ const Dashboard = () => {
 
           {/* Middle Column: Active Courses */}
           <div className="lg:col-span-5">
-  {/* 1. เปลี่ยน h-full เป็น h-fit และจำกัดความสูงด้วย max-h, ลด padding p-6 -> p-4 */}
   <div className="tech-card p-4 rounded-2xl h-fit max-h-[500px] flex flex-col">
     
-    {/* 2. ลดขนาดส่วนหัว และ margin bottom mb-6 -> mb-4 */}
     <div className="flex items-center justify-between mb-4">
       <div>
         <h3 className="text-xl font-black text-white flex items-center gap-2">
@@ -431,7 +430,6 @@ const Dashboard = () => {
       </div>
     </div>
 
-        {/* 3. ส่วนรายการวิชา: ปรับ gap-4 -> gap-3 และลด padding ในปุ่ม */}
         <div className="flex-1 min-h-0 overflow-y-auto pr-1 custom-scrollbar grid grid-cols-1 md:grid-cols-2 gap-3">
           {stats.activeCoursesList.map((course, idx) => (
             <button 
@@ -442,7 +440,6 @@ const Dashboard = () => {
               <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/0 to-purple-500/0 group-hover:from-cyan-500/10 group-hover:to-purple-500/10 transition-all duration-500"></div>
               
               <div className="relative z-10">
-                {/* 4. ลดขนาด Badge และ Spacing */}
                 <div className="flex items-start justify-between mb-2">
                   <div className={`px-2 py-0.5 rounded-md font-mono font-bold text-[10px] ${course.isElective ? 'bg-orange-500/20 text-orange-400' : 'bg-cyan-500/20 text-cyan-400'}`}>
                     {course.code}
@@ -450,12 +447,10 @@ const Dashboard = () => {
                   <ArrowUpRight size={14} className="text-slate-600 group-hover:text-cyan-400 transition-all"/>
                 </div>
 
-                {/* 5. ใช้ line-clamp-1 เพื่อให้ Card เตี้ยและสูงเท่ากันเป๊ะ */}
                 <h4 className="font-bold text-xs text-white mb-2 line-clamp-1 group-hover:text-cyan-400 transition-colors">
                   {course.name}
                 </h4>
 
-                {/* 6. ปรับส่วนล่างให้เล็กและคลีนขึ้น */}
                 <div className="flex items-center justify-between pt-2 border-t border-white/5">
                   <div className="flex items-center gap-1.5">
                     <Grid3x3 size={10} className="text-slate-500"/>
@@ -518,7 +513,6 @@ const Dashboard = () => {
   );
 };
 
-// --- Missing Sub-Components (Mirroring everything) ---
 const StatCardUI = ({ label, value, icon, color }) => (
   <div className="tech-card p-4 rounded-xl group hover:scale-105 transition-transform flex items-center gap-3">
     <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center text-white shadow-lg`}>{icon}</div>

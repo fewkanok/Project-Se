@@ -3,7 +3,8 @@ import { useNavigate, Link } from 'react-router-dom';
 import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil, Plus, Minus, Trash2, Search, Save, Layers } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
-import { courses as allTrackCourses, tracks } from '../data/courseData';
+// ✅ นำเข้า nodeTypeMap มาใช้งาน
+import { courses as allTrackCourses, tracks, nodeTypeMap } from '../data/courseData';
 import axios from 'axios';
 
 const SetupProfile = () => {
@@ -26,6 +27,7 @@ const SetupProfile = () => {
   const [peAssignments, setPeAssignments] = useState({}); 
   const [gpaHistory, setGpaHistory] = useState({});
   const [maxYear, setMaxYear] = useState(4);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -55,7 +57,6 @@ const SetupProfile = () => {
     fetchData();
   }, []);
 
-
   const applyTimelineLogic = (targetYear, targetTerm) => {
     const nextStates = { ...courseStates };
     roadmapData.forEach((yearGroup, yIdx) => {
@@ -73,6 +74,11 @@ const SetupProfile = () => {
   };
 
   const handleAddElective = (id) => {
+    const allSelectedElectives = Object.values(customElectives).flat();
+    if (allSelectedElectives.includes(id)) {
+      alert("คุณเลือกวิชาเสริมนี้ไปแล้วในเทอมอื่นครับ!");
+      return;
+    }
     setCustomElectives(prev => ({ ...prev, [activeTermKey]: [...(prev[activeTermKey] || []), id] }));
     setShowElectiveModal(false);
   };
@@ -96,26 +102,58 @@ const SetupProfile = () => {
     return [{ year: `Year ${activeYearTab}`, semesters: [{ term: 'Semester 1', courses: [{ id: `PE-Y${activeYearTab}-S1`, isProfessionalElective: true }] }, { term: 'Semester 2', courses: [{ id: `PE-Y${activeYearTab}-S2`, isProfessionalElective: true }] }] }];
   }, [activeYearTab]);
 
-
   const handleSubmit = async () => {
     try {
       setLoading(true);
       const session = JSON.parse(localStorage.getItem('active_session'));
+
+      // 🛠️ 1. สร้าง State จำลองเพื่อเตรียมประทับตราสถานะก่อน Save
+      const finalCourseStates = { ...courseStates };
+      const curY = basicInfo.currentYear;
+      const curT = basicInfo.currentTerm;
+
+      // 🛠️ 2. จัดการสถานะให้ "วิชาเลือกเสรี (Electives)"
+      Object.entries(customElectives).forEach(([termKey, courseIds]) => {
+        const [yStr, tStr] = termKey.split('-');
+        const y = parseInt(yStr);
+        const t = parseInt(tStr);
+        
+        courseIds.forEach(id => {
+          if (curY > y || (curY === y && curT > t)) finalCourseStates[id] = 'passed';
+          else if (curY === y && curT === t) finalCourseStates[id] = 'learning';
+          else delete finalCourseStates[id]; // อนาคต = ยังไม่เรียน
+        });
+      });
+
+      // 🛠️ 3. จัดการสถานะให้ "วิชาเลือกเอก (Track Courses / PE)"
+      roadmapData.forEach((yearGroup, yIdx) => {
+        const y = yIdx + 1;
+        yearGroup.semesters.forEach((sem, sIdx) => {
+          const t = sIdx + 1;
+          sem.courses.forEach(c => {
+            if (c.isProfessionalElective && peAssignments[c.id]) {
+              const trackCourseId = peAssignments[c.id];
+              // เทียบปี/เทอม ของ Slot วิชานั้นๆ กับ ปี/เทอม ปัจจุบันของนักศึกษา
+              if (curY > y || (curY === y && curT > t)) finalCourseStates[trackCourseId] = 'passed';
+              else if (curY === y && curT === t) finalCourseStates[trackCourseId] = 'learning';
+              else delete finalCourseStates[trackCourseId];
+            }
+          });
+        });
+      });
+
       const payload = { 
         basicInfo, 
-        courseStates, 
+        courseStates: finalCourseStates, // ✅ ใช้ข้อมูลที่คลีนแล้วส่งไปเซฟ!
         customElectives, 
         peAssignments, 
         gpaHistory, 
         maxYear,
         lastUpdated: new Date().toISOString()
       };
-
       
       localStorage.setItem('userProfile', JSON.stringify(payload));
-
-       await axios.patch(`${import.meta.env.VITE_API_URL}/auth/profile/${session.id}`, payload);
-      
+      await axios.patch(`${import.meta.env.VITE_API_URL}/auth/profile/${session.id}`, payload);
       navigate('/dashboard');
     } catch (e) { 
         console.error(e);
@@ -124,9 +162,88 @@ const SetupProfile = () => {
     } finally { setLoading(false); }
   };
 
+  const getTrackCourseName = (code) => {
+    if (!code) return 'Select Track Course...';
+    if (!allTrackCourses) return code; 
+
+    try {
+      if (Array.isArray(allTrackCourses)) {
+        const found = allTrackCourses.find(c => c && (c.id === code || c.code === code));
+        if (found) return found.name || found.nameEn;
+      } else {
+        if (allTrackCourses[code] && allTrackCourses[code].name) {
+          return allTrackCourses[code].name || allTrackCourses[code].nameEn;
+        }
+        for (const key in allTrackCourses) {
+          const group = allTrackCourses[key];
+          if (!group || typeof group !== 'object') continue; 
+
+          const coursesInGroup = Array.isArray(group) ? group : Object.values(group);
+          const found = coursesInGroup.find(c => c && (c.id === code || c.code === code));
+          if (found) return found.name || found.nameEn;
+        }
+      }
+    } catch (err) {
+      console.error("Error finding track name:", err);
+    }
+    return code; 
+  };
+
+  const handleSelectPE = (courseCode, courseData) => {
+    if (Object.values(peAssignments).includes(courseCode)) {
+      alert("คุณเลือกวิชา Track นี้ไปแล้วครับ!");
+      return;
+    }
+    
+    if (courseData.prereq && courseStates[courseData.prereq] !== 'passed') {
+      alert(`ไม่สามารถลงได้! ต้องเรียนผ่านวิชา ${courseData.prereq} ก่อนครับ`);
+      return;
+    }
+
+    setPeAssignments(p => ({...p, [activePeSlotId]: courseCode}));
+    setShowPeModal(false);
+  };
+
+  const handleRemovePE = (slotId, e) => {
+    e.stopPropagation(); 
+    setPeAssignments(prev => {
+      const updated = { ...prev };
+      delete updated[slotId];
+      return updated;
+    });
+  };
+
+  // ✅ ระบบกรองวิชาโดยใช้ nodeTypeMap ที่ส่งมาให้
+  const displayedTrackCourses = useMemo(() => {
+    if (!selectedTrack || !allTrackCourses || !nodeTypeMap) return [];
+
+    let trackKey = selectedTrack;
+    // ปรับชื่อ key เล็กน้อยให้ตรงกับใน nodeTypeMap
+    if (trackKey === 'Outside') trackKey = 'Outside'; 
+    else trackKey = trackKey.toLowerCase();
+
+    const trackNodes = nodeTypeMap[trackKey];
+    if (!trackNodes) return [];
+
+    const result = [];
+    
+    // วนลูปดูวิชาทั้งหมดใน courseData.js
+    for (const [code, c] of Object.entries(allTrackCourses)) {
+      if (c && typeof c === 'object') {
+        // ถ้าวิชานี้มีรหัสอยู่ใน trackNodes ถือว่าเป็นวิชาของสายนี้
+        if (trackNodes[code]) {
+          // กรองวิชาประเภท 'base' ออกไป (เพราะเราจะให้เลือกแค่วิชาเลือก ไม่ใช่วิชาหลัก)
+          if (trackNodes[code] !== 'base') {
+            result.push({ code, id: code, ...c });
+          }
+        }
+      }
+    }
+    return result;
+  }, [selectedTrack]);
+
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-32 font-sans selection:bg-orange-500/30">
-      
       
       {showElectiveModal && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[200] flex items-center justify-center p-4">
@@ -140,7 +257,7 @@ const SetupProfile = () => {
                 <input className="w-full bg-white/5 border border-white/10 p-4 pl-12 rounded-2xl outline-none focus:border-orange-500" placeholder="ค้นหาชื่อวิชา..." onChange={e => setElectiveSearchTerm(e.target.value)} />
             </div>
             <div className="space-y-2 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-              {electiveCourses.filter(e => e.name.toLowerCase().includes(electiveSearchTerm.toLowerCase())).map(e => (
+              {(electiveCourses || []).filter(e => e.name.toLowerCase().includes(electiveSearchTerm.toLowerCase())).map(e => (
                 <div key={e.id} onClick={() => handleAddElective(e.id)} className="p-4 bg-white/5 border border-white/5 rounded-2xl hover:bg-orange-500/10 cursor-pointer transition-all flex justify-between items-center">
                   <div><span className="text-[10px] font-mono text-orange-400">{e.id}</span><p className="font-bold text-sm">{e.name}</p></div>
                   <Plus size={20} className="text-orange-500"/>
@@ -151,7 +268,7 @@ const SetupProfile = () => {
         </div>
       )}
 
-      {/* ══════ PE MODAL (เหมือนเดิม) ══════ */}
+      {/* ══════ PE MODAL ══════ */}
       {showPeModal && (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] flex items-center justify-center p-4">
           <div className="bg-[#0f172a] border border-white/10 rounded-[3rem] max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
@@ -162,22 +279,34 @@ const SetupProfile = () => {
             <div className="p-8 overflow-y-auto flex-1">
                 {!selectedTrack ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {tracks.map(t => (
-                      <button key={t.id} onClick={() => setSelectedTrack(t.id)} className="p-6 rounded-3xl border-2 border-white/5 bg-white/5 hover:border-purple-500/50 transition-all text-left">
-                        <div className="text-3xl mb-2">{t.icon}</div>
+                    {(tracks || []).map(t => (
+                      <button key={t.id} onClick={() => setSelectedTrack(t.id)} className="p-6 rounded-3xl border-2 border-white/5 bg-white/5 hover:border-purple-500/50 transition-all text-left group">
+                        <div className="text-3xl mb-2 group-hover:scale-110 transition-transform origin-left">{t.icon}</div>
                         <div className="font-black" style={{color: t.color}}>{t.label}</div>
                       </button>
                     ))}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <button onClick={()=>setSelectedTrack(null)} className="col-span-full text-slate-500 mb-4 flex items-center gap-2">← Back to Tracks</button>
-                    {Object.entries(allTrackCourses).map(([code, c]) => (
-                      <div key={code} onClick={() => { setPeAssignments(p => ({...p, [activePeSlotId]: code})); setShowPeModal(false); }} className="p-4 bg-white/5 border border-white/5 rounded-2xl hover:border-cyan-500/50 cursor-pointer">
-                        <span className="text-[10px] font-mono text-cyan-400">{code}</span>
-                        <p className="font-bold text-sm">{c.name}</p>
-                      </div>
-                    ))}
+                    <button onClick={()=>setSelectedTrack(null)} className="col-span-full w-fit px-4 py-2 rounded-xl bg-white/5 text-slate-400 hover:text-white hover:bg-white/10 mb-4 flex items-center gap-2 transition-all">← ย้อนกลับ</button>
+                    
+                    {displayedTrackCourses.length === 0 ? (
+                      <div className="col-span-full text-center text-slate-500 py-10">ไม่พบวิชาในสายนี้</div>
+                    ) : (
+                      displayedTrackCourses.map((c) => {
+                        const courseCode = c.id || c.code;
+                        return (
+                          <div key={courseCode} onClick={() => handleSelectPE(courseCode, c)} className="p-4 bg-white/5 border border-white/5 rounded-2xl hover:border-cyan-500/50 hover:bg-cyan-500/5 cursor-pointer transition-all">
+                            <div className="flex justify-between items-start mb-1">
+                              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-400">{courseCode}</span>
+                              {c.prereq && <span className="text-[9px] text-slate-500 font-mono">Prereq: {c.prereq}</span>}
+                            </div>
+                            <p className="font-bold text-sm text-white">{c.name || c.nameEn}</p>
+                            <p className="text-[10px] text-slate-400 mt-2">{c.credits || 3} หน่วยกิต</p>
+                          </div>
+                        )
+                      })
+                    )}
                   </div>
                 )}
             </div>
@@ -192,7 +321,6 @@ const SetupProfile = () => {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* SIDEBAR */}
           <aside className="lg:col-span-4 space-y-6 h-fit lg:sticky lg:top-8">
             <div className="tech-card p-6 rounded-[2.5rem] bg-white/5 border border-white/10 backdrop-blur-md">
               <h2 className="text-xs font-black text-orange-400 tracking-[0.2em] mb-8 flex items-center gap-2 uppercase"><User size={16}/> Identity</h2>
@@ -290,7 +418,6 @@ const SetupProfile = () => {
             </div>
           </aside>
 
-          {/* MAIN CONTENT (ปี 5+ NAVBAR STYLE) */}
           <main className="lg:col-span-8 space-y-6">
             <div className="bg-white/5 border border-white/10 p-2 rounded-2xl flex flex-wrap gap-1 sticky top-6 z-40 backdrop-blur-xl shadow-2xl">
                {Array.from({length: maxYear}, (_, i) => i + 1).map(y => (
@@ -307,14 +434,28 @@ const SetupProfile = () => {
                     <div key={semIdx} className={`p-8 rounded-[2.5rem] border transition-all ${isLocked ? 'bg-black/40 border-white/5 opacity-40 grayscale pointer-events-none' : 'bg-white/5 border-white/10 shadow-xl'}`}>
                       <h3 className="text-xs font-black text-slate-500 uppercase mb-6 tracking-widest flex items-center justify-between">{sem.term} {activeYearTab === basicInfo.currentYear && (semIdx+1) === basicInfo.currentTerm && <span className="text-orange-500 text-[9px] animate-pulse font-black uppercase">Active Now</span>}</h3>
                       <div className="space-y-2">
-                        {sem.courses.map(course => {
+                        {(sem.courses || []).map(course => {
                           const status = courseStates[course.id];
-                          if (course.isProfessionalElective) return (
-                            <div key={course.id} onClick={() => { setActivePeSlotId(course.id); setShowPeModal(true); }} className={`p-4 rounded-xl border border-dashed flex justify-between items-center cursor-pointer transition-all ${peAssignments[course.id] ? 'bg-purple-500/10 border-purple-500/40' : 'bg-white/5 border-white/10 hover:bg-purple-500/10'}`}>
-                              <div className="min-w-0"><p className="text-[9px] font-mono text-purple-400 uppercase tracking-widest">Track Course</p><p className="font-bold text-xs truncate">{peAssignments[course.id] ? allTrackCourses[peAssignments[course.id]]?.name : 'Select Track Course...'}</p></div>
-                              <Plus size={16} className="text-purple-500"/>
-                            </div>
-                          );
+                          if (course.isProfessionalElective) {
+                            const assignedCode = peAssignments[course.id];
+                            return (
+                              <div key={course.id} onClick={() => { setActivePeSlotId(course.id); setShowPeModal(true); }} className={`p-4 rounded-xl border border-dashed flex justify-between items-center cursor-pointer transition-all ${assignedCode ? 'bg-purple-500/10 border-purple-500/40' : 'bg-white/5 border-white/10 hover:bg-purple-500/10'}`}>
+                                <div className="min-w-0">
+                                  <p className="text-[9px] font-mono text-purple-400 uppercase tracking-widest">Track Course</p>
+                                  <p className="font-bold text-xs truncate">
+                                    {assignedCode ? getTrackCourseName(assignedCode) : 'Select Track Course...'}
+                                  </p>
+                                </div>
+                                {assignedCode ? (
+                                  <button onClick={(e) => handleRemovePE(course.id, e)} className="p-1.5 rounded-md hover:bg-red-500/20 group">
+                                    <Trash2 size={16} className="text-red-500/60 group-hover:text-red-400 transition-colors"/>
+                                  </button>
+                                ) : (
+                                  <Plus size={16} className="text-purple-500"/>
+                                )}
+                              </div>
+                            );
+                          }
                           return (
                             <div key={course.id} onClick={() => handleCourseClick(course.id)} className={`p-4 rounded-xl border flex justify-between items-center cursor-pointer transition-all hover:scale-[1.02] ${status === 'passed' ? 'bg-emerald-500/10 border-emerald-500/30' : status === 'learning' ? 'bg-blue-500/10 border-blue-500/30' : 'bg-black/20 border-white/5'}`}>
                               <div className="min-w-0"><p className="text-[9px] font-mono text-slate-500">{course.code}</p><p className="text-xs font-bold truncate">{course.name}</p></div>
@@ -323,12 +464,15 @@ const SetupProfile = () => {
                           );
                         })}
                         
-                        {(customElectives[termKey] || []).map(id => (
-                          <div key={id} className="p-3 rounded-xl border border-orange-500/30 bg-orange-500/5 flex justify-between items-center group animate-in fade-in">
-                            <div className="min-w-0"><p className="text-[9px] font-mono text-orange-400">ELECTIVE</p><p className="text-xs font-bold truncate">{electiveCourses.find(i=>i.id===id)?.name}</p></div>
-                            <button onClick={() => handleRemoveElective(termKey, id)} className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14}/></button>
-                          </div>
-                        ))}
+                        {(customElectives[termKey] || []).map(id => {
+                          const elecName = electiveCourses?.find(i => i.id === id)?.name || id;
+                          return (
+                            <div key={id} className="p-3 rounded-xl border border-orange-500/30 bg-orange-500/5 flex justify-between items-center group animate-in fade-in">
+                              <div className="min-w-0"><p className="text-[9px] font-mono text-orange-400">ELECTIVE</p><p className="text-xs font-bold truncate">{elecName}</p></div>
+                              <button onClick={() => handleRemoveElective(termKey, id)} className="text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 size={14}/></button>
+                            </div>
+                          );
+                        })}
                         <button onClick={() => { setActiveTermKey(termKey); setShowElectiveModal(true); }} className="w-full py-2.5 border-2 border-dashed border-white/5 rounded-xl text-[9px] font-black text-slate-600 hover:text-orange-400 hover:border-orange-500/40 transition-all flex items-center justify-center gap-2 mt-4"><Plus size={12}/> ADD ELECTIVE</button>
                       </div>
                     </div>
