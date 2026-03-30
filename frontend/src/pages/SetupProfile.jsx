@@ -10,8 +10,6 @@ const SetupProfile = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const [loading, setLoading] = useState(false);
-  
-  // Modal & Tab States
   const [showPeModal, setShowPeModal] = useState(false);
   const [showElectiveModal, setShowElectiveModal] = useState(false); 
   const [activePeSlotId, setActivePeSlotId] = useState(null);
@@ -19,8 +17,6 @@ const SetupProfile = () => {
   const [selectedTrack, setSelectedTrack] = useState(null);
   const [activeYearTab, setActiveYearTab] = useState(1);
   const [electiveSearchTerm, setElectiveSearchTerm] = useState('');
-
-  // --- 1. State: ข้อมูลทั้งหมดเก็บไว้ในเครื่องก่อน ---
   const [basicInfo, setBasicInfo] = useState({
     name: '', studentId: '', currentYear: 1, currentTerm: 1,
     image: 'https://cdn-icons-png.flaticon.com/512/847/847969.png'
@@ -30,15 +26,11 @@ const SetupProfile = () => {
   const [peAssignments, setPeAssignments] = useState({}); 
   const [gpaHistory, setGpaHistory] = useState({});
   const [maxYear, setMaxYear] = useState(4);
-
-  // --- 2. Initial Load: ดึงข้อมูลจาก DB แค่ "ครั้งเดียว" ตอนเข้าหน้าจอ ---
   useEffect(() => {
     const fetchData = async () => {
       try {
         const session = JSON.parse(localStorage.getItem('active_session'));
         if (!session?.id) return;
-
-        // ดึงจาก LocalStorage มาโชว์ก่อนเพื่อความเร็ว (Optimistic UI)
         const localData = JSON.parse(localStorage.getItem('userProfile'));
         if (localData) {
             setBasicInfo(localData.basicInfo || basicInfo);
@@ -48,8 +40,6 @@ const SetupProfile = () => {
             setGpaHistory(localData.gpaHistory || {});
             setMaxYear(localData.maxYear || 4);
         }
-
-        // ค่อยยิงไปเช็คที่ Backend จริงๆ แค่รอบเดียวพอ
         const res = await axios.get(`${import.meta.env.VITE_API_URL}/auth/profile/${session.id}`);
         if (res.data?.profileData) {
           const d = res.data.profileData;
@@ -65,7 +55,7 @@ const SetupProfile = () => {
     fetchData();
   }, []);
 
-  // --- 3. Logic: จัดการข้อมูลในเครื่อง (ไม่ยุ่งกับ Backend เลย) ---
+
   const applyTimelineLogic = (targetYear, targetTerm) => {
     const nextStates = { ...courseStates };
     roadmapData.forEach((yearGroup, yIdx) => {
@@ -106,12 +96,11 @@ const SetupProfile = () => {
     return [{ year: `Year ${activeYearTab}`, semesters: [{ term: 'Semester 1', courses: [{ id: `PE-Y${activeYearTab}-S1`, isProfessionalElective: true }] }, { term: 'Semester 2', courses: [{ id: `PE-Y${activeYearTab}-S2`, isProfessionalElective: true }] }] }];
   }, [activeYearTab]);
 
-  // --- 4. Submit: ยิงปังเดียวจบ รวบตึงทุกอย่างส่ง Backend ---
+
   const handleSubmit = async () => {
     try {
       setLoading(true);
       const session = JSON.parse(localStorage.getItem('active_session'));
-      
       const payload = { 
         basicInfo, 
         courseStates, 
@@ -122,16 +111,14 @@ const SetupProfile = () => {
         lastUpdated: new Date().toISOString()
       };
 
-      // 1. เซฟลงเครื่องตัวเองก่อนเพื่อความชัวร์
+      
       localStorage.setItem('userProfile', JSON.stringify(payload));
 
-      // 2. ยิงเข้า Render (DB) ครั้งเดียว
-      await axios.patch(`${import.meta.env.VITE_API_URL}/auth/profile/${session.id}`, payload);
+       await axios.patch(`${import.meta.env.VITE_API_URL}/auth/profile/${session.id}`, payload);
       
       navigate('/dashboard');
     } catch (e) { 
         console.error(e);
-        // ถ้า DB พัง แต่อย่างน้อยในเครื่องก็เซฟไปแล้ว ให้ไปหน้า Dashboard ได้เลย
         alert("Backend connection error, but progress saved locally!");
         navigate('/dashboard'); 
     } finally { setLoading(false); }
@@ -140,7 +127,7 @@ const SetupProfile = () => {
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-32 font-sans selection:bg-orange-500/30">
       
-      {/* ══════ ELECTIVE MODAL (เหมือนเดิม) ══════ */}
+      
       {showElectiveModal && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-xl z-[200] flex items-center justify-center p-4">
           <div className="bg-[#0f172a] border border-white/10 rounded-[2.5rem] max-w-2xl w-full p-8 shadow-2xl">
@@ -221,8 +208,27 @@ const SetupProfile = () => {
                  }} />
               </div>
               <div className="space-y-4">
-                <InputGroup label="Survivor Name" value={basicInfo.name} onChange={e => setBasicInfo(p => ({...p, name: e.target.value}))} />
-                <InputGroup label="Student ID" value={basicInfo.studentId} onChange={e => setBasicInfo(p => ({...p, studentId: e.target.value}))} />
+                <InputGroup 
+                  label="Survivor Name" 
+                  value={basicInfo.name} 
+                  maxLength={25}
+                  onChange={e => {
+                    if (e.target.value.length <= 25) {
+                      setBasicInfo(p => ({...p, name: e.target.value}))
+                    }
+                  }} 
+                />
+                <InputGroup 
+                  label="Student ID" 
+                  value={basicInfo.studentId} 
+                  maxLength={13} 
+                  onChange={e => {
+                    const val = e.target.value.replace(/[^0-9]/g, '');
+                    if (val.length <= 13) {
+                      setBasicInfo(p => ({...p, studentId: val}))
+                    }
+                  }}
+                />
               </div>
             </div>
 
@@ -262,7 +268,20 @@ const SetupProfile = () => {
                     return (
                       <div key={key} className="flex items-center justify-between bg-black/20 p-3 rounded-xl border border-white/5 group hover:border-emerald-500/30 transition-all">
                         <span className="text-[10px] font-mono text-slate-400 group-hover:text-emerald-400">{key}</span>
-                        <input type="number" step="0.01" value={gpaHistory[key] || ''} onChange={e => setGpaHistory(p => ({...p, [key]: e.target.value}))} className="w-14 bg-transparent text-right text-emerald-400 font-bold outline-none border-b border-white/10 focus:border-emerald-500" placeholder="0.00" />
+                        <input 
+                          type="number" 
+                          min="0" max="4" step="0.01" 
+                          value={gpaHistory[key] || ''} 
+                          onKeyDown={e => ['e', 'E', '+', '-'].includes(e.key) && e.preventDefault()}
+                          onChange={e => {
+                            let v = e.target.value;
+                            if (v > 4) v = 4;
+                            setGpaHistory(p => ({...p, [key]: v}));
+                          }} 
+                          className={`w-14 bg-transparent text-right font-bold outline-none border-b 
+                            ${!gpaHistory[key] ? 'border-red-500' : 'border-white/10 text-emerald-400'}`} 
+                          placeholder="0.00" 
+                        />
                       </div>
                     );
                   })
@@ -321,9 +340,27 @@ const SetupProfile = () => {
         </div>
 
         <div className="fixed bottom-0 left-0 w-full bg-black/80 backdrop-blur-xl p-6 flex justify-center z-[100] border-t border-white/10">
-           <button onClick={handleSubmit} className="bg-white text-black font-black py-4 px-20 rounded-full shadow-[0_0_50px_rgba(255,255,255,0.3)] hover:scale-105 active:scale-95 transition-all flex items-center gap-3">
-               {loading ? 'SYNCING DATA...' : 'GENERATE DASHBOARD'} <ChevronRight size={20}/>
-           </button>
+           <button 
+              onClick={handleSubmit} 
+              disabled={loading || Object.values(gpaHistory).some(v => !v) || Object.keys(gpaHistory).length === 0}
+              title={
+                loading 
+                  ? "กำลังบันทึกข้อมูล..." 
+                  : (Object.values(gpaHistory).some(v => !v) || Object.keys(gpaHistory).length === 0)
+                    ? "กรุณากรอก GPA ให้ครบทุกช่องก่อนไปต่อ" 
+                    : ""
+              }
+              
+              className={`bg-white text-black font-black py-4 px-20 rounded-full shadow-[0_0_50px_rgba(255,255,255,0.3)] 
+                transition-all flex items-center gap-3
+                ${(loading || Object.values(gpaHistory).some(v => !v) || Object.keys(gpaHistory).length === 0)
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:scale-105 active:scale-95 cursor-pointer'
+                }`}
+            >
+              {loading ? 'SYNCING DATA...' : 'GENERATE DASHBOARD'} 
+              <ChevronRight size={20}/>
+            </button>
         </div>
       </div>
     </div>

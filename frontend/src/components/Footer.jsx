@@ -117,11 +117,11 @@ const Footer = () => {
             </div>
             <ul className="space-y-3">
                {[
-               { label: 'IG : sta.kit ( UX/UI )', link: 'https://www.instagram.com/sta.kit/' },
+               { label: 'IG : sta.kit ( GET REQUIREMENT )', link: 'https://www.instagram.com/sta.kit/' },
                { label: 'IG : XSX ( TESTTER )', link: 'https://www.instagram.com/chayang_koo.l' },
                { label: 'IG : kt_k1tt1111 ( PM ALL ROLE )', link: 'https://www.instagram.com/kt_k1tt1111/' },
                { label: 'IG : fiwkanokkk ( CODE )', link: 'https://www.instagram.com/fiwkanokkk/' },
-               { label: 'IG : ppeemstt_ ( GET REQUIREMENT ) ', link: 'https://www.instagram.com/ppeemstt_/' },
+               { label: 'IG : ppeemstt_ ( UX/UI ) ', link: 'https://www.instagram.com/ppeemstt_/' },
                ].map((item, idx) => (
                <li key={idx}>
                     <a

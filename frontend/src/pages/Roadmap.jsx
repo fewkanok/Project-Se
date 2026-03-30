@@ -1,7 +1,3 @@
-// src/pages/Roadmap.jsx
-// ─────────────────────────────────────────────────────────────
-// รวม CurriculumMap และ courseData ไว้ในไฟล์เดียว
-// ─────────────────────────────────────────────────────────────
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { CheckCircle, Lock, BookOpen, AlertCircle, Sparkles, GraduationCap, Code, GitBranch } from 'lucide-react';
 import { roadmapData } from '../data/courses';
@@ -9,11 +5,7 @@ import { electiveCourses } from '../data/electiveCourses';
 import { courses as trackCoursesData, tracks } from '../data/courseData';
 import { useNavigate } from 'react-router-dom';
 
-// ════════════════════════════════════════════════════════════
-//  CURRICULUM MAP DATA  (from courseData.js — embedded)
-// ════════════════════════════════════════════════════════════
 const CURRICULUM_COURSES = {
-  // ─── Foundation / Base ──────────────────────────────────────
   "040613100": { code:"040613100", name:"พื้นฐานวิทยาการคอมพิวเตอร์และประเด็นทางวิชาชีพ", nameEn:"Fundamental of Computer Science and Professional Issues", credits:"3(3-0-6)", prereq:null },
   "040613201": { code:"040613201", name:"การโปรแกรมคอมพิวเตอร์ 1", nameEn:"Computer Programming I", credits:"3(2-2-5)", prereq:null },
   "040613203": { code:"040613203", name:"การโปรแกรมเชิงโครงสร้าง", nameEn:"Structured Programming", credits:"3(2-2-5)", prereq:"040613201" },
@@ -23,7 +15,6 @@ const CURRICULUM_COURSES = {
   "040613302": { code:"040613302", name:"การวิเคราะห์และออกแบบ", nameEn:"System Analysis and Design", credits:"3(3-0-6)", prereq:"040613201" },
   "040613104": { code:"040613104", name:"คณิตศาสตร์สำหรับการคณนา", nameEn:"Mathematics for Computing", credits:"3(3-0-6)", prereq:"040203101" },
   "040613112": { code:"040613112", name:"การออกแบบวงจรดิจิทัล", nameEn:"Digital Circuit Design", credits:"3(3-0-6)", prereq:null },
-  // ─── AI Track ───────────────────────────────────────────────
   "040613701": { code:"040613701", name:"ระบบอัจฉริยะ", nameEn:"Intelligent System", credits:"3(2-2-5)", prereq:"040613205" },
   "040613702": { code:"040613702", name:"การเรียนรู้ของเครื่องคอมพิวเตอร์", nameEn:"Machine Learning", credits:"3(2-2-5)", prereq:"040613701" },
   "040613704": { code:"040613704", name:"การเรียนรู้เชิงลึก", nameEn:"Deep Learning", credits:"3(2-2-5)", prereq:"040613702" },
@@ -32,7 +23,6 @@ const CURRICULUM_COURSES = {
   "040613705": { code:"040613705", name:"วิศวกรรมข้อมูลขนาดใหญ่", nameEn:"Big Data Engineering", credits:"3(2-2-5)", prereq:"040613701" },
   "040613706": { code:"040613706", name:"การประมวลผลภาษาธรรมชาติ", nameEn:"Natural Language Processing", credits:"3(3-0-6)", prereq:"040613701" },
   "040613707": { code:"040613707", name:"คอมพิวเตอร์วิทัศน์", nameEn:"Computer Vision", credits:"3(2-2-5)", prereq:"040613701" },
-  // ─── Security & Network ─────────────────────────────────────
   "040613502": { code:"040613502", name:"เครือข่ายคอมพิวเตอร์", nameEn:"Computer Network", credits:"3(2-2-5)", prereq:null },
   "040613601": { code:"040613601", name:"ความมั่นคงของระบบคอมพิวเตอร์", nameEn:"Computer System Security", credits:"3(3-0-6)", prereq:"040613100" },
   "040613504": { code:"040613504", name:"เทคโนโลยีการเชื่อมต่อระหว่างเครือข่าย", nameEn:"Inter-networking Technology", credits:"3(2-2-5)", prereq:"040613502" },
@@ -43,26 +33,22 @@ const CURRICULUM_COURSES = {
   "040613603": { code:"040613603", name:"การโปรแกรมเชิงป้องกัน", nameEn:"Defensive Programming", credits:"3(2-2-5)", prereq:"040613203, 040613601" },
   "040613505": { code:"040613505", name:"เครื่องมือยูนิกซ์", nameEn:"UNIX Tool", credits:"3(2-2-5)", prereq:"040613100" },
   "040613506": { code:"040613506", name:"การบริหารยูนิกซ์", nameEn:"UNIX Administration", credits:"3(2-2-5)", prereq:"040613505" },
-  // ─── Game & Graphic ─────────────────────────────────────────
   "040613801": { code:"040613801", name:"คอมพิวเตอร์กราฟิกส์", nameEn:"Computer Graphics", credits:"3(2-2-5)", prereq:"040613104, 040613201" },
   "040613802": { code:"040613802", name:"การออกแบบเกมคอมพิวเตอร์", nameEn:"Computer Game Design", credits:"3(2-2-5)", prereq:"040613201" },
   "040613804": { code:"040613804", name:"การสร้างแบบจำลองสามมิติ", nameEn:"3D Modeling", credits:"3(2-2-5)", prereq:"040613104" },
   "040613805": { code:"040613805", name:"ภาพเคลื่อนไหวคอมพิวเตอร์", nameEn:"Computer Animation", credits:"3(2-2-5)", prereq:"040613801" },
   "040613806": { code:"040613806", name:"การให้แสงและเงา", nameEn:"Lighting and Shading", credits:"3(2-2-5)", prereq:"040613801" },
   "040613803": { code:"040613803", name:"ความเป็นจริงเสมือนและความเป็นจริงเสริม", nameEn:"Virtual Reality and Augmented Reality", credits:"3(2-2-5)", prereq:"040613201" },
-  // ─── IoT & Robot ────────────────────────────────────────────
   "040613901": { code:"040613901", name:"การออกแบบระบบฝังตัว", nameEn:"Embedded System Design", credits:"3(3-0-6)", prereq:"040613112" },
   "040613902": { code:"040613902", name:"อินเทอร์เน็ตของสรรพสิ่ง", nameEn:"Internet of Things", credits:"3(2-2-5)", prereq:"040613201" },
   "040613904": { code:"040613904", name:"วิทยาการหุ่นยนต์และการควบคุม", nameEn:"Robotic Science and Control System", credits:"3(2-2-5)", prereq:"040613901" },
   "040613903": { code:"040613903", name:"เทคโนโลยีสารสนเทศภูมิศาสตร์สำหรับเมืองอัจฉริยะ", nameEn:"Geospatial Information Technology for Smart City", credits:"3(3-0-6)", prereq:"040613301" },
   "040613153": { code:"040613153", name:"การศึกษาเฉพาะเรื่องทางวิทยาการคอมพิวเตอร์ 3", nameEn:"Selected Topics in Computer Science III", credits:"3(3-0-6)", prereq:null },
   "040613905": { code:"040613905", name:"ห่วงโซ่บล็อก", nameEn:"Blockchain", credits:"3(3-0-6)", prereq:null },
-  // ─── Full-Stack ──────────────────────────────────────────────
   "040613411": { code:"040613411", name:"การพัฒนาเว็บ", nameEn:"Web Development", credits:"3(2-2-5)", prereq:"040613201" },
   "040613412": { code:"040613412", name:"เว็บเฟรมเวิร์ค", nameEn:"Web Framework", credits:"3(2-2-5)", prereq:"040613411" },
   "040613421": { code:"040613421", name:"การพัฒนาโปรแกรมประยุกต์เคลื่อนที่", nameEn:"Mobile Application Development", credits:"3(2-2-5)", prereq:"040613204" },
   "040613521": { code:"040613521", name:"การศึกษาเฉพาะเรื่องทางวิทยาการคอมพิวเตอร์ 1", nameEn:"Selected Topics in Computer Science I", credits:"3(3-0-6)", prereq:null },
-  // ─── Outside of track ──────────────────────────────────────────────
   "040613207": { code:"040613207", name:"หลักภาษาโปรแกรม", nameEn:"Principle of Programming Language", credits:"3(2-2-5)", prereq:"040613203" },
   "040613307": { code:"040613307", name:"การทดสอบซอฟต์แวร์", nameEn:"Software Testing", credits:"3(3-0-6)", prereq:"040613302" },
   "040613305": { code:"040613305", name:"สถาปัตยกรรมซอฟต์แวร์", nameEn:"Software Architecture", credits:"3(3-0-6)", prereq:"040613302" },
@@ -140,12 +126,7 @@ const CURRICULUM_NODE_TYPE_MAP = {
   fs:   { "040613201":"base","040613204":"base","040613411":"fs-major","040613412":"fs","040613421":"fs-major","040613521":"fs" },
 };
 
-// ════════════════════════════════════════════════════════════
-//  CURRICULUM MAP — TREE DATA
-//  t: "base"=green(Base Subject)  "minor"=blue(Major)  "major"=red(Minor)  "free"=gray(Up to you)
-// ════════════════════════════════════════════════════════════
 const CM_TREES = [
-  // ── Full-Stack ────────────────────────────────────────────
   {
     id:"fs", label:"Full-Stack Track", icon:"🌐", color:"#db2777",
     gradient:"from-pink-600 to-rose-600", shadow:"shadow-pink-500/50", activeBg:"from-pink-900/60 to-rose-900/40",
@@ -161,7 +142,6 @@ const CM_TREES = [
       { code:"040613521", t:"major", children:[] },
     ]
   },
-  // ── Security & Network ────────────────────────────────────
   {
     id:"net", label:"Security & Network Track", icon:"🔐", color:"#0891b2",
     gradient:"from-cyan-600 to-sky-600", shadow:"shadow-cyan-500/50", activeBg:"from-cyan-900/60 to-sky-900/40",
@@ -185,7 +165,6 @@ const CM_TREES = [
       ]},
     ]
   },
-  // ── Game & Graphic ────────────────────────────────────────
   {
     id:"game", label:"Game & Graphic Track", icon:"🎮", color:"#d97706",
     gradient:"from-amber-600 to-orange-600", shadow:"shadow-amber-500/50", activeBg:"from-amber-900/60 to-orange-900/40",
@@ -198,13 +177,12 @@ const CM_TREES = [
         ]},
       ]},
       { code:"040613201", t:"base", children:[
-        { code:"040613801", t:"minor", children:[] },  // เส้นที่ 2 Com-Pro I → Computer Graphics
+        { code:"040613801", t:"minor", children:[] },  
         { code:"040613802", t:"minor", children:[] },
         { code:"040613803", t:"major", children:[] },
       ]},
     ]
   },
-  // ── IoT & Robot ───────────────────────────────────────────
   {
     id:"iot", label:"IoT & Robot Track", icon:"🤖", color:"#059669",
     gradient:"from-emerald-600 to-green-600", shadow:"shadow-emerald-500/50", activeBg:"from-emerald-900/60 to-green-900/40",
@@ -224,7 +202,6 @@ const CM_TREES = [
       { code:"040613905", t:"major", children:[] },
     ]
   },
-  // ── AI Track ─────────────────────────────────────────────
   {
     id:"ai", label:"AI Track", icon:"🧠", color:"#7c3aed",
     gradient:"from-violet-600 to-purple-600", shadow:"shadow-violet-500/50", activeBg:"from-violet-900/60 to-purple-900/40",
@@ -243,7 +220,6 @@ const CM_TREES = [
       { code:"040613152", t:"major", children:[] },
     ]
   },
-    // ── Outside of Track ─────────────────────────────────────────────
   {
     id:"outside", label:"Outside of Track", icon:"🌐", color:"#7c3aed",
     gradient:"from-violet-600 to-purple-600", shadow:"shadow-violet-500/50", activeBg:"from-violet-900/60 to-purple-900/40",
@@ -261,7 +237,6 @@ const CM_TREES = [
   },
 ];
 
-// ─── Node colors matching legend: base=green(Base Subject) minor=blue(Major) major=red(Minor) free=gray(Up to you)
 const CM_NODE_COLORS = {
   base:  { border:"2px solid #22c55e", bg:"rgba(20,83,45,0.55)",  nameColor:"#ffffff", codeColor:"#86efac" },
   minor: { border:"2px solid #60a5fa", bg:"rgba(30,58,138,0.55)", nameColor:"#ffffff", codeColor:"#93c5fd" },
@@ -269,9 +244,6 @@ const CM_NODE_COLORS = {
   free:  { border:"2px solid #64748b", bg:"rgba(30,41,59,0.45)",  nameColor:"#e2e8f0", codeColor:"#94a3b8" },
 };
 
-// ════════════════════════════════════════════════════════════
-//  NODE BOX
-// ════════════════════════════════════════════════════════════
 function CMNodeBox({ code, t, onHover, onLeave, courseStates, navigate }) {
   const course = CURRICULUM_COURSES[code];
   const [hov, setHov] = useState(false);
@@ -281,24 +253,19 @@ function CMNodeBox({ code, t, onHover, onLeave, courseStates, navigate }) {
   const handleLeave = useCallback(()    => { setHov(false); onLeave?.();       }, [onLeave]);
   const handleClick = useCallback(() => { if (navigate && code) navigate(`/course/${code}`); }, [navigate, code]);
 
-  // ── Course status from profile ────────────────────────────
   const courseState = courseStates?.[code];
   const isPassed    = courseState === 'passed';
-  // isLearning ได้ก็ต่อเมื่อ prereq ทุกวิชาเป็น 'passed' แล้วเท่านั้น
-  // รองรับ prereq หลายวิชา เช่น "040613502, 040613601"
-  const prereqCode     = course?.prereq;
+  const prereqCode      = course?.prereq;
   const prereqSatisfied = !prereqCode || prereqCode.split(',').map(s => s.trim()).every(p => courseStates?.[p] === 'passed');
   const isLearning  = courseState === 'learning' && prereqSatisfied;
   const isLocked    = courseState === 'learning' && !prereqSatisfied;
 
-  // Override border/bg when passed / learning / locked-by-prereq
   let borderStyle = c.border;
   let bgStyle     = c.bg;
   if (isPassed)   { borderStyle = "2px solid #10b981"; bgStyle = "rgba(6,78,59,0.75)"; }
   if (isLearning) { borderStyle = "2px solid #60a5fa"; bgStyle = "rgba(23,37,84,0.75)"; }
   if (isLocked)   { borderStyle = "2px solid #ef4444"; bgStyle = "rgba(69,10,10,0.65)"; }
 
-  // Glow color per type
   const glowMap = { base:"rgba(34,197,94,", minor:"rgba(96,165,250,", major:"rgba(248,113,113,", free:"rgba(100,116,139," };
   const glowColor = isPassed ? "rgba(16,185,129," : isLearning ? "rgba(96,165,250," : isLocked ? "rgba(239,68,68," : (glowMap[t] || "rgba(148,163,184,");
 
@@ -308,7 +275,7 @@ function CMNodeBox({ code, t, onHover, onLeave, courseStates, navigate }) {
       onMouseLeave={handleLeave}
       onClick={handleClick}
       style={{
-        border:     hov ? `1.5px solid ${glowColor}0.9)` : borderStyle,
+        border:      hov ? `1.5px solid ${glowColor}0.9)` : borderStyle,
         background: bgStyle,
         transform:  hov ? "translateY(-3px) scale(1.04)" : "none",
         boxShadow:  isPassed
@@ -334,7 +301,6 @@ function CMNodeBox({ code, t, onHover, onLeave, courseStates, navigate }) {
         justifyContent: "center",
       }}
     >
-      {/* Status badge */}
       {isPassed && (
         <div style={{ position:"absolute", top:6, right:6, background:"linear-gradient(135deg,#059669,#10b981)", borderRadius:999, padding:"2px 7px", fontSize:"0.58rem", fontWeight:800, color:"#fff", display:"flex", alignItems:"center", gap:3, boxShadow:"0 2px 8px rgba(16,185,129,0.5)" }}>
           ✓ ผ่าน
@@ -351,16 +317,13 @@ function CMNodeBox({ code, t, onHover, onLeave, courseStates, navigate }) {
         </div>
       )}
 
-      {/* Course name */}
       <div style={{ color: c.nameColor, fontSize: "0.8rem", fontWeight: 700, lineHeight: 1.4, marginBottom: 4, paddingRight: (isPassed || isLearning || isLocked) ? 48 : 4, letterSpacing: "0.01em", wordBreak: "break-word" }}>
         {course?.nameEn || code}
       </div>
-      {/* Code */}
       <div style={{ color: c.codeColor, fontSize: "0.65rem", fontFamily: "monospace", opacity: 0.75, letterSpacing: "0.05em" }}>
         {code}
       </div>
 
-      {/* Click hint on hover */}
       {hov && (
         <div style={{ position:"absolute", bottom:6, right:8, fontSize:"0.55rem", color: glowColor + "0.8)", fontWeight:700, letterSpacing:"0.05em" }}>
           ดูรายละเอียด →
@@ -370,46 +333,30 @@ function CMNodeBox({ code, t, onHover, onLeave, courseStates, navigate }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════
-//  SVG CONNECTOR LAYOUT ENGINE  — Proper Tree Layout
-//  Parent node is vertically centered with its children group
-// ════════════════════════════════════════════════════════════
 const NODE_W = 220;
 const NODE_H = 80;
-const COL_GAP = 130;  // horizontal gap between columns
-const ROW_GAP = 52;   // vertical gap between rows
+const COL_GAP = 130;  
+const ROW_GAP = 52;   
 
-/**
- * computeTreeLayout:
- *   Assigns each node a (x, y) center position so that:
- *   - x = col * (NODE_W + COL_GAP) + NODE_W/2
- *   - y = vertically centered over its children subtree
- *   Uses "leaf slot" counting (Reingold-Tilford style).
- */
 function computeTreeLayout(roots) {
-  const posMap = {}; // code -> {x, y, t}
+  const posMap = {}; 
   const seen   = new Set();
 
-  // Count how many leaf slots a subtree needs
   function leafCount(node) {
     if (!node.children || node.children.length === 0) return 1;
     return node.children.reduce((s, c) => s + leafCount(c), 0);
   }
 
-  // Recursively assign positions
-  // slotStart = top slot index allocated to this subtree
   function assignPos(node, col, slotStart) {
     if (seen.has(node.code)) return;
     seen.add(node.code);
 
     const myLeaves = leafCount(node);
-    // Center this node within its vertical slot range
     const centerSlot = slotStart + (myLeaves - 1) / 2;
     const x = col * (NODE_W + COL_GAP) + NODE_W / 2;
     const y = centerSlot * (NODE_H + ROW_GAP) + NODE_H / 2;
     posMap[node.code] = { x, y, t: node.t };
 
-    // Assign children sequentially
     let childSlot = slotStart;
     (node.children || []).forEach(child => {
       assignPos(child, col + 1, childSlot);
@@ -417,18 +364,16 @@ function computeTreeLayout(roots) {
     });
   }
 
-  // Stack multiple root groups with a small gap between them
   let slotCursor = 0;
   roots.forEach((root, i) => {
     assignPos(root, 0, slotCursor);
     slotCursor += leafCount(root);
-    if (i < roots.length - 1) slotCursor += 0.7; // gap between root groups
+    if (i < roots.length - 1) slotCursor += 0.7; 
   });
 
   return posMap;
 }
 
-// Collect all edges { from, to }
 function collectEdges(roots) {
   const edges   = [];
   const visited = new Set();
@@ -445,7 +390,6 @@ function collectEdges(roots) {
   return edges;
 }
 
-// ── SVG-based track body ──────────────────────────────────
 function CMTrackBody({ track, onHover, onLeave, courseStates, navigate }) {
   const posMap = useMemo(() => computeTreeLayout(track.roots), [track.roots]);
   const edges  = useMemo(() => collectEdges(track.roots),      [track.roots]);
@@ -458,12 +402,11 @@ function CMTrackBody({ track, onHover, onLeave, courseStates, navigate }) {
   const canvasW = maxX + 28;
   const canvasH = maxY + 28;
 
-  // Scale canvas to fit container width — no horizontal scroll
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const update = () => {
-      const available = el.clientWidth - 56; // minus padding
+      const available = el.clientWidth - 56; 
       setScale(available < canvasW ? available / canvasW : 1);
     };
     update();
@@ -472,7 +415,6 @@ function CMTrackBody({ track, onHover, onLeave, courseStates, navigate }) {
     return () => ro.disconnect();
   }, [canvasW]);
 
-  // Build SVG elbow path: right edge → mid-x vertical → left edge of target
   function buildPath(fromCode, toCode) {
     const f = posMap[fromCode];
     const t = posMap[toCode];
@@ -487,7 +429,6 @@ function CMTrackBody({ track, onHover, onLeave, courseStates, navigate }) {
 
   return (
     <div ref={containerRef} style={{ position:"relative", overflow:"hidden", padding:"20px 28px" }}>
-      {/* Canvas scaled to fit — no horizontal scroll */}
       <div style={{ position:"relative", width:"100%", height: canvasH * scale }}>
         <div style={{
           position:"absolute", top:0, left:0,
@@ -495,14 +436,11 @@ function CMTrackBody({ track, onHover, onLeave, courseStates, navigate }) {
           transformOrigin:"top left",
           transform: `scale(${scale})`,
         }}>
-
-        {/* SVG connector lines */}
         <svg
           style={{ position:"absolute", top:0, left:0, width:"100%", height:"100%", overflow:"visible", pointerEvents:"none" }}
           viewBox={`0 0 ${canvasW} ${canvasH}`}
         >
           <defs>
-            {/* Arrow markers per color */}
             <marker id={`arrow-default-${track.id}`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
               <path d="M0,0 L0,8 L8,4 Z" fill="rgba(255,255,255,0.45)" />
             </marker>
@@ -515,8 +453,6 @@ function CMTrackBody({ track, onHover, onLeave, courseStates, navigate }) {
           </defs>
           {edges.map((e, i) => {
             const fromState = courseStates?.[e.from];
-            const toState   = courseStates?.[e.to];
-            // Green if BOTH from is passed — blue if from is learning
             const isPassed   = fromState === 'passed';
             const isLearning = fromState === 'learning';
             const stroke = isPassed
@@ -544,8 +480,6 @@ function CMTrackBody({ track, onHover, onLeave, courseStates, navigate }) {
             );
           })}
         </svg>
-
-        {/* Node boxes */}
         {Object.entries(posMap).map(([code, pos]) => (
           <div
             key={code}
@@ -573,9 +507,6 @@ function CMTrackBody({ track, onHover, onLeave, courseStates, navigate }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════
-//  TRACK SECTION CARD
-// ════════════════════════════════════════════════════════════
 function CMTrackSection({ track, onHover, onLeave, courseStates, navigate }) {
   const countNodes = (roots) => {
     const seen = new Set();
@@ -610,7 +541,6 @@ function CMTrackSection({ track, onHover, onLeave, courseStates, navigate }) {
       overflow: "hidden",
       boxShadow: `0 0 0 0px ${track.color}`,
     }}>
-      {/* Header */}
       <div style={{
         background: `linear-gradient(135deg, ${track.color}22 0%, rgba(0,0,0,0) 60%)`,
         borderBottom: "1px solid rgba(255,255,255,0.06)",
@@ -619,11 +549,9 @@ function CMTrackSection({ track, onHover, onLeave, courseStates, navigate }) {
         alignItems: "center",
         gap: "12px",
       }}>
-        {/* Color bar */}
         <div style={{ width: 3, height: 32, borderRadius: 99, background: `linear-gradient(to bottom, ${track.color}, ${track.color}44)`, flexShrink: 0 }} />
         <span style={{ fontSize: "1.4rem", lineHeight: 1 }}>{track.icon}</span>
         <h3 style={{ fontWeight: 900, color: "#fff", fontSize: "1rem", letterSpacing: "0.01em", margin: 0 }}>{track.label}</h3>
-        {/* Progress pill */}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10, background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 99, padding: "5px 14px" }}>
           <span style={{ fontSize: "0.7rem", fontWeight: 800, color: "#10b981" }}>{passed}/{total}</span>
           <div style={{ width: 56, height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 99, overflow: "hidden" }}>
@@ -632,16 +560,11 @@ function CMTrackSection({ track, onHover, onLeave, courseStates, navigate }) {
           <span style={{ fontSize: "0.68rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>{pct}%</span>
         </div>
       </div>
-
-      {/* SVG-based body */}
       <CMTrackBody track={track} onHover={onHover} onLeave={onLeave} courseStates={courseStates} navigate={navigate} />
     </div>
   );
 }
 
-// ════════════════════════════════════════════════════════════
-//  TOOLTIP
-// ════════════════════════════════════════════════════════════
 function CMTooltip({ course, courseState, position, visible }) {
   if (!course) return null;
   const isPassed   = courseState === 'passed';
@@ -663,7 +586,6 @@ function CMTooltip({ course, courseState, position, visible }) {
         <div style={{ fontFamily:"monospace", fontSize:"0.6rem", color:"#6366f1", marginBottom:4, letterSpacing:"0.08em" }}>{course.code}</div>
         <div style={{ fontWeight:900, color:"#fff", fontSize:"0.88rem", lineHeight:1.35, marginBottom:3 }}>{course.nameEn || course.name}</div>
         <div style={{ fontSize:"0.68rem", color:"#94a3b8", marginBottom:10, lineHeight:1.4 }}>{course.nameEn ? course.name : ""}</div>
-
         <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:10, flexWrap:"wrap" }}>
           <span style={{ background:"rgba(99,102,241,0.15)", border:"1px solid rgba(99,102,241,0.3)", color:"#a5b4fc", fontFamily:"monospace", fontSize:"0.62rem", padding:"2px 10px", borderRadius:999, fontWeight:700 }}>
             {course.credits}
@@ -672,12 +594,10 @@ function CMTooltip({ course, courseState, position, visible }) {
           {isLearning && !isPassed && <span style={{ background:"linear-gradient(135deg,#1d4ed8,#2563eb)", borderRadius:999, padding:"2px 10px", fontSize:"0.62rem", fontWeight:800, color:"#fff" }}>📖 กำลังเรียน</span>}
           {!isPassed && !isLearning && <span style={{ background:"rgba(51,65,85,0.8)", borderRadius:999, padding:"2px 10px", fontSize:"0.62rem", fontWeight:700, color:"#64748b" }}>ยังไม่ได้ลง</span>}
         </div>
-
         <div style={{ fontSize:"0.65rem", color:"#64748b", display:"flex", alignItems:"center", gap:4 }}>
           <span style={{ color:"#94a3b8", fontWeight:700 }}>Prereq:</span>
           <span style={{ fontFamily:"monospace", color: course.prereq ? "#f59e0b" : "#475569" }}>{course.prereq || "ไม่มี"}</span>
         </div>
-
         <div style={{ marginTop:10, paddingTop:8, borderTop:"1px solid rgba(255,255,255,0.06)", fontSize:"0.6rem", color:"rgba(99,102,241,0.7)", fontWeight:700, letterSpacing:"0.05em" }}>
           คลิกเพื่อดูรายละเอียด →
         </div>
@@ -686,19 +606,12 @@ function CMTooltip({ course, courseState, position, visible }) {
   );
 }
 
-// ════════════════════════════════════════════════════════════
-//  CURRICULUM MAP MAIN COMPONENT
-// ════════════════════════════════════════════════════════════
 function CurriculumMapTab() {
   const navigate = useNavigate();
   const [activeCMTrack, setActiveCMTrack] = useState("all");
-  const [tooltip, setTooltip]             = useState({ visible:false, course:null, x:0, y:0 });
-  const tooltipTimeoutRef                 = useRef(null);
+  const [tooltip, setTooltip]               = useState({ visible:false, course:null, x:0, y:0 });
+  const tooltipTimeoutRef                   = useRef(null);
 
-  // ── Load courseStates from profile ────────────────────────
-  // ⚠️ ต้องกรอง PE slot IDs ออกก่อน เพราะ courses.js ใช้ id เดียวกับ track course code
-  // เช่น PE slot id='040613604' = Digital Forensics ทำให้ auto-select ของ setup
-  // ไปเซต courseStates['040613604']='learning' แม้ผู้ใช้ไม่ได้เลือกวิชานั้น
   const courseStates = useMemo(() => {
     try {
       const saved = localStorage.getItem('userProfile');
@@ -706,7 +619,6 @@ function CurriculumMapTab() {
       const parsed = JSON.parse(saved);
       const rawStates = parsed.courseStates || {};
       const peAssignments = parsed.peAssignments || {};
-
       const peSlotIds = new Set(
         roadmapData.flatMap(y => y.semesters.flatMap(s =>
           s.courses.filter(c => c.isProfessionalElective).map(c => c.id)
@@ -714,18 +626,14 @@ function CurriculumMapTab() {
       );
       const assignedCodes = new Set(Object.values(peAssignments).filter(Boolean));
       const allTrackIds = new Set(Object.keys(trackCoursesData));
-      // วิชาที่อยู่ใน roadmapData ปกติ (ไม่ใช่ PE slot) — ห้ามกรองออก
       const roadmapNonPeIds = new Set(
         roadmapData.flatMap(y => y.semesters.flatMap(s =>
           s.courses.filter(c => !c.isProfessionalElective).map(c => c.id)
         ))
       );
-
       const adjusted = {};
       Object.entries(rawStates).forEach(([id, state]) => {
-        // กรอง PE slot placeholder ที่ไม่ได้ assign
         if (peSlotIds.has(id) && !assignedCodes.has(id)) return;
-        // กรองเฉพาะ pure track course (ไม่ได้อยู่ใน roadmap) ที่ไม่ได้ assign
         if (allTrackIds.has(id) && !roadmapNonPeIds.has(id) && !assignedCodes.has(id)) return;
         adjusted[id] = state;
       });
@@ -757,18 +665,15 @@ function CurriculumMapTab() {
 
   return (
     <div className="text-white">
-
-      {/* ── Filter Tabs + Legend in one row ── */}
       <div className="flex flex-col gap-6 mb-8">
-        {/* Filter Tabs */}
         <div className="flex flex-wrap justify-center gap-2 w-full">
           {[
-            { id:"all",  icon:"⚡", label:"All",                color:"#94a3b8" },
-            { id:"ai",   icon:"🧠", label:"AI",                 color:"#7c3aed" },
-            { id:"fs",   icon:"🌐", label:"Full-Stack",         color:"#db2777" },
+            { id:"all",   icon:"⚡", label:"All",                 color:"#94a3b8" },
+            { id:"ai",   icon:"🧠", label:"AI",                  color:"#7c3aed" },
+            { id:"fs",   icon:"🌐", label:"Full-Stack",          color:"#db2777" },
             { id:"net",  icon:"🔐", label:"Security & Network", color:"#0891b2" },
-            { id:"game", icon:"🎮", label:"Game & Graphic",     color:"#d97706" },
-            { id:"iot",  icon:"🤖", label:"IoT & Robot",        color:"#059669" },
+            { id:"game", icon:"🎮", label:"Game & Graphic",      color:"#d97706" },
+            { id:"iot",  icon:"🤖", label:"IoT & Robot",         color:"#059669" },
             { id:"outside",  icon:"🌐", label:"Outside of Track",        color:"#FEE12B" },
           ].map(t => {
             const active = activeCMTrack === t.id;
@@ -809,10 +714,7 @@ function CurriculumMapTab() {
             );
           })}
         </div>
-
-        {/* ── Legend — ใหญ่ขึ้น อยู่แถวเดียวกัน ── */}
         <div className="flex flex-wrap items-center justify-center gap-8 py-2">
-          {/* Color type indicators */}
           {[
             { color:"#22c55e", label:"Base Subject" },
             { color:"#60a5fa", label:"Major" },
@@ -824,35 +726,22 @@ function CurriculumMapTab() {
               <span style={{ color: color, fontSize:'1rem', fontWeight:800 }}>{label}</span>
             </div>
           ))}
-
-          {/* Divider */}
           <div style={{ width:1, height:28, background:'rgba(255,255,255,0.15)' }} />
-
-          {/* Status badges */}
           <div style={{ background:"linear-gradient(135deg,#059669,#10b981)", borderRadius:999, padding:"5px 16px", fontSize:"0.9rem", fontWeight:800, color:"#fff" }}>✓ ผ่าน</div>
           <div style={{ background:"linear-gradient(135deg,#1d4ed8,#2563eb)", borderRadius:999, padding:"5px 16px", fontSize:"0.9rem", fontWeight:800, color:"#fff" }}>📖 เรียนอยู่</div>
-
-          {/* Hint */}
           <span className="text-slate-500 italic text-xs">คลิกที่วิชาเพื่อดูรายละเอียด</span>
         </div>
       </div>
-
-      {/* ── Track Sections ── */}
       <div className="flex flex-col gap-6">
         {visibleTrees.map(track => (
           <CMTrackSection key={track.id} track={track} onHover={handleHover} onLeave={handleLeave} courseStates={courseStates} navigate={navigate} />
         ))}
       </div>
-
-      {/* ── Tooltip ── */}
       <CMTooltip course={tooltip.course} courseState={tooltip.courseState} position={{ x:tooltip.x, y:tooltip.y }} visible={tooltip.visible} />
     </div>
   );
 }
 
-// ════════════════════════════════════════════════════════════
-//  ELECTIVE CARD (unchanged from original)
-// ════════════════════════════════════════════════════════════
 const ElectiveCard = ({ elective, profile, navigate, getElectiveStatusClass }) => (
   <div
     onClick={() => navigate(`/course/${elective.id}`)}
@@ -892,14 +781,11 @@ const ElectiveCard = ({ elective, profile, navigate, getElectiveStatusClass }) =
   </div>
 );
 
-// ════════════════════════════════════════════════════════════
-//  MAIN ROADMAP COMPONENT
-// ════════════════════════════════════════════════════════════
 const Roadmap = () => {
   const containerRef = useRef(null);
   const [lines, setLines] = useState([]);
   const [hoveredCourse, setHoveredCourse] = useState(null);
-  const [activeTab, setActiveTab] = useState('core'); // 'core' | 'elective' | 'trackmap'
+  const [activeTab, setActiveTab] = useState('core'); 
   const [activeElectiveCategory, setActiveElectiveCategory] = useState('all');
   const [activeYear, setActiveYear] = useState(1);
   const navigate = useNavigate();
@@ -911,8 +797,6 @@ const Roadmap = () => {
       customElectives: {}, customTrackCourses: {}, peAssignments: {}, currentYear: 1, currentTerm: 1
     };
     const parsed = JSON.parse(saved);
-    
-    // ✅ Step 1: กรอง PE slot IDs + track courses ที่ไม่ได้ assign ออกจาก courseStates
     const peSlotIds = new Set(
       roadmapData.flatMap(y => y.semesters.flatMap(s =>
         s.courses.filter(c => c.isProfessionalElective).map(c => c.id)
@@ -920,7 +804,6 @@ const Roadmap = () => {
     );
     const assignedCodes = new Set(Object.values(parsed.peAssignments || {}).filter(Boolean));
     const allTrackCourseIds = new Set(Object.keys(trackCoursesData));
-    // วิชาที่อยู่ใน roadmapData ปกติ (ไม่ใช่ PE slot) — ห้ามกรองออก
     const roadmapNonPeIds = new Set(
       roadmapData.flatMap(y => y.semesters.flatMap(s =>
         s.courses.filter(c => !c.isProfessionalElective).map(c => c.id)
@@ -928,14 +811,11 @@ const Roadmap = () => {
     );
     const step1 = {};
     Object.entries(parsed.courseStates || {}).forEach(([id, state]) => {
-      // กรอง PE slot placeholder ที่ไม่ได้ assign
       if (peSlotIds.has(id) && !assignedCodes.has(id)) return;
-      // กรองเฉพาะ pure track course (ไม่ได้อยู่ใน roadmap) ที่ไม่ได้ assign
       if (allTrackCourseIds.has(id) && !roadmapNonPeIds.has(id) && !assignedCodes.has(id)) return;
       step1[id] = state;
     });
 
-    // ✅ Step 2: ไม่ cascade delete — ผู้ใช้ mark เองใน Setup แล้ว
     return { ...parsed, courseStates: step1 };
   });
 
@@ -969,7 +849,6 @@ const Roadmap = () => {
     });
   }, [profile]);
 
-  // Filter out the special "Track Courses" year so it doesn't render in the main UI
   const visibleRoadmap = processedRoadmap.filter(y => y.year !== 'Track Courses');
 
   const processedElectives = useMemo(() => {
@@ -982,7 +861,6 @@ const Roadmap = () => {
     });
   }, [profile]);
 
-  // Build list of track courses selected by user (วิชาเลือกเอก)
   const processedTrackCourses = useMemo(() => {
     const result = [];
     const customTrackCourses = profile.customTrackCourses || {};
@@ -999,12 +877,10 @@ const Roadmap = () => {
         result.push({ ...course, id: courseId, termKey, year: parseInt(yearStr), term: parseInt(termStr), status });
       });
     });
-    // Sort by year then term
     result.sort((a, b) => a.year !== b.year ? a.year - b.year : a.term - b.term);
     return result;
   }, [profile]);
 
-  // Track dash styles — แต่ละ track มี pattern ไม่เหมือนกัน
   const TRACK_LINE_STYLES = {
     ai:   { dash: 'none',       width: 3,   glow: 18 },
     net:  { dash: '10 4',       width: 2.5, glow: 14 },
@@ -1018,11 +894,9 @@ const Roadmap = () => {
     const newLines = [];
     const containerRect = containerRef.current.getBoundingClientRect();
 
-    // ── วิชาหลัก ──────────────────────────────────────────────
     visibleRoadmap.forEach(year => {
       year.semesters.forEach(sem => {
         sem.courses.forEach(course => {
-          // ✅ ข้าม PE slot — ไม่วาดเส้นจากวิชาปกติ (Y2) มายัง PE slot (Y3+)
           if (course.isProfessionalElective) return;
           if (course.prereq) {
             const startEl = document.getElementById(`core-${course.prereq}`);
@@ -1047,30 +921,23 @@ const Roadmap = () => {
       });
     });
 
-    // ── PE Track connections — เชื่อม PE cards ด้วยสีสายเฉพาะ ──
     const peAssignments = profile.peAssignments || {};
     const assignedCodes = Object.values(peAssignments).filter(Boolean);
 
     assignedCodes.forEach(code => {
       const course = trackCoursesData[code];
       if (!course?.prereq) return;
-      // prereq ต้องเป็น PE course ที่ assign ไว้ด้วย
       if (!assignedCodes.includes(course.prereq)) return;
-
       const startEl = document.getElementById(`pe-card-${course.prereq}`);
       const endEl   = document.getElementById(`pe-card-${code}`);
       if (!startEl || !endEl) return;
-
       const startRect = startEl.getBoundingClientRect();
       const endRect   = endEl.getBoundingClientRect();
-
-      // หา track ของวิชานี้เพื่อเอาสี
       const peTrack = tracks.find(t => {
         const codes = new Set();
         t.chains.forEach(c => c.forEach(item => { if (item !== 'arrow') codes.add(item.replace('*', '')); }));
         return codes.has(code);
       });
-
       newLines.push({
         id: `pe-${course.prereq}-${code}`,
         start: course.prereq, end: code,
@@ -1085,7 +952,6 @@ const Roadmap = () => {
         trackColor: peTrack?.color || '#7c3aed',
       });
     });
-
     setLines(newLines);
   };
 
@@ -1193,16 +1059,14 @@ const Roadmap = () => {
 
   const ELECTIVE_CATEGORIES = [
     { key:'all',        label:'ทั้งหมด',           emoji:'📚', gradient:'from-slate-600 to-slate-700',   active:'from-slate-500 to-slate-600' },
-    { key:'sport',      label:'กีฬา & สุขภาพ',     emoji:'🏃', gradient:'from-green-700 to-emerald-700', active:'from-green-500 to-emerald-500' },
-    { key:'science',    label:'วิทยาศาสตร์',       emoji:'🔬', gradient:'from-purple-700 to-violet-700', active:'from-purple-500 to-violet-500' },
-    { key:'humanities', label:'มนุษยศาสตร์/สังคม', emoji:'🎨', gradient:'from-pink-700 to-rose-700',     active:'from-pink-500 to-rose-500' },
-    { key:'other',      label:'อื่นๆ',             emoji:'✨', gradient:'from-orange-700 to-amber-700',  active:'from-orange-500 to-amber-500' },
+    { key:'sport',      label:'กีฬา & สุขภาพ',      emoji:'🏃', gradient:'from-green-700 to-emerald-700', active:'from-green-500 to-emerald-500' },
+    { key:'science',    label:'วิทยาศาสตร์',        emoji:'🔬', gradient:'from-purple-700 to-violet-700', active:'from-purple-500 to-violet-500' },
+    { key:'humanities', label:'มนุษยศาสตร์/สังคม', emoji:'🎨', gradient:'from-pink-700 to-rose-700',      active:'from-pink-500 to-rose-500' },
+    { key:'other',      label:'อื่นๆ',              emoji:'✨', gradient:'from-orange-700 to-amber-700',  active:'from-orange-500 to-amber-500' },
   ];
 
   return (
     <div className="min-h-screen p-6 md:p-12 text-white relative overflow-hidden">
-
-      {/* ── Header ── */}
       <div className="text-center mb-12 space-y-6 relative z-20">
         <h1 className="text-5xl md:text-6xl font-black bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-cyan-300 to-emerald-400 drop-shadow-2xl tracking-tight">
           CS Curriculum Roadmap
@@ -1210,8 +1074,6 @@ const Roadmap = () => {
         <p className="text-slate-300 text-lg md:text-xl font-medium">
           แผนผังเส้นทางการเรียนสาขาวิทยาการคอมพิวเตอร์
         </p>
-
-        {/* ── Tab Navigation (3 tabs) ── */}
         <div className="flex justify-center gap-4 mt-8 flex-wrap">
           <button
             onClick={() => setActiveTab('core')}
@@ -1224,7 +1086,6 @@ const Roadmap = () => {
             <Code size={20} />
             กลุ่มวิชา หลัก
           </button>
-
           <button
             onClick={() => setActiveTab('elective')}
             className={`flex items-center gap-2 px-8 py-3 rounded-full font-bold text-lg transition-all duration-300 ${
@@ -1236,7 +1097,6 @@ const Roadmap = () => {
             <Sparkles size={20} />
             กลุ่มวิชา เสรี
           </button>
-
           <button
             onClick={() => setActiveTab('trackmap')}
             className={`flex items-center gap-2 px-8 py-3 rounded-full font-bold text-lg transition-all duration-300 ${
@@ -1251,13 +1111,9 @@ const Roadmap = () => {
         </div>
       </div>
 
-      {/* ── Main Content ── */}
       <div ref={containerRef} className="max-w-7xl mx-auto relative pb-32">
-
-        {/* ════ CORE COURSES TAB ════ */}
         {activeTab === 'core' && (
           <>
-            {/* SVG Lines */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible">
               <defs>
                 <linearGradient id="lineGradientActive" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1284,7 +1140,6 @@ const Roadmap = () => {
                     <feMergeNode in="SourceGraphic" />
                   </feMerge>
                 </filter>
-                {/* ── Per-track markers + glow filters ── */}
                 {[
                   { id:'ai',   color:'#7c3aed' },
                   { id:'net',  color:'#0891b2' },
@@ -1317,16 +1172,14 @@ const Roadmap = () => {
                 const bothPassed  = line.prereqPassed && line.targetPassed;
                 const isRelated   = relatedCourses.has(line.start) && relatedCourses.has(line.end);
 
-                // ── PE Track line — ใช้สี track เฉพาะ ─────────────────
                 if (line.isPeTrack) {
                   const tId    = line.trackId || 'ai';
                   const tColor = line.trackColor || '#7c3aed';
-                  const style  = TRACK_LINE_STYLES[tId] || TRACK_LINE_STYLES.ai;
+                  const style   = TRACK_LINE_STYLES[tId] || TRACK_LINE_STYLES.ai;
                   const passed = line.prereqPassed;
                   const both   = line.prereqPassed && line.targetPassed;
                   return (
                     <g key={line.id}>
-                      {/* เส้น glow ด้านหลัง */}
                       <path
                         d={`M ${line.startX} ${line.startY} C ${line.startX} ${line.startY + 120}, ${line.endX} ${line.endY - 120}, ${line.endX} ${line.endY}`}
                         fill="none"
@@ -1336,7 +1189,6 @@ const Roadmap = () => {
                         strokeDasharray={style.dash !== 'none' ? style.dash : undefined}
                         filter={`url(#glow-pe-${tId})`}
                       />
-                      {/* เส้นหลัก */}
                       <path
                         d={`M ${line.startX} ${line.startY} C ${line.startX} ${line.startY + 120}, ${line.endX} ${line.endY - 120}, ${line.endX} ${line.endY}`}
                         fill="none"
@@ -1350,12 +1202,11 @@ const Roadmap = () => {
                   );
                 }
 
-                // ── วิชาหลัก (core) line ────────────────────────────────
                 let strokeColor   = "#475569";
                 let strokeWidth   = "2";
                 let strokeOpacity = "0.04";
                 let marker        = "url(#arrow-inactive)";
-                let useGlow       = false;
+                let useGlow        = false;
 
                 if (active || isRelated) {
                   useGlow      = true;
@@ -1391,7 +1242,6 @@ const Roadmap = () => {
               })}
             </svg>
 
-            {/* Core Courses Section Header + Legend */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl mb-3">
                 <Code className="text-cyan-400" size={28} />
@@ -1418,7 +1268,6 @@ const Roadmap = () => {
               </div>
             </div>
 
-            {/* Year Quick Nav */}
             <div className="sticky top-4 z-30 flex justify-center mb-12 pointer-events-none">
                 <div className="relative pointer-events-auto flex items-center gap-0 bg-white/5 border border-white/10 rounded-full p-1 backdrop-blur-md">
                 <div
@@ -1446,7 +1295,6 @@ const Roadmap = () => {
               </div>
             </div>
 
-            {/* Core Courses Grid */}
             <div className="space-y-32 relative z-10">
               {visibleRoadmap.map((yearGroup, yearIdx) => (
                 <div key={yearIdx} id={`year-section-${yearIdx+1}`} className="relative">
@@ -1484,10 +1332,8 @@ const Roadmap = () => {
                               const assignedCode = isPeSlot ? (profile.peAssignments?.[course.id]) : null;
                               const assignedCourse = assignedCode ? trackCoursesData[assignedCode] : null;
 
-                              // ── PE Slot with assigned course ──
                               if (isPeSlot && assignedCourse) {
                                 const assignedState = profile.courseStates?.[assignedCode];
-                                // เช็ค prereq ก่อนแสดงสถานะ — ถ้า prereq ยังไม่ passed → locked
                                 const assignedPrereq = assignedCourse?.prereq;
                                 const assignedPrereqList = assignedPrereq ? assignedPrereq.split(",").map(s => s.trim()) : [];
                                 const prereqOk = assignedPrereqList.length === 0 || assignedPrereqList.every(p => profile.courseStates?.[p] === 'passed');
@@ -1496,7 +1342,6 @@ const Roadmap = () => {
                                   : effectiveState === 'learning' ? 'active'
                                   : effectiveState === 'locked'   ? 'locked'
                                   : 'available';
-                                // find track color
                                 const assignedTrack = tracks.find(t => {
                                   const codes = new Set();
                                   t.chains.forEach(c => c.forEach(item => { if (item !== 'arrow') codes.add(item.replace('*','')); }));
@@ -1509,20 +1354,18 @@ const Roadmap = () => {
                                     id={`pe-card-${assignedCode}`}
                                     onClick={() => navigate(`/course/${assignedCode}`)}
                                     className={`relative p-4 rounded-xl border-2 backdrop-blur-md transition-all duration-300 h-[140px] flex flex-col justify-between group cursor-pointer shadow-lg select-none hover:-translate-y-1 hover:scale-[1.02] ${
-                                      status === 'passed'    ? 'bg-gradient-to-br from-emerald-900/60 to-emerald-800/40 border-emerald-500/60 shadow-emerald-500/20' :
-                                      status === 'active'    ? 'bg-gradient-to-br from-blue-900/70 to-blue-800/50 border-blue-400/70 shadow-blue-500/30 ring-2 ring-blue-400/30' :
-                                      status === 'locked'    ? 'bg-gradient-to-br from-red-950/60 to-red-900/30 border-red-500/50 shadow-red-500/20 opacity-75' :
+                                      status === 'passed'     ? 'bg-gradient-to-br from-emerald-900/60 to-emerald-800/40 border-emerald-500/60 shadow-emerald-500/20' :
+                                      status === 'active'     ? 'bg-gradient-to-br from-blue-900/70 to-blue-800/50 border-blue-400/70 shadow-blue-500/30 ring-2 ring-blue-400/30' :
+                                      status === 'locked'     ? 'bg-gradient-to-br from-red-950/60 to-red-900/30 border-red-500/50 shadow-red-500/20 opacity-75' :
                                       'border-2'
                                     }`}
                                     style={status === 'available' ? { borderColor: tColor + '60', background: tColor + '12' } : {}}
                                   >
-                                    {/* Track badge */}
                                     <div className="absolute -top-2 -left-2 z-10">
                                       <span className="text-[9px] text-white px-2 py-1 rounded-full font-bold shadow-lg" style={{ background: tColor }}>
                                         {assignedTrack?.icon} {assignedTrack?.label || 'ELECTIVE'}
                                       </span>
                                     </div>
-                                    {/* Locked prereq warning */}
                                     {status === 'locked' && (
                                       <div className="absolute inset-0 rounded-xl flex items-center justify-center bg-red-950/40 backdrop-blur-[1px] z-10 pointer-events-none">
                                         <div className="flex flex-col items-center gap-1 text-center px-3">
@@ -1556,7 +1399,6 @@ const Roadmap = () => {
                                 );
                               }
 
-                              // ── Empty PE Slot ──
                               if (isPeSlot && !assignedCourse) {
                                 return (
                                   <div
@@ -1574,7 +1416,6 @@ const Roadmap = () => {
                                 );
                               }
 
-                              // ── Normal Course Card ──
                               return (
                                 <div
                                   key={course.id}
@@ -1639,13 +1480,11 @@ const Roadmap = () => {
               ))}
             </div>
 
-            {/* ── วิชาเลือกเอก (PE Assignments) Section ── */}
             {(() => {
               const peAssignments = profile.peAssignments || {};
               const assignedEntries = Object.entries(peAssignments).filter(([, code]) => !!trackCoursesData[code]);
               if (assignedEntries.length === 0) return null;
 
-              // Group by track
               const byTrack = {};
               assignedEntries.forEach(([slotId, code]) => {
                 const course = trackCoursesData[code];
@@ -1701,13 +1540,11 @@ const Roadmap = () => {
                                 className={`relative p-5 rounded-2xl border-2 backdrop-blur-md transition-all duration-300 min-h-[160px] flex flex-col justify-between group cursor-pointer shadow-lg select-none hover:-translate-y-1 hover:scale-[1.02] ${statusClass}`}
                                 style={status === 'available' ? { borderColor: tColor + '50', background: tColor + '10' } : {}}
                               >
-                                {/* Slot badge */}
                                 <div className="absolute -top-2 -left-2 z-10">
                                   <span className="text-[9px] text-white px-2 py-1 rounded-full font-bold shadow-lg" style={{ background: tColor }}>
                                     {t?.icon} slot: {slotId}
                                   </span>
                                 </div>
-
                                 <div className="flex justify-between items-start mb-3">
                                   <span className="text-xs font-bold font-mono tracking-wider bg-black/50 px-3 py-1.5 rounded-lg border shadow-md"
                                     style={{ color: tColor, borderColor: tColor + '40' }}>
@@ -1717,7 +1554,6 @@ const Roadmap = () => {
                                   {status === 'active'    && <BookOpen size={22} className="text-blue-300 animate-pulse"/>}
                                   {status === 'available' && <GraduationCap size={20} style={{ color: tColor }}/>}
                                 </div>
-
                                 <div className="flex-1">
                                   <h4 className="font-bold text-base text-white leading-snug mb-1 group-hover:opacity-80 transition-opacity line-clamp-2">
                                     {course.nameEn || course.name}
@@ -1742,7 +1578,6 @@ const Roadmap = () => {
           </>
         )}
 
-        {/* ════ ELECTIVE COURSES TAB ════ */}
         {activeTab === 'elective' && (
           <div className="space-y-8 relative z-10">
             <div className="text-center mb-8">
@@ -1823,20 +1658,11 @@ const Roadmap = () => {
                 ))}
               </div>
             )}
-
-            {processedElectives.length === 0 && (
-              <div className="text-center py-20">
-                <AlertCircle className="mx-auto mb-4 text-slate-600" size={64} />
-                <p className="text-slate-500 text-lg">No elective courses available</p>
-              </div>
-            )}
           </div>
         )}
 
-        {/* ════ TRACK MAP TAB ════ */}
         {activeTab === 'trackmap' && (
           <div className="relative z-10">
-            {/* Section Header */}
             <div className="text-center mb-8">
               <div className="inline-flex items-center gap-3 px-8 py-4 rounded-2xl mb-3" style={{ background: 'transparent' }}>
                 <GitBranch className="text-violet-400" size={28} />
@@ -1846,13 +1672,11 @@ const Roadmap = () => {
                 ดูเส้นทางการเรียนในแต่ละสาย พร้อม prerequisite chains ทั้งหมด
               </p>
             </div>
-            {/* CurriculumMap Component */}
             <CurriculumMapTab />
           </div>
         )}
       </div>
 
-      {/* Custom CSS */}
       <style jsx>{`
         @keyframes pulse-subtle {
           0%, 100% { opacity: 1; }

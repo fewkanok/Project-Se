@@ -21,40 +21,7 @@ const Register = () => {
     setError('');
   };
 
-  // const handleRegister = (e) => {
-  //   e.preventDefault();
 
-  //   // 1. Validation Logic
-  //   if (formData.password !== formData.confirmPassword) {
-  //     setError("Passwords do not match!");
-  //     return;
-  //   }
-    
-  //   if (formData.password.length < 4) {
-  //     setError("Password must be at least 4 characters.");
-  //     return;
-  //   }
-
-  //   setLoading(true);
-
-  //   // 2. Save Data & Simulate API Call
-  //   setTimeout(() => {
-  //     setLoading(false);
-      
-  //     // ✅ จุดสำคัญ: บันทึกข้อมูลลงเครื่อง (เปรียบเสมือน Database)
-  //     const userData = {
-  //         name: formData.fullName.trim() || 'Anonymous',
-  //         studentId: formData.studentId.trim() || '',
-  //         email: formData.email,
-  //         password: formData.password
-  //     };
-      
-  //     localStorage.setItem('registered_user', JSON.stringify(userData));
-
-  //     alert("Registration Successful! Please Login.");
-  //     navigate('/login');
-  //   }, 1500);
-  // };
   const handleRegister = async (e) => {
   e.preventDefault();
 
@@ -67,7 +34,7 @@ const Register = () => {
   setError('');
 
   try {
-    // ✅ ใช้ Axios ยิงไปที่ Backend ของโก๋
+
     const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/signup`, {
       email: formData.email,
       password: formData.password,

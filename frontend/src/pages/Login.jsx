@@ -15,109 +15,51 @@ const Login = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // const handleLogin = (e) => {
-  //   e.preventDefault();
-
-  //   // 1. อ่านข้อมูลจากที่ลงทะเบียนไว้
-  //   const registeredUser = JSON.parse(localStorage.getItem('registered_user'));
-
-  //   let isValid = false;
-  //   let currentUserData = null;
-
-  //   // 2. เช็คว่ามีข้อมูลตรงกันไหม (Email & Password)
-  //   if (registeredUser && registeredUser.email === formData.email) {
-  //       if (registeredUser.password === formData.password) {
-  //           isValid = true;
-  //           currentUserData = registeredUser;
-  //       } else {
-  //           alert("Wrong password for this Survivor!");
-  //           return;
-  //       }
-  //   } else {
-  //       // Backdoor สำหรับการ Test (Optional)
-  //       if (formData.email === "test@example.com" && formData.password === "1234") {
-  //           isValid = true;
-  //           currentUserData = { 
-  //               name: 'Survivor Guest', 
-  //               studentId: '6609999999', 
-  //               email: 'test@example.com' 
-  //           };
-  //       } else {
-  //           alert("Email not found! Please register first.");
-  //           return;
-  //       }
-  //   }
-
-  //   if (isValid) {
-  //       setLoading(true);
-  //       setTimeout(() => {
-  //           setLoading(false);
-            
-  //           // ✅ จุดสำคัญ: บันทึก Session ว่าใครล็อกอินอยู่ (Active Session)
-  //           localStorage.setItem('active_session', JSON.stringify(currentUserData));
-            
-  //           navigate('/setup');
-  //       }, 1500);
-  //   }
-  // };
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      // 1. ยิง API ไปที่ Backend
+
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/auth/login`, {
         email: formData.email,
         password: formData.password
       });
 
       if (response.status === 200 || response.status === 201) {
-        // 2. ดึงข้อมูลออกมา (ตรวจสอบว่า Backend ส่ง profile, access_token มาให้)
+        
         const { profile, access_token, user } = response.data;
 
-        // 3. เช็กเรื่องการยืนยัน Email (ถ้ามีข้อมูล user ส่งมา)
-        // ถ้า Supabase ตั้งค่าให้ต้องคอนเฟิร์มเมลก่อน user.email_confirmed_at จะเป็นค่าว่าง
+        
         if (user && !user.email_confirmed_at) {
           alert("📧 กรุณายืนยัน Email ในกล่องจดหมายของคุณก่อนเข้าสู่ระบบนะครับ!");
           setLoading(false);
           return;
         }
 
-        // 4. บันทึกข้อมูลลง LocalStorage (จุดชี้เป็นชี้ตาย!)
+        
         if (profile) {
-          // เก็บก้อน Profile ทั้งหมด
+          
           localStorage.setItem('active_session', JSON.stringify(profile));
           
-          // เก็บ userId (UUID) แยกไว้ เพื่อให้หน้า Setup เรียกใช้ง่ายๆ
           if (profile.id) {
             localStorage.setItem('userId', profile.id);
           }
-          
-          // เก็บชื่อผู้ใช้
           localStorage.setItem('userName', profile.name || '');
-          
-          // เก็บ Email ไว้ดูเล่นๆ
           localStorage.setItem('userEmail', profile.email || formData.email);
         }
-        
-        // เก็บ Token สำหรับเรียก API ที่ต้องใช้การยืนยันตัวตน
         if (access_token) {
           localStorage.setItem('token', access_token);
         }
-
-        console.log("Login Success! Data saved to LocalStorage.");
-
-        // 5. แยกเส้นทาง (Logic: ถ้ามีข้อมูลในเบสแล้วไป Dashboard ถ้ายังไม่มีไป Setup)
         if (profile && profile.profileData) {
           alert("ยินดีต้อนรับกลับ! กำลังโหลดข้อมูลแผนการเรียนของคุณ...");
           navigate('/dashboard'); 
         } else {
-          alert("Login สำเร็จ! เนื่องจากเป็นครั้งแรก กรุณาตั้งค่าโปรไฟล์ก่อนนะครับโก๋");
+          alert("Login สำเร็จ!");
           navigate('/setup'); 
         }
       }
     } catch (err) {
-      // 6. ดักจับ Error ต่างๆ
       console.error("Login Error Details:", err.response?.data);
       
       const errorMessage = err.response?.data?.message || "Login Failed! โปรดตรวจสอบ Email/Password หรือยืนยัน Email";

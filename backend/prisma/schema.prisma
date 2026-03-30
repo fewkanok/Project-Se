@@ -58,7 +58,6 @@ model Review {
   course    Course   @relation(fields: [courseId], references: [id])
   author    Student  @relation(fields: [studentId], references: [id])
 
-  // ✅ 1. ระบบ Reply: รีวิวตัวลูกจะเก็บ ID ของตัวแม่ (parentId)
   parentId  Int?
   parent    Review?  @relation("ReviewReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies   Review[] @relation("ReviewReplies")

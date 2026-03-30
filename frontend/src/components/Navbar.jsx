@@ -26,7 +26,6 @@ const Navbar = () => {
             localStorage.setItem('userProfile', JSON.stringify(freshData));
           }
         } catch (e) {
-          console.log("Sync failed");
         }
       }
     };
@@ -35,7 +34,6 @@ const Navbar = () => {
     syncFromDatabase();
   }, [location.pathname]);
 
-  // 🛡️ รวบรวมข้อมูลที่จะแสดง
   const userData = {
     name: profile?.basicInfo?.name || profile?.name || 'New Survivor',
     studentId: profile?.basicInfo?.studentId || 'ID: -',
@@ -79,12 +77,10 @@ const Navbar = () => {
         ))}
       </div>
 
-      {/* ✅ Profile Section: ชื่อ | Student ID | Role */}
       <div 
         className="flex items-center gap-3 bg-white/5 backdrop-blur-md rounded-2xl pl-2 pr-4 py-1.5 border border-white/10 hover:bg-white/10 transition-all cursor-pointer shadow-xl"
         onClick={() => window.location.href='/setup'}
       >
-        {/* รูปโปรไฟล์ */}
         <div className="relative w-9 h-9 rounded-xl overflow-hidden border border-white/20 bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shrink-0">
           {userData.image ? (
             <img src={userData.image} className="w-full h-full object-cover" alt="Avatar" />
@@ -92,8 +88,6 @@ const Navbar = () => {
             <User size={18} className="text-slate-400" />
           )}
         </div>
-
-        {/* ข้อมูล 3 บรรทัดตามสั่ง */}
         <div className="flex flex-col justify-center hidden sm:flex min-w-[80px]">
           <span className="font-black text-[11px] leading-tight text-white uppercase truncate">
             {userData.name}

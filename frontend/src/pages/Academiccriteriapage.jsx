@@ -4,9 +4,6 @@ import { ArrowLeft, AlertTriangle, CheckCircle2, XCircle, GraduationCap, Info, B
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
 
-// ─── TABLE DATA — mirrors the infographic exactly ───────────────────────────
-// Each "case row" = one example student trajectory
-// status: 'warning' | 'probation-low' | 'probation-high' | 'retired' | 'safe' | 'regrade' | 'graduated' | 'empty' | 'note'
 const TABLE_ROWS = [
   {
     id: 'A', icon: null, label: 'A',
@@ -118,10 +115,8 @@ const TABLE_ROWS = [
   }
 ];
 
-// Map semester index (1-based) → { year, term }
 const semToYearTerm = (sem) => ({ year: Math.ceil(sem / 2), term: sem % 2 === 1 ? 1 : 2 });
 
-// ─── Cell style config ───────────────────────────────────────────────────────
 const CELL_STYLES = {
   'retired':        { bg: '#e53e3e', text: '#fff',    border: '#c53030', label: 'พ้นสภาพ' },
   'probation-low':  { bg: '#dd6b20', text: '#fff',    border: '#c05621', label: 'โปรต่ำ'  },
@@ -133,22 +128,19 @@ const CELL_STYLES = {
   'empty':          { bg: 'transparent', text: '#4a5568', border: '#2d3748', label: '-'   },
 };
 
-// ─── Outcome badge config ─────────────────────────────────────────────────────
 const OUTCOME_STYLES = {
   'retired':   { bg: '#e53e3e22', border: '#e53e3e', text: '#fc8181', icon: XCircle },
   'graduated': { bg: '#55309422', border: '#553c9a', text: '#b794f4', icon: GraduationCap },
   'regrade':   { bg: '#2b6cb022', border: '#2b6cb0', text: '#90cdf4', icon: CheckCircle2 },
 };
 
-// ─── Main Component ─────────────────────────────────────────────────────────
 const AcademicCriteriaPage = () => {
   const navigate = useNavigate();
   const [selectedRow, setSelectedRow] = useState(null);
   const [showCoreCourses, setShowCoreCourses] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
-  const [userSemData, setUserSemData] = useState({}); // { 1: gpax, 2: gpax, ... } keyed by sem index
+  const [userSemData, setUserSemData] = useState({});
 
-  // ── Load SetupProfile data from localStorage ─────────────────────────────
   useEffect(() => {
     try {
       const raw = localStorage.getItem('userProfile');
@@ -156,16 +148,14 @@ const AcademicCriteriaPage = () => {
       const parsed = JSON.parse(raw);
       setUserProfile(parsed);
 
-      // Build sem-keyed GPAX map
       const gpaH = parsed.gpaHistory || {};
       const semMap = {};
-      // gpaHistory keys look like "Y1/1", "Y1/2", "Y2/1", etc.
       Object.entries(gpaH).forEach(([key, val]) => {
         const match = key.match(/Y(\d+)\/(\d+)/);
         if (match) {
           const y = parseInt(match[1]);
           const t = parseInt(match[2]);
-          const semIdx = (y - 1) * 2 + t; // 1-based
+          const semIdx = (y - 1) * 2 + t;
           semMap[semIdx] = parseFloat(val) || null;
         }
       });
@@ -180,8 +170,6 @@ const AcademicCriteriaPage = () => {
   const currentSem  = currentYear && currentTerm ? (currentYear - 1) * 2 + currentTerm : null;
   const userName    = userProfile?.basicInfo?.name || userProfile?.name || null;
 
-  // ── Weighted GPAX — copy logic จาก Dashboard ทุกบรรทัด ────────────────────
-  // รวม customElectives เหมือน Dashboard เพื่อให้ตัวเลขตรงกัน
   const gpaxStats = useMemo(() => {
     if (!userProfile || !roadmapData) return { gpax: null, totalGradedCredits: 0, semCount: 0 };
 
@@ -189,7 +177,6 @@ const AcademicCriteriaPage = () => {
     const currentTermNum = parseInt(userProfile.basicInfo?.currentTerm || userProfile.currentTerm) || 1;
     const customElectives = userProfile.customElectives || {};
 
-    // โหลด coopGrades เหมือน Dashboard
     let coopGrades = {};
     try {
       const saved = localStorage.getItem('coopGradeStates');
@@ -216,7 +203,6 @@ const AcademicCriteriaPage = () => {
 
         const termGPA = parseFloat(historyGradeStr);
 
-        // รวม customElectives เหมือน Dashboard บรรทัดต่อบรรทัด
         let displayCourses = [...sem.courses];
         if (customElectives[termKey]) {
           customElectives[termKey].forEach(elecId => {
@@ -225,13 +211,11 @@ const AcademicCriteriaPage = () => {
           });
         }
 
-        // credits ที่ passed จริง (รวม elective ที่ user mark passed) — เหมือน Dashboard
         const termPassedCredits = displayCourses.reduce((sum, c) => {
           const status = userProfile.courseStates?.[c.id];
           return status === 'passed' ? sum + c.credits : sum;
         }, 0);
 
-        // fallback = sum credits ของ sem courses เท่านั้น (ไม่รวม elective) — เหมือน Dashboard
         const semDefaultCredits = sem.courses.reduce((a, b) => a + b.credits, 0);
         const weight = termPassedCredits > 0 ? termPassedCredits : semDefaultCredits;
 
@@ -249,32 +233,24 @@ const AcademicCriteriaPage = () => {
 
   const { gpax: calculatedGPAX, totalGradedCredits, semCount: gradedSemCount } = gpaxStats;
 
-  // ── Determine which case row the user best matches ────────────────────────
   const getUserMatchedCase = () => {
     if (!currentSem || Object.keys(userSemData).length === 0) return null;
 
-    const pastSems = currentSem - 1; // เทอมที่ผ่านมาแล้ว (ไม่รวมปัจจุบัน)
+    const pastSems = currentSem - 1;
     if (pastSems < 1) return null;
 
-    // อ่านเฉพาะเทอมที่ผ่านมาจริงๆ เทอมที่ยังไม่ผ่านถือว่าไม่มีข้อมูล
     const getSem = (idx) => (idx <= pastSems ? (userSemData[idx] ?? null) : null);
     const g1 = getSem(1);
     const g2 = getSem(2);
 
-    // ── Case A: ผ่านเทอม 1 มาแล้ว และ GPAX < 1.25 ─────────────────────────
     if (pastSems >= 1 && g1 != null && g1 < 1.25) return 'A';
 
-    // ── Case B: ผ่านเทอม 2 มาแล้ว และ GPAX < 1.50 ─────────────────────────
     if (pastSems >= 2 && g2 != null && g2 < 1.50) return 'B';
 
-    // ── วิเคราะห์เทอม 3+ (3 zone mutually exclusive) ───────────────────────
-    //   LOW  < 1.75           → รีเซ็ต HIGH counter
-    //   HIGH 1.75 ≤ g < 2.00 → รีเซ็ต LOW counter
-    //   SAFE ≥ 2.00           → รีเซ็ตทั้งคู่
     let consecutiveLow = 0,  maxConsLow  = 0;
     let consecutiveHigh = 0, maxConsHigh = 0;
     let totalLowCount = 0;
-    let hadSafeBeforeLow = false; // มี SAFE คั่นระหว่าง LOW สองช่วง = กระจาย
+    let hadSafeBeforeLow = false;
     let prevWasSafe = false;
 
     for (let i = 3; i <= pastSems; i++) {
@@ -300,46 +276,33 @@ const AcademicCriteriaPage = () => {
       }
     }
 
-    // ── Case C: เคยติด LOW ≥2 ภาคติดกัน ─────────────────────────────────────
     if (maxConsLow >= 2) return 'C';
 
-    // ── Case D: เคยติด HIGH ≥4 ภาคติดกัน ────────────────────────────────────
     if (maxConsHigh >= 4 || consecutiveHigh >= 3) return 'D';
 
-    // ── Case E: low กระจาย ≥2 ครั้ง (มี safe คั่น แล้วกลับมา low) ───────────
     if (totalLowCount >= 2 && hadSafeBeforeLow) return 'E';
 
-    // ── ใช้ weighted GPAX (เดียวกับ Dashboard) สำหรับ F / G / H ──────────────
-    // ดึงค่า GPAX จาก gpaHistory โดยตรงก่อน แล้ว fallback ไป calculatedGPAX
-    // เพื่อให้สอดคล้องกับค่าที่แสดงบน Dashboard
     const gpax = calculatedGPAX;
 
-    // ── Case F: เรียนผ่านมาหลายเทอมแล้ว แต่ weighted GPAX < 1.80 ─────────────
     if (gpax != null && gpax < 1.80 && pastSems >= 6) return 'F';
 
-    // ── Case G: weighted GPAX คาบเส้น 1.80–1.99 (ต้องลงรีเกรด) ──────────────
     if (gpax != null && gpax >= 1.80 && gpax < 2.00) return 'G';
 
-    // ── Case H: weighted GPAX ≥ 2.00 หรือ fall-through ────────────────────────
     if (gpax != null && gpax >= 2.00) return 'H';
 
-    // ── ยังไม่มีข้อมูล GPAX พอที่จะระบุ case ────────────────────────────────
     return null;
   };
 
   const matchedCase = getUserMatchedCase();
 
-  // ── GPA to status (used for user's personal row) ──────────────────────────
   const gpaxToStatus = (gpax, semIdx) => {
     if (semIdx === 1) return gpax < 1.25 ? 'probation-low' : 'warning';
     if (semIdx === 2) return gpax < 1.50 ? 'probation-low' : gpax < 2.00 ? 'warning' : 'safe';
-    // เทอม 3 เป็นต้นไป
     if (gpax >= 2.00) return 'safe';
     if (gpax >= 1.75) return 'probation-high';
     return 'probation-low';
   };
 
-  // ── Render a single GPA cell ──────────────────────────────────────────────
   const GpaCell = ({ gpa, status, note, isCurrent = false, isUser = false, dimmed = false }) => {
     const s = CELL_STYLES[status] || CELL_STYLES.empty;
     return (
@@ -376,7 +339,6 @@ const AcademicCriteriaPage = () => {
     );
   };
 
-  // ── Render the X (retired marker) cell ───────────────────────────────────
   const RetiredCell = () => (
     <div
       className="flex items-center justify-center rounded-lg border-2"
@@ -394,7 +356,6 @@ const AcademicCriteriaPage = () => {
     </div>
   );
 
-  // ── Build user's personal GPAX row ───────────────────────────────────────
   const renderUserRow = () => {
     if (!userProfile || Object.keys(userSemData).length === 0) return null;
     const cells = [];
@@ -431,10 +392,8 @@ const AcademicCriteriaPage = () => {
     return cells;
   };
 
-  // Total semesters visible in the table = 12 (6 ปี)
   const TOTAL_SEMS = 12;
 
-  // มีเกรดเทอมปัจจุบันจริงๆ ไหม (= user กรอก GPA ของเทอมนี้มาด้วย)
   const hasCurrentSemGrade = currentSem != null && userSemData[currentSem] != null;
 
   return (
@@ -442,7 +401,6 @@ const AcademicCriteriaPage = () => {
 
       <div style={{ maxWidth: 1400, margin: '0 auto', position: 'relative', zIndex: 1 }}>
 
-        {/* ── Header ── */}
         <div className="flex items-center gap-4 mb-6">
           <button
             onClick={() => navigate('/dashboard')}
@@ -467,11 +425,9 @@ const AcademicCriteriaPage = () => {
           </div>
         </div>
 
-        {/* ── User status banner (if logged in) ── */}
         {userProfile && (
           <div style={{ marginBottom: 20, display: 'flex', flexDirection: 'column', gap: 10 }}>
 
-            {/* ── Profile + Case badge row ── */}
             <div style={{ background: '#111827', border: '1px solid #1f2937', borderRadius: 14, padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
               <div className="flex items-center gap-3">
                 <img
@@ -487,10 +443,9 @@ const AcademicCriteriaPage = () => {
                 </div>
               </div>
               {matchedCase && (() => {
-                const isRetired  = ['A','B','C','D','E','F'].includes(matchedCase);
-                const isRegrade  = matchedCase === 'G';
                 const isSafeFull = matchedCase === 'H' && hasCurrentSemGrade;
                 const isSafeTend = matchedCase === 'H' && !hasCurrentSemGrade;
+                const isRegrade  = matchedCase === 'G';
 
                 const bgColor     = isSafeFull ? '#27674922' : isSafeTend ? '#2c5f2e22' : isRegrade ? '#2b6cb022' : '#e53e3e22';
                 const borderColor = isSafeFull ? '#276749'   : isSafeTend ? '#2d6a2f'   : isRegrade ? '#2b6cb0'   : '#e53e3e';
@@ -536,34 +491,25 @@ const AcademicCriteriaPage = () => {
               })()}
             </div>
 
-            {/* ── Graduation eligibility card ── */}
             {(() => {
               if (calculatedGPAX === null) return null;
 
               const gpax     = calculatedGPAX;
               const semCount = gradedSemCount;
 
-              // ── เกณฑ์เกรด ──────────────────────────────────────────────────
               const gradeOk      = gpax >= 2.00;
               const gradeRegrade = gpax >= 1.80 && gpax < 2.00;
               const gradeFail    = gpax < 1.80;
 
-              // ── เกณฑ์เทอม: CS ENG59 = 8 เทอม (4 ปี) ──────────────────────
-              // pastSems = เทอมที่จบแล้ว (ไม่รวมปัจจุบัน)
               const pastSems      = currentSem != null ? currentSem - 1 : semCount;
               const REQUIRED_SEMS = 8;
               const semOk         = pastSems >= REQUIRED_SEMS;
               const semsLeft      = Math.max(0, REQUIRED_SEMS - pastSems);
 
-              // ── สรุปสถานะ ──────────────────────────────────────────────────
-              // canGrad = เกรดผ่าน AND เรียนครบเทอมแล้ว
-              // gradeOkNotDone = เกรดผ่าน แต่เทอมยังไม่ครบ
               const canGrad       = gradeOk && semOk;
               const gradeOkNotDone = gradeOk && !semOk;
               const needsRegrade  = gradeRegrade;
-              const notReady      = gradeFail;
 
-              // ── สี ────────────────────────────────────────────────────────
               const accent = canGrad       ? '#22c55e'
                            : gradeOkNotDone ? '#facc15'
                            : needsRegrade  ? '#60a5fa'
@@ -594,7 +540,6 @@ const AcademicCriteriaPage = () => {
                             : needsRegrade  ? 'GPAX 1.80–1.99 ต้องดึงเกรดให้ถึง 2.00 ก่อน'
                             :                 'GPAX ต่ำกว่า 1.80 ต้องเร่งดึงเกรดอย่างเร่งด่วน';
 
-              // คำนวณเกรดที่ต้องได้ (กรณียังไม่ผ่าน)
               const avgWeight  = semCount > 0 ? totalGradedCredits / semCount : 20;
               const needed1Sem = !gradeOk && semCount > 0
                 ? (2.00 * (totalGradedCredits + avgWeight) - gpax * totalGradedCredits) / avgWeight
@@ -612,13 +557,11 @@ const AcademicCriteriaPage = () => {
                   boxShadow: `0 0 60px ${accent}22, 0 0 120px ${accent}0a, inset 0 1px 0 ${accent}15`,
                   position: 'relative',
                 }}>
-                  {/* Glow orb background */}
                   <div style={{
                     position: 'absolute', top: -60, right: -60, width: 220, height: 220,
                     borderRadius: '50%', background: `${accent}0c`, filter: 'blur(60px)', pointerEvents: 'none',
                   }} />
 
-                  {/* ── Top bar: verdict ─────────────────────────────────── */}
                   <div style={{
                     padding: '28px 32px',
                     display: 'flex', alignItems: 'center', gap: 24,
@@ -626,7 +569,6 @@ const AcademicCriteriaPage = () => {
                     flexWrap: 'wrap',
                     position: 'relative',
                   }}>
-                    {/* Icon — bigger */}
                     <div style={{
                       width: 72, height: 72, borderRadius: 18, flexShrink: 0,
                       background: `${accent}15`,
@@ -637,7 +579,6 @@ const AcademicCriteriaPage = () => {
                       <StatusIcon size={36} color={accent} strokeWidth={2.5} />
                     </div>
 
-                    {/* Headline */}
                     <div style={{ flex: 1, minWidth: 200 }}>
                       <div style={{
                         fontSize: '28px', fontWeight: 900, color: accent,
@@ -651,7 +592,6 @@ const AcademicCriteriaPage = () => {
                       </div>
                     </div>
 
-                    {/* GPAX big number — much bigger */}
                     <div style={{ textAlign: 'right', flexShrink: 0 }}>
                       <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 700, marginBottom: 4, letterSpacing: '0.05em', textTransform: 'uppercase' }}>GPAX สะสม</div>
                       <div style={{
@@ -666,10 +606,8 @@ const AcademicCriteriaPage = () => {
                     </div>
                   </div>
 
-                  {/* ── Bottom: progress bars ─────────────────────────────── */}
                   <div style={{ padding: '22px 32px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px 40px' }}>
 
-                    {/* GPAX bar */}
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                         <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 700 }}>เกรดสะสม (GPAX)</span>
@@ -691,7 +629,6 @@ const AcademicCriteriaPage = () => {
                           boxShadow: gradeOk ? '0 0 12px #22c55e80' : gradeRegrade ? '0 0 12px #60a5fa80' : '0 0 12px #f8717180',
                           transition: 'width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
                         }} />
-                        {/* 2.00 target marker */}
                         <div style={{
                           position: 'absolute', top: -6, bottom: -6, left: '50%',
                           width: 3, borderRadius: 3, background: '#facc15',
@@ -708,7 +645,6 @@ const AcademicCriteriaPage = () => {
                       </div>
                     </div>
 
-                    {/* Semester progress bar */}
                     <div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                         <span style={{ fontSize: '13px', color: '#9ca3af', fontWeight: 700 }}>เทอมที่เรียนแล้ว</span>
@@ -740,7 +676,6 @@ const AcademicCriteriaPage = () => {
                       </div>
                     </div>
 
-                    {/* Needed grade section (if grade not passing) */}
                     {!gradeOk && needed1Sem !== null && (
                       <div style={{ gridColumn: '1 / -1', borderTop: `1px solid ${borderCol}30`, paddingTop: 14 }}>
                         <div style={{ fontSize: '12px', color: '#6b7280', fontWeight: 700, marginBottom: 10 }}>
@@ -782,11 +717,9 @@ const AcademicCriteriaPage = () => {
           </div>
         )}
 
-        {/* ── Core Courses Checklist ── */}
         {userProfile && (() => {
           const courseStates = userProfile.courseStates || {};
           
-          // รวบรวมวิชาแกนทั้งหมดจาก roadmapData
           const allCoreCourses = [];
           roadmapData.forEach((yearGroup, yIdx) => {
             yearGroup.semesters.forEach((sem, sIdx) => {
@@ -806,7 +739,6 @@ const AcademicCriteriaPage = () => {
           const percent      = total > 0 ? Math.round((passedCount / total) * 100) : 0;
           const allPassed    = passedCount === total;
 
-          // group by year
           const byYear = {};
           allCoreCourses.forEach(c => {
             if (!byYear[c.year]) byYear[c.year] = {};
@@ -823,7 +755,6 @@ const AcademicCriteriaPage = () => {
               overflow: 'hidden',
               boxShadow: allPassed ? '0 0 40px #22c55e15' : 'none',
             }}>
-              {/* Header row */}
               <div
                 onClick={() => setShowCoreCourses(p => !p)}
                 style={{
@@ -850,14 +781,12 @@ const AcademicCriteriaPage = () => {
                     ต้องผ่านทุกวิชาแกน จึงจะสำเร็จการศึกษาได้
                   </div>
                 </div>
-                {/* Progress badge */}
                 <div style={{ textAlign: 'right', marginRight: 8 }}>
                   <div style={{ fontSize: '24px', fontWeight: 900, fontFamily: 'monospace', color: allPassed ? '#22c55e' : percent >= 70 ? '#facc15' : '#f87171', lineHeight: 1 }}>
                     {passedCount}<span style={{ fontSize: '14px', color: '#4b5563', fontWeight: 700 }}>/{total}</span>
                   </div>
                   <div style={{ fontSize: '10px', color: '#6b7280', marginTop: 2 }}>ผ่านแล้ว</div>
                 </div>
-                {/* Progress bar */}
                 <div style={{ width: 80, flexShrink: 0 }}>
                   <div style={{ height: 6, background: '#1e293b', borderRadius: 99, overflow: 'hidden' }}>
                     <div style={{
@@ -873,12 +802,10 @@ const AcademicCriteriaPage = () => {
                 {showCoreCourses ? <ChevronUp size={16} color="#4b5563"/> : <ChevronDown size={16} color="#4b5563"/>}
               </div>
 
-              {/* Course list */}
               {showCoreCourses && (
                 <div style={{ padding: '16px 24px', display: 'flex', flexDirection: 'column', gap: 24 }}>
                   {Object.entries(byYear).map(([year, terms]) => (
                     <div key={year}>
-                      {/* Year label */}
                       <div style={{
                         fontSize: '11px', fontWeight: 900, color: '#6b7280',
                         letterSpacing: '0.1em', textTransform: 'uppercase',
@@ -891,7 +818,6 @@ const AcademicCriteriaPage = () => {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {Object.entries(terms).map(([term, { label, courses }]) => (
                           <div key={term}>
-                            {/* Term label */}
                             <div style={{ fontSize: '10px', color: '#4b5563', fontWeight: 700, marginBottom: 6, marginLeft: 4 }}>
                               {label}
                             </div>
@@ -913,14 +839,12 @@ const AcademicCriteriaPage = () => {
                                     border: `1px solid ${passed ? '#16a34a50' : learning ? '#2563eb40' : '#1f2937'}`,
                                     transition: 'all 0.2s',
                                   }}>
-                                    {/* Status icon */}
                                     <div style={{ flexShrink: 0 }}>
                                       {passed   ? <CheckCircle2 size={16} color="#22c55e"/>
                                        : learning ? <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: 6, height: 6, borderRadius: '50%', background: '#3b82f6' }}/></div>
                                        : !prereqOk ? <Lock size={14} color="#6b7280"/>
                                        : <div style={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid #374151' }}/>}
                                     </div>
-                                    {/* Course info */}
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                       <div style={{ fontSize: '12px', fontWeight: 700, color: passed ? '#86efac' : learning ? '#93c5fd' : '#9ca3af', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {course.name}
@@ -929,7 +853,6 @@ const AcademicCriteriaPage = () => {
                                         {course.code} · {course.credits} หน่วยกิต
                                       </div>
                                     </div>
-                                    {/* Status badge */}
                                     <div style={{
                                       fontSize: '9px', fontWeight: 700, padding: '2px 7px', borderRadius: 99, flexShrink: 0,
                                       background: passed ? '#22c55e20' : learning ? '#3b82f620' : '#1f293760',
@@ -953,7 +876,6 @@ const AcademicCriteriaPage = () => {
           );
         })()}
 
-        {/* ── Legend ── */}
         <div style={{ background: '#1a202c', border: '1px solid #2d3748', borderRadius: 14, padding: '12px 16px', marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: '#a0aec0', fontSize: '12px', fontWeight: 700 }}>
             <Info size={14} />
@@ -964,9 +886,9 @@ const AcademicCriteriaPage = () => {
               { status: 'warning',        label: 'เสี่ยง / ปี 1'   },
               { status: 'probation-low',  label: 'โปรต่ำ < 1.75'  },
               { status: 'probation-high', label: 'โปรสูง < 2.00'  },
-              { status: 'retired',        label: 'พ้นสภาพ'         },
-              { status: 'safe',           label: 'ปกติ ≥ 2.00'     },
-              { status: 'regrade',        label: 'รีเกรด'          },
+              { status: 'retired',        label: 'พ้นสภาพ'        },
+              { status: 'safe',           label: 'ปกติ ≥ 2.00'    },
+              { status: 'regrade',        label: 'รีเกรด'         },
               { status: 'graduated',      label: 'สำเร็จการศึกษา' },
             ].map(({ status, label }) => {
               const s = CELL_STYLES[status];
@@ -983,14 +905,11 @@ const AcademicCriteriaPage = () => {
           </div>
         </div>
 
-        {/* ── Main Table ── */}
         <div style={{ background: '#0d1117', border: '1px solid #1f2937', borderRadius: 18, overflow: 'hidden', boxShadow: '0 4px 32px #00000060' }}>
 
-          {/* Table outer scroll wrapper */}
           <div style={{ overflowX: 'auto' }}>
             <div style={{ minWidth: 900 }}>
 
-              {/* ── Year header row ── */}
               <div style={{ display: 'grid', gridTemplateColumns: '88px 1fr', background: '#060910', borderBottom: '1px solid #1f2937' }}>
                 <div style={{ padding: '12px 8px', borderRight: '1px solid #1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ fontSize: '11px', fontWeight: 900, color: '#374151', letterSpacing: 2 }}>CASE</span>
@@ -1011,7 +930,6 @@ const AcademicCriteriaPage = () => {
                 </div>
               </div>
 
-              {/* ── Semester sub-header ── */}
               <div style={{ display: 'grid', gridTemplateColumns: '88px 1fr', background: '#080c12', borderBottom: '2px solid #1f2937' }}>
                 <div style={{ padding: '6px 8px', borderRight: '1px solid #1f2937', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span style={{ fontSize: '10px', fontWeight: 700, color: '#374151', letterSpacing: 1 }}>เทอม</span>
@@ -1035,7 +953,6 @@ const AcademicCriteriaPage = () => {
                 </div>
               </div>
 
-              {/* ── User's GPAX row ── */}
               {userProfile && Object.keys(userSemData).length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: '88px 1fr', borderBottom: '2px solid #2563eb40', background: '#1e40af08' }}>
                   <div style={{ padding: '8px 6px', borderRight: '1px solid #1f2937', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
@@ -1054,14 +971,12 @@ const AcademicCriteriaPage = () => {
                 </div>
               )}
 
-              {/* ── Case rows A–H ── */}
               {TABLE_ROWS.map((row, rowIdx) => {
                 const isSelected = selectedRow === row.id;
                 const OutcomeIcon = OUTCOME_STYLES[row.outcome]?.icon || XCircle;
                 const outcomeStyle = OUTCOME_STYLES[row.outcome] || OUTCOME_STYLES.retired;
                 const isMatched = matchedCase === row.id;
 
-                // outcome color accent per row
                 const rowAccent = row.outcome === 'retired' ? '#e53e3e' : row.outcome === 'graduated' ? '#553c9a' : '#2b6cb0';
 
                 return (
@@ -1076,7 +991,6 @@ const AcademicCriteriaPage = () => {
                       borderLeft: isMatched ? '3px solid #22c55e' : '3px solid transparent',
                     }}
                   >
-                    {/* Row label */}
                     <div
                       style={{ padding: '6px', borderRight: '1px solid #1a2030', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, cursor: 'pointer' }}
                       onClick={() => setSelectedRow(isSelected ? null : row.id)}
@@ -1097,9 +1011,7 @@ const AcademicCriteriaPage = () => {
                       )}
                     </div>
 
-                    {/* GPA cells + outcome badge */}
                     <div style={{ display: 'flex', alignItems: 'stretch' }}>
-                      {/* GPA grid — 12 cols with year dividers */}
                       <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: '3px', padding: '5px 3px' }}>
                         {Array.from({ length: TOTAL_SEMS }, (_, i) => {
                           const semNum = i + 1;
@@ -1110,7 +1022,6 @@ const AcademicCriteriaPage = () => {
                         })}
                       </div>
 
-                      {/* Outcome badge */}
                       <div
                         style={{
                           width: 200, flexShrink: 0,
@@ -1143,7 +1054,6 @@ const AcademicCriteriaPage = () => {
           </div>
         </div>
 
-        {/* ── Detail panel (when a case is selected) ── */}
         {selectedRow && (() => {
           const row = TABLE_ROWS.find(r => r.id === selectedRow);
           if (!row) return null;
@@ -1156,7 +1066,6 @@ const AcademicCriteriaPage = () => {
                 </div>
               </div>
 
-              {/* Semester timeline (compact) */}
               <div style={{ overflowX: 'auto', paddingBottom: 8 }}>
                 <div style={{ display: 'flex', gap: 6, minWidth: 'max-content' }}>
                   {row.cells.map((cell, idx) => {
@@ -1191,7 +1100,6 @@ const AcademicCriteriaPage = () => {
           );
         })()}
 
-        {/* ── Summary footer ── */}
         <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14 }}>
           {[
             {
@@ -1219,7 +1127,6 @@ const AcademicCriteriaPage = () => {
           ))}
         </div>
 
-        {/* Source note */}
         <div style={{ marginTop: 16, textAlign: 'center', color: '#4a5568', fontSize: '11px' }}>
           อ้างอิง ตามระเบียบ มจพ. ว่าด้วย การศึกษาระดับปริญญาบัณฑิต (ฉบับที่ 2) ลงวันที่ 23 พฤศจิกายน 2566 &nbsp;·&nbsp; ENG59
         </div>

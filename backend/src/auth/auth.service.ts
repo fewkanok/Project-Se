@@ -13,7 +13,6 @@ export class AuthService {
     );
   }
 
-  // --- ระบบสมัครสมาชิก (เหมือนเดิม) ---
   async signUp(email: string, pass: string, name: string, studentId: string) {
     const { data: authData, error: authError } = await this.supabase.auth.signUp({
       email,
@@ -37,7 +36,6 @@ export class AuthService {
     });
   }
 
-  // --- ระบบเข้าสู่ระบบ (เหมือนเดิม) ---
   async signIn(email: string, pass: string) {
     const { data, error } = await this.supabase.auth.signInWithPassword({
       email,
@@ -69,27 +67,27 @@ export class AuthService {
     };
   }
 
-  // ✅ แก้ไขตรงนี้ครับโก๋! เพื่อให้ชื่อในตารางหลักอัปเดตตามก้อน JSON
   async updateProfile(userId: string, data: any) {
     return this.prisma.student.update({
       where: { id: userId },
       data: { 
-        // 1. เก็บก้อน JSON ทั้งหมดเหมือนเดิม
         profileData: data, 
-        
-        // 2. ✅ ดึง name และ studentId ออกมาเซฟลง Column หลักด้วย
-        // (อ้างอิงจากโครงสร้าง payload.basicInfo ที่โก๋ส่งมาจาก Frontend)
         name: data.basicInfo?.name, 
         studentId: data.basicInfo?.studentId,
       },
     });
   }
 
-  // --- ดึง Profile (เหมือนเดิม) ---
+
   async getProfile(userId: string) {
     const student = await this.prisma.student.findUnique({
       where: { id: userId },
-      select: { profileData: true } 
+      select: { 
+        profileData: true,
+        role: true,
+        name: true,       
+        studentId: true,  
+      } 
     });
     return student;
   }

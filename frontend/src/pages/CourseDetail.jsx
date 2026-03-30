@@ -2,10 +2,9 @@ import { useState, useEffect, useMemo, memo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
-import { ArrowLeft, Star, Users, BookOpen, Clock, BarChart3, MessageSquare, Send, ThumbsUp, Trash2, Sparkles, CheckCircle, Reply, Loader2, ChevronLeft, ChevronRight, User, CornerDownRight } from 'lucide-react';
+import { ArrowLeft, Star, Users, BookOpen, Clock, BarChart3, MessageSquare, Send, ThumbsUp, Trash2, Sparkles, CheckCircle, Reply, Loader2, ChevronLeft, ChevronRight, User, CornerDownRight, ChevronDown, ChevronUp } from 'lucide-react';
 import axios from 'axios';
 
-// ✅ 1. แยก Component ช่อง Reply ออกมาเพื่อให้พิมพ์ลื่น (ไม่ Re-render ทั้งหน้า)
 const ReplyInput = ({ onSend, onCancel, isSubmitting }) => {
   const [text, setText] = useState("");
   
@@ -52,9 +51,14 @@ const CourseDetail = () => {
       if (session?.id) {
         try {
           const res = await axios.get(`${API_URL}/auth/profile/${session.id}`);
+          
           if (res.data?.profileData) {
-            setProfile(res.data.profileData);
-            localStorage.setItem('userProfile', JSON.stringify(res.data.profileData));
+            const mergedProfile = { 
+              ...res.data.profileData, 
+              role: res.data.role 
+            };
+            setProfile(mergedProfile);
+            localStorage.setItem('userProfile', JSON.stringify(mergedProfile));
           }
         } catch (e) { console.log("Sync profile failed"); }
       }
@@ -86,6 +90,7 @@ const CourseDetail = () => {
   const [newComment, setNewComment] = useState("");
   const [newRating, setNewRating] = useState(0);
   const [replyingTo, setReplyingTo] = useState(null);
+  const [expandedReplies, setExpandedReplies] = useState({});
 
   const [currentPage, setCurrentPage] = useState(1);
   const reviewsPerPage = 5;
@@ -109,6 +114,10 @@ const CourseDetail = () => {
   const currentReviews = reviews.slice(indexOfFirstReview, indexOfLastReview);
   const totalPages = Math.ceil(reviews.length / reviewsPerPage);
 
+  const toggleReplies = (reviewId) => {
+    setExpandedReplies(prev => ({ ...prev, [reviewId]: !prev[reviewId] }));
+  };
+
   const handleSubmitReview = async (text, parentId = null) => {
     if (!text.trim() || (!parentId && newRating === 0)) return;
     
@@ -128,6 +137,8 @@ const CourseDetail = () => {
       if (!parentId) {
         setNewComment("");
         setNewRating(0);
+      } else {
+        setExpandedReplies(prev => ({ ...prev, [parentId]: true }));
       }
       setReplyingTo(null);
     } catch (error) {
@@ -135,7 +146,6 @@ const CourseDetail = () => {
     } finally { setIsSubmitting(false); }
   };
 
-  // ✅ 2. ปรับปรุงระบบ Like ให้มี Animation (Optimistic Update)
   const handleLike = async (reviewId) => {
     try {
       setReviews(prev => prev.map(r => {
@@ -178,7 +188,7 @@ const CourseDetail = () => {
       await axios.delete(`${API_URL}/reviews/${reviewId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      fetchReviews(); // โหลดใหม่เพื่อให้ Reply หายไปด้วย
+      fetchReviews(); 
     } catch (err) { alert("ลบไม่สำเร็จ"); }
   };
 
@@ -201,7 +211,7 @@ const CourseDetail = () => {
   };
 
   const ReviewCard = ({ r, isReply = false }) => {
-    const isLiked = r.likes?.some(l => l.studentId === currentUserId);
+    const isLiked = Array.isArray(r.likes) && r.likes?.some(l => l.studentId === currentUserId);
     const canDelete = isAdmin || (currentUserId && r.studentId === currentUserId);
     
     return (
@@ -354,14 +364,36 @@ const CourseDetail = () => {
             <div className="space-y-8">
                 {loading ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" size={32}/></div> : 
                  reviews.length === 0 ? <p className="text-center text-slate-500 py-4">No reviews yet. Be the first!</p> :
-                 currentReviews.map((r) => (
+                 currentReviews.map((r) => {
+                    const hasReplies = r.replies && r.replies.length > 0;
+                    const isExpanded = expandedReplies[r.id];
+
+                    return (
                     <div key={r.id} className="space-y-4">
                         <ReviewCard r={r} />
-                        {r.replies?.map(reply => (
-                          <ReviewCard key={reply.id} r={reply} isReply={true} />
-                        ))}
+                        
+                        {/* ✅ ปุ่มกดเปิด-ปิด Reply (จะโผล่มาเฉพาะเวลามีคนตอบกลับ) */}
+                        {hasReplies && (
+                          <div className="ml-8 md:ml-12">
+                            <button 
+                              onClick={() => toggleReplies(r.id)}
+                              className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 hover:text-white transition-colors bg-white/5 px-3 py-1.5 rounded-lg border border-white/5"
+                            >
+                              {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                              {isExpanded ? 'ซ่อนการตอบกลับ' : `ดูการตอบกลับ (${r.replies.length})`}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* ✅ ลิสต์รายการ Reply (จะแสดงก็ต่อเมื่อ isExpanded เป็น true) */}
+                        <div className={`space-y-4 transition-all duration-300 ${isExpanded ? 'opacity-100 max-h-[5000px]' : 'opacity-0 max-h-0 overflow-hidden'}`}>
+                          {isExpanded && r.replies?.map(reply => (
+                            <ReviewCard key={reply.id} r={reply} isReply={true} />
+                          ))}
+                        </div>
                     </div>
-                ))}
+                    );
+                 })}
             </div>
 
             {totalPages > 1 && (

@@ -5,7 +5,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
 import { courses as allTrackCourses } from '../data/courseData';
-import axios from 'axios'; // เพิ่ม axios เข้ามา
+import axios from 'axios';
 
 // --- Configuration: Co-op Requirements ---
 const COOP_REQUIREMENTS = {
@@ -52,12 +52,10 @@ const Dashboard = () => {
   
   useEffect(() => {
     const fetchProfile = async () => {
-      // 1. เช็คก่อนว่าในเครื่องมีข้อมูลที่ "สดใหม่" หรือยัง
       const savedLocal = localStorage.getItem('userProfile');
       if (savedLocal) {
         setProfile(JSON.parse(savedLocal));
-        setLoading(false); // หยุดโหลดทันทีถ้ามีของเก่าในเครื่อง
-        // (Optional) อาจจะหยุด fetch เลย หรือ fetch เงียบๆ ข้างหลังก็ได้
+        setLoading(false);
       }
 
       try {

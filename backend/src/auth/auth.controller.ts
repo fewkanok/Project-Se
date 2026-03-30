@@ -1,6 +1,4 @@
-// src/auth/auth.controller.ts
-
-import { Controller, Post, Body, Patch, Param, Get } from '@nestjs/common'; // ✅ เพิ่ม Get ตรงนี้
+import { Controller, Post, Body, Patch, Param, Get } from '@nestjs/common';
 import { AuthService } from './auth.service';
 
 @Controller('auth')
@@ -27,7 +25,6 @@ export class AuthController {
     return this.authService.updateProfile(id, body);
   }
 
-  // ✅ เพิ่มฟังก์ชันดึงข้อมูล Profile ตรงนี้
   @Get('profile/:id')
   async getProfile(@Param('id') id: string) {
     return this.authService.getProfile(id);

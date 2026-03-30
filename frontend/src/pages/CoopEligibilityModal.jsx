@@ -72,7 +72,7 @@ const REQUIRED_COURSES = [
 
 // ─── localStorage helpers ────────────────────────────────────────────────────
 const LS_KEY_COOP = 'coopGradeStates';
-const LS_KEY_PROFILE = 'userProfile'; // จาก SetupProfile
+const LS_KEY_PROFILE = 'userProfile';
 
 const loadCoopGrades = () => {
   try {
@@ -106,7 +106,6 @@ const loadUserProfile = () => {
       courseStates: parsed.courseStates || {},
       gpaHistory: parsed.gpaHistory || {},
       basicInfo: parsed.basicInfo || {},
-      // totalCredits ที่ SetupProfile คำนวณและบันทึกไว้แล้ว
       totalCredits: typeof parsed.totalCredits === 'number' ? parsed.totalCredits : null,
     };
   } catch {
@@ -360,33 +359,28 @@ const TimelineStep = ({ number, title, detail, isActive }) => (
 const CoopEligibilityPage = () => {
   const navigate = useNavigate();
   
-  // โหลดข้อมูลจาก localStorage เมื่อ component mount
   const [courseStates, setCourseStates] = useState({});
   const [courseGrades, setCourseGrades] = useState({});
   const [userProfile, setUserProfile] = useState({ gpaHistory: {}, basicInfo: {}, totalCredits: null });
 
   useEffect(() => {
-    // โหลดข้อมูลจาก SetupProfile
+
     const profile = loadUserProfile();
     setUserProfile(profile);
     setCourseStates(profile.courseStates);
 
-    // โหลดเกรดที่เคยเลือกไว้ใน Coop modal
+
     const savedGrades = loadCoopGrades();
     setCourseGrades(savedGrades);
   }, []);
 
-  // คำนวณสถิติต่างๆ
   const stats = useMemo(() => {
-    // ─── หน่วยกิต: ใช้ totalCredits จาก SetupProfile ก่อน (แม่นยำที่สุด)
-    // ถ้าไม่มี fallback ไปนับจาก COURSES_DATA ที่ hardcode ไว้
+
     let earnedCredits = 0;
 
     if (userProfile.totalCredits !== null && userProfile.totalCredits !== undefined) {
-      // ✅ ใช้ค่าจาก SetupProfile ที่คำนวณจาก roadmapData จริง (รวม elective ด้วย)
       earnedCredits = userProfile.totalCredits;
     } else {
-      // Fallback: นับจาก COURSES_DATA + courseStates
       COURSES_DATA.forEach(course => {
         if (courseStates[course.code] === 'passed') {
           earnedCredits += course.credit;
@@ -408,10 +402,10 @@ const CoopEligibilityPage = () => {
       }
     });
 
-    // ถ้ายังไม่มีเกรดจาก Coop modal ให้ใช้ gpaHistory จาก SetupProfile
+
     let calculatedGPAX = totalCreditsGraded > 0 ? totalGradePoints / totalCreditsGraded : 0;
     
-    // ถ้ายังคำนวณไม่ได้ ให้ดึงจาก gpaHistory ล่าสุด
+    
     if (calculatedGPAX === 0 && userProfile.gpaHistory) {
       const latestGPA = Object.values(userProfile.gpaHistory).pop();
       calculatedGPAX = latestGPA || 0;
@@ -427,12 +421,12 @@ const CoopEligibilityPage = () => {
     };
   }, [courseStates, courseGrades, userProfile]);
 
-  // ฟังก์ชันเช็คว่าวิชานั้นผ่านหรือยัง
+  
   const isCoursePassedByCode = (code) => {
     return courseStates[code] === 'passed';
   };
 
-  // คำนวณ GPA_10
+  
   const { gpa10, gradedCount, totalPassedCourses } = useMemo(() => {
     let sum = 0;
     let count = 0;
@@ -458,7 +452,7 @@ const CoopEligibilityPage = () => {
 
   const isCoursesReady = gpa10 !== null && gpa10 >= 2.5;
 
-  // สถานะ Coop overall
+
   const allCriteriaMet = stats.coopStats.isCreditReady && stats.coopStats.isGPAReady && isCoursesReady;
 
   const handleGradeChange = (code, value) => {
@@ -467,19 +461,18 @@ const CoopEligibilityPage = () => {
     saveCoopGrades(updated);
   };
 
-  // ฟังก์ชันกลับไปหน้า dashboard
   const handleBack = () => {
     navigate('/dashboard');
   };
 
   return (
     <div className="min-h-screen bg-transparent">
-      {/* Content */}
+      
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
-          {/* Hero Section with Back Button */}
+          
           <div className="relative">
-            {/* Back Button - อยู่ข้างๆ */}
+            
             <button
               onClick={handleBack}
               className="absolute left-0 top-0 flex items-center justify-center w-12 h-12 rounded-xl bg-slate-800/80 border-2 border-slate-700/60 text-slate-300 hover:text-white hover:bg-slate-700/80 hover:border-cyan-500/40 transition-all duration-200 group z-10"
@@ -503,7 +496,7 @@ const CoopEligibilityPage = () => {
             </div>
           </div>
 
-          {/* Overall Status Banner */}
+          
           <div className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-500 ${
             allCriteriaMet
               ? 'border-emerald-500/60 bg-gradient-to-br from-emerald-500/25 via-emerald-500/15 to-slate-800/50'
