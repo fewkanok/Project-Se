@@ -177,6 +177,7 @@ const SetupProfile = () => {
             if (courseObj) sum += parseCredits(courseObj.credits);
           }
         } else {
+          // แก้ตรรกะให้นับหน่วยกิตทุกวิชาที่มีสถานะ ไม่ว่าจะเป็น passed หรือ learning เพื่อเช็คภาระงานจริงในเทอมนั้นๆ
           if (courseStates[c.id]) {
             sum += parseCredits(c.credits);
           }
@@ -411,9 +412,32 @@ const SetupProfile = () => {
     return results;
   }, [activeTermKey, courseSearchTerm, courseStates, customElectives, peAssignments]);
 
+  // --- ส่วนตรวจสอบหน่วยกิตที่แก้ไข ---
+  const checkTermCreditsValid = useCallback((y, t) => {
+    const credits = calculateTermCredits(y, t);
+    if (credits === 0) return true;
+    const isExt = parseInt(y, 10) >= 5;
+    return isExt ? (credits <= 21) : (credits >= 12 && credits <= 21);
+  }, [calculateTermCredits]);
+
+  // เช็คทุกเทอมตั้งแต่อดีตจนถึงปัจจุบัน
+  const isAllTermsCreditValid = useMemo(() => {
+    for (let y = 1; y <= basicInfo.currentYear; y++) {
+      const yg = roadmapData.find(ry => ry?.year === `Year ${y}` || String(ry?.year || '').includes(y.toString()));
+      const tCount = yg?.semesters?.length || 2;
+      for (let t = 1; t <= tCount; t++) {
+        // เช็คเฉพาะเทอมที่ผ่านมาแล้ว หรือเทอมปัจจุบัน
+        if (y < basicInfo.currentYear || (y === basicInfo.currentYear && t <= basicInfo.currentTerm)) {
+          if (!checkTermCreditsValid(y, t)) return false;
+        }
+      }
+    }
+    return true;
+  }, [basicInfo.currentYear, basicInfo.currentTerm, checkTermCreditsValid]);
+
   const currentTermCredits = calculateTermCredits(basicInfo.currentYear, basicInfo.currentTerm);
   const isExtensionYear = parseInt(basicInfo.currentYear, 10) >= 5;
-  const isCreditInvalid = currentTermCredits > 0 && (isExtensionYear ? (currentTermCredits > 21) : (currentTermCredits < 12 || currentTermCredits > 21));
+  const isCreditInvalid = !isAllTermsCreditValid; // เปลี่ยนมาใช้ตัวแปรที่เช็คทุกเทอม
   const isGpaEmpty = Object.values(gpaHistory).some(v => !v) || Object.keys(gpaHistory).length === 0;
   const isSubmitDisabled = loading || isGpaEmpty || isCreditInvalid;
   const activeYearGroupInfo = roadmapData.find(y => y?.year === `Year ${basicInfo.currentYear}` || String(y?.year || '').includes(basicInfo.currentYear.toString()));
@@ -674,21 +698,8 @@ const SetupProfile = () => {
                             const assignedCode = peAssignments[course.id];
                             const courseObj = assignedCode ? findCourseById(assignedCode) : null;
                             const assignedStatus = courseStates[assignedCode];
-                            
                             return (
-                              <div 
-                                key={course.id} 
-                                onClick={() => { 
-                                  if (assignedCode) {
-                                    handleCourseClick(assignedCode); 
-                                  } else {
-                                    setActivePeSlotId(course.id); 
-                                    setActiveTermKey(termKey); 
-                                    setShowPeModal(true); 
-                                  }
-                                }} 
-                                className={`p-4 rounded-xl border border-dashed flex justify-between items-center cursor-pointer transition-all ${assignedCode ? 'bg-purple-500/10 border-purple-500/40 hover:scale-[1.02]' : 'bg-white/5 border-white/10 hover:bg-purple-500/10'}`}
-                              >
+                              <div key={course.id} onClick={() => { setActivePeSlotId(course.id); setActiveTermKey(termKey); setShowPeModal(true); }} className={`p-4 rounded-xl border border-dashed flex justify-between items-center cursor-pointer transition-all ${assignedCode ? 'bg-purple-500/10 border-purple-500/40' : 'bg-white/5 border-white/10 hover:bg-purple-500/10'}`}>
                                 <div className="min-w-0">
                                   <p className="text-[9px] font-mono text-purple-400 uppercase tracking-widest">Track Course</p>
                                   <p className="font-bold text-xs truncate">
@@ -699,13 +710,7 @@ const SetupProfile = () => {
                                   {assignedStatus === 'passed' && <CheckCircle2 className="text-emerald-500" size={16}/>}
                                   {assignedStatus === 'learning' && <PlayCircle className="text-blue-500" size={16}/>}
                                   {assignedCode ? (
-                                    <button 
-                                      onClick={(e) => {
-                                        e.stopPropagation(); 
-                                        handleRemovePE(course.id, assignedCode, e);
-                                      }} 
-                                      className="p-1.5 rounded-md hover:bg-red-500/20 group z-10"
-                                    >
+                                    <button onClick={(e) => handleRemovePE(course.id, assignedCode, e)} className="p-1.5 rounded-md hover:bg-red-500/20 group z-10">
                                       <Trash2 size={16} className="text-red-500/60 group-hover:text-red-400 transition-colors"/>
                                     </button>
                                   ) : (
@@ -764,8 +769,8 @@ const SetupProfile = () => {
                   ? "กำลังบันทึกข้อมูล..." 
                   : isGpaEmpty 
                     ? "กรุณากรอก GPA ให้ครบทุกช่องก่อนไปต่อ" 
-                    : isCreditInvalid
-                      ? `เทอมปัจจุบันต้องมี 12-21 หน่วยกิต (ตอนนี้ ${currentTermCredits} Cr.)`
+                    : !isAllTermsCreditValid
+                      ? "มีบางเทอมที่มีหน่วยกิตไม่เป็นไปตามเกณฑ์ (12-21 หน่วยกิต)"
                       : ""
               }
               className={`bg-white text-black font-black py-4 px-20 rounded-full shadow-[0_0_50px_rgba(255,255,255,0.3)] 
