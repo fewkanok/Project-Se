@@ -1,11 +1,32 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, BookOpen, GraduationCap, CheckCircle2, XCircle, ChevronRight, Calendar, Lock, AlertCircle, PlayCircle, Camera, Terminal, Pencil, Plus, Minus, Trash2, Search, Save, Layers } from 'lucide-react';
 import { roadmapData } from '../data/courses';
 import { electiveCourses } from '../data/electiveCourses';
-// ✅ นำเข้า nodeTypeMap มาใช้งาน
 import { courses as allTrackCourses, tracks, nodeTypeMap } from '../data/courseData';
 import axios from 'axios';
+
+// ✅ Helper Functions
+const parseCredits = (val) => {
+  if (typeof val === 'number') return val;
+  if (typeof val === 'string') return parseInt(val, 10) || 3;
+  return 3;
+};
+
+const getTrackCourseObj = (code) => {
+  if (!code || !allTrackCourses) return null;
+  if (Array.isArray(allTrackCourses)) return allTrackCourses.find(c => c && (c.id === code || c.code === code));
+  if (allTrackCourses[code]) return allTrackCourses[code];
+  for (const key in allTrackCourses) {
+    const group = allTrackCourses[key];
+    if (typeof group === 'object') {
+      const arr = Array.isArray(group) ? group : Object.values(group);
+      const found = arr.find(c => c && (c.id === code || c.code === code));
+      if (found) return found;
+    }
+  }
+  return null;
+};
 
 const SetupProfile = () => {
   const navigate = useNavigate();
@@ -73,6 +94,36 @@ const SetupProfile = () => {
     setCourseStates(nextStates);
   };
 
+  // ✅ ฟังก์ชันคำนวณหน่วยกิตรวมของแต่ละเทอม
+  const calculateTermCredits = useCallback((y, t) => {
+    let sum = 0;
+    const termKey = `${y}-${t}`;
+    const termData = roadmapData[y - 1]?.semesters[t - 1];
+    if (!termData) return 0;
+
+    termData.courses.forEach(c => {
+      if (c.isProfessionalElective) {
+        const assignedCode = peAssignments[c.id];
+        if (assignedCode) {
+          const courseObj = getTrackCourseObj(assignedCode);
+          if (courseObj) sum += parseCredits(courseObj.credits);
+        }
+      } else {
+        if (courseStates[c.id]) {
+          sum += parseCredits(c.credits);
+        }
+      }
+    });
+
+    (customElectives[termKey] || []).forEach(eId => {
+      const courseObj = electiveCourses.find(e => e.id === eId);
+      if (courseObj) sum += parseCredits(courseObj.credits);
+    });
+
+    return sum;
+  }, [peAssignments, courseStates, customElectives]);
+
+
   const handleAddElective = (id) => {
     const allSelectedElectives = Object.values(customElectives).flat();
     if (allSelectedElectives.includes(id)) {
@@ -107,12 +158,10 @@ const SetupProfile = () => {
       setLoading(true);
       const session = JSON.parse(localStorage.getItem('active_session'));
 
-      // 🛠️ 1. สร้าง State จำลองเพื่อเตรียมประทับตราสถานะก่อน Save
       const finalCourseStates = { ...courseStates };
       const curY = basicInfo.currentYear;
       const curT = basicInfo.currentTerm;
 
-      // 🛠️ 2. จัดการสถานะให้ "วิชาเลือกเสรี (Electives)"
       Object.entries(customElectives).forEach(([termKey, courseIds]) => {
         const [yStr, tStr] = termKey.split('-');
         const y = parseInt(yStr);
@@ -121,11 +170,10 @@ const SetupProfile = () => {
         courseIds.forEach(id => {
           if (curY > y || (curY === y && curT > t)) finalCourseStates[id] = 'passed';
           else if (curY === y && curT === t) finalCourseStates[id] = 'learning';
-          else delete finalCourseStates[id]; // อนาคต = ยังไม่เรียน
+          else delete finalCourseStates[id];
         });
       });
 
-      // 🛠️ 3. จัดการสถานะให้ "วิชาเลือกเอก (Track Courses / PE)"
       roadmapData.forEach((yearGroup, yIdx) => {
         const y = yIdx + 1;
         yearGroup.semesters.forEach((sem, sIdx) => {
@@ -133,7 +181,6 @@ const SetupProfile = () => {
           sem.courses.forEach(c => {
             if (c.isProfessionalElective && peAssignments[c.id]) {
               const trackCourseId = peAssignments[c.id];
-              // เทียบปี/เทอม ของ Slot วิชานั้นๆ กับ ปี/เทอม ปัจจุบันของนักศึกษา
               if (curY > y || (curY === y && curT > t)) finalCourseStates[trackCourseId] = 'passed';
               else if (curY === y && curT === t) finalCourseStates[trackCourseId] = 'learning';
               else delete finalCourseStates[trackCourseId];
@@ -144,7 +191,7 @@ const SetupProfile = () => {
 
       const payload = { 
         basicInfo, 
-        courseStates: finalCourseStates, // ✅ ใช้ข้อมูลที่คลีนแล้วส่งไปเซฟ!
+        courseStates: finalCourseStates,
         customElectives, 
         peAssignments, 
         gpaHistory, 
@@ -162,44 +209,15 @@ const SetupProfile = () => {
     } finally { setLoading(false); }
   };
 
-  const getTrackCourseName = (code) => {
-    if (!code) return 'Select Track Course...';
-    if (!allTrackCourses) return code; 
-
-    try {
-      if (Array.isArray(allTrackCourses)) {
-        const found = allTrackCourses.find(c => c && (c.id === code || c.code === code));
-        if (found) return found.name || found.nameEn;
-      } else {
-        if (allTrackCourses[code] && allTrackCourses[code].name) {
-          return allTrackCourses[code].name || allTrackCourses[code].nameEn;
-        }
-        for (const key in allTrackCourses) {
-          const group = allTrackCourses[key];
-          if (!group || typeof group !== 'object') continue; 
-
-          const coursesInGroup = Array.isArray(group) ? group : Object.values(group);
-          const found = coursesInGroup.find(c => c && (c.id === code || c.code === code));
-          if (found) return found.name || found.nameEn;
-        }
-      }
-    } catch (err) {
-      console.error("Error finding track name:", err);
-    }
-    return code; 
-  };
-
   const handleSelectPE = (courseCode, courseData) => {
     if (Object.values(peAssignments).includes(courseCode)) {
       alert("คุณเลือกวิชา Track นี้ไปแล้วครับ!");
       return;
     }
-    
     if (courseData.prereq && courseStates[courseData.prereq] !== 'passed') {
       alert(`ไม่สามารถลงได้! ต้องเรียนผ่านวิชา ${courseData.prereq} ก่อนครับ`);
       return;
     }
-
     setPeAssignments(p => ({...p, [activePeSlotId]: courseCode}));
     setShowPeModal(false);
   };
@@ -213,34 +231,29 @@ const SetupProfile = () => {
     });
   };
 
-  // ✅ ระบบกรองวิชาโดยใช้ nodeTypeMap ที่ส่งมาให้
   const displayedTrackCourses = useMemo(() => {
     if (!selectedTrack || !allTrackCourses || !nodeTypeMap) return [];
-
-    let trackKey = selectedTrack;
-    // ปรับชื่อ key เล็กน้อยให้ตรงกับใน nodeTypeMap
-    if (trackKey === 'Outside') trackKey = 'Outside'; 
-    else trackKey = trackKey.toLowerCase();
-
+    let trackKey = selectedTrack === 'Outside' ? 'Outside' : selectedTrack.toLowerCase();
     const trackNodes = nodeTypeMap[trackKey];
     if (!trackNodes) return [];
 
     const result = [];
-    
-    // วนลูปดูวิชาทั้งหมดใน courseData.js
     for (const [code, c] of Object.entries(allTrackCourses)) {
       if (c && typeof c === 'object') {
-        // ถ้าวิชานี้มีรหัสอยู่ใน trackNodes ถือว่าเป็นวิชาของสายนี้
-        if (trackNodes[code]) {
-          // กรองวิชาประเภท 'base' ออกไป (เพราะเราจะให้เลือกแค่วิชาเลือก ไม่ใช่วิชาหลัก)
-          if (trackNodes[code] !== 'base') {
-            result.push({ code, id: code, ...c });
-          }
+        if (trackNodes[code] && trackNodes[code] !== 'base') {
+          result.push({ code, id: code, ...c });
         }
       }
     }
     return result;
   }, [selectedTrack]);
+
+  // ✅ ตรวจสอบ Validation ต่างๆ เพื่อควบคุมปุ่ม Save
+  const isGpaEmpty = Object.values(gpaHistory).some(v => !v) || Object.keys(gpaHistory).length === 0;
+  const currentTermCredits = calculateTermCredits(basicInfo.currentYear, basicInfo.currentTerm);
+  // อนุญาตให้ผ่านถ้าหน่วยกิต = 0 (เผื่อกรณีดรอปหมด) แต่ถ้ามีเรียนต้อง 12-21
+  const isCreditInvalid = currentTermCredits > 0 && (currentTermCredits < 12 || currentTermCredits > 21);
+  const isSubmitDisabled = loading || isGpaEmpty || isCreditInvalid;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white pb-32 font-sans selection:bg-orange-500/30">
@@ -268,7 +281,6 @@ const SetupProfile = () => {
         </div>
       )}
 
-      {/* ══════ PE MODAL ══════ */}
       {showPeModal && (
         <div className="fixed inset-0 bg-black/95 backdrop-blur-xl z-[200] flex items-center justify-center p-4">
           <div className="bg-[#0f172a] border border-white/10 rounded-[3rem] max-w-4xl w-full max-h-[85vh] overflow-hidden flex flex-col shadow-2xl">
@@ -430,24 +442,41 @@ const SetupProfile = () => {
                 {yearGroup.semesters.map((sem, semIdx) => {
                   const termKey = `${activeYearTab}-${semIdx + 1}`;
                   const isLocked = activeYearTab > basicInfo.currentYear || (activeYearTab === basicInfo.currentYear && (semIdx+1) > basicInfo.currentTerm);
+                  const isActiveNow = activeYearTab === basicInfo.currentYear && (semIdx+1) === basicInfo.currentTerm;
+                  
+                  // ✅ คำนวณหน่วยกิตสำหรับแสดงใน UI ของเทอมนี้
+                  const termCredits = calculateTermCredits(activeYearTab, semIdx + 1);
+                  const isCreditOk = termCredits === 0 || (termCredits >= 12 && termCredits <= 21);
+
                   return (
                     <div key={semIdx} className={`p-8 rounded-[2.5rem] border transition-all ${isLocked ? 'bg-black/40 border-white/5 opacity-40 grayscale pointer-events-none' : 'bg-white/5 border-white/10 shadow-xl'}`}>
-                      <h3 className="text-xs font-black text-slate-500 uppercase mb-6 tracking-widest flex items-center justify-between">{sem.term} {activeYearTab === basicInfo.currentYear && (semIdx+1) === basicInfo.currentTerm && <span className="text-orange-500 text-[9px] animate-pulse font-black uppercase">Active Now</span>}</h3>
+                      <h3 className="text-xs font-black text-slate-500 uppercase mb-6 tracking-widest flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {sem.term}
+                          {!isLocked && (
+                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold border transition-colors ${isCreditOk ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
+                              {termCredits} / 21 Cr.
+                            </span>
+                          )}
+                        </div>
+                        {isActiveNow && <span className="text-orange-500 text-[9px] animate-pulse font-black uppercase">Active Now</span>}
+                      </h3>
                       <div className="space-y-2">
                         {(sem.courses || []).map(course => {
                           const status = courseStates[course.id];
                           if (course.isProfessionalElective) {
                             const assignedCode = peAssignments[course.id];
+                            const courseObj = assignedCode ? getTrackCourseObj(assignedCode) : null;
                             return (
                               <div key={course.id} onClick={() => { setActivePeSlotId(course.id); setShowPeModal(true); }} className={`p-4 rounded-xl border border-dashed flex justify-between items-center cursor-pointer transition-all ${assignedCode ? 'bg-purple-500/10 border-purple-500/40' : 'bg-white/5 border-white/10 hover:bg-purple-500/10'}`}>
                                 <div className="min-w-0">
                                   <p className="text-[9px] font-mono text-purple-400 uppercase tracking-widest">Track Course</p>
                                   <p className="font-bold text-xs truncate">
-                                    {assignedCode ? getTrackCourseName(assignedCode) : 'Select Track Course...'}
+                                    {courseObj ? (courseObj.nameEn || courseObj.name) : 'Select Track Course...'}
                                   </p>
                                 </div>
                                 {assignedCode ? (
-                                  <button onClick={(e) => handleRemovePE(course.id, e)} className="p-1.5 rounded-md hover:bg-red-500/20 group">
+                                  <button onClick={(e) => handleRemovePE(course.id, e)} className="p-1.5 rounded-md hover:bg-red-500/20 group z-10">
                                     <Trash2 size={16} className="text-red-500/60 group-hover:text-red-400 transition-colors"/>
                                   </button>
                                 ) : (
@@ -486,19 +515,20 @@ const SetupProfile = () => {
         <div className="fixed bottom-0 left-0 w-full bg-black/80 backdrop-blur-xl p-6 flex justify-center z-[100] border-t border-white/10">
            <button 
               onClick={handleSubmit} 
-              disabled={loading || Object.values(gpaHistory).some(v => !v) || Object.keys(gpaHistory).length === 0}
+              disabled={isSubmitDisabled}
               title={
                 loading 
                   ? "กำลังบันทึกข้อมูล..." 
-                  : (Object.values(gpaHistory).some(v => !v) || Object.keys(gpaHistory).length === 0)
+                  : isGpaEmpty 
                     ? "กรุณากรอก GPA ให้ครบทุกช่องก่อนไปต่อ" 
-                    : ""
+                    : isCreditInvalid
+                      ? `เทอมปัจจุบันต้องมี 12-21 หน่วยกิต (ตอนนี้ ${currentTermCredits} Cr.)`
+                      : ""
               }
-              
               className={`bg-white text-black font-black py-4 px-20 rounded-full shadow-[0_0_50px_rgba(255,255,255,0.3)] 
                 transition-all flex items-center gap-3
-                ${(loading || Object.values(gpaHistory).some(v => !v) || Object.keys(gpaHistory).length === 0)
-                  ? 'opacity-50 cursor-not-allowed' 
+                ${isSubmitDisabled
+                  ? 'opacity-50 cursor-not-allowed bg-slate-300' 
                   : 'hover:scale-105 active:scale-95 cursor-pointer'
                 }`}
             >
