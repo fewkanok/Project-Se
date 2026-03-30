@@ -674,8 +674,21 @@ const SetupProfile = () => {
                             const assignedCode = peAssignments[course.id];
                             const courseObj = assignedCode ? findCourseById(assignedCode) : null;
                             const assignedStatus = courseStates[assignedCode];
+                            
                             return (
-                              <div key={course.id} onClick={() => { setActivePeSlotId(course.id); setActiveTermKey(termKey); setShowPeModal(true); }} className={`p-4 rounded-xl border border-dashed flex justify-between items-center cursor-pointer transition-all ${assignedCode ? 'bg-purple-500/10 border-purple-500/40' : 'bg-white/5 border-white/10 hover:bg-purple-500/10'}`}>
+                              <div 
+                                key={course.id} 
+                                onClick={() => { 
+                                  if (assignedCode) {
+                                    handleCourseClick(assignedCode); 
+                                  } else {
+                                    setActivePeSlotId(course.id); 
+                                    setActiveTermKey(termKey); 
+                                    setShowPeModal(true); 
+                                  }
+                                }} 
+                                className={`p-4 rounded-xl border border-dashed flex justify-between items-center cursor-pointer transition-all ${assignedCode ? 'bg-purple-500/10 border-purple-500/40 hover:scale-[1.02]' : 'bg-white/5 border-white/10 hover:bg-purple-500/10'}`}
+                              >
                                 <div className="min-w-0">
                                   <p className="text-[9px] font-mono text-purple-400 uppercase tracking-widest">Track Course</p>
                                   <p className="font-bold text-xs truncate">
@@ -686,7 +699,13 @@ const SetupProfile = () => {
                                   {assignedStatus === 'passed' && <CheckCircle2 className="text-emerald-500" size={16}/>}
                                   {assignedStatus === 'learning' && <PlayCircle className="text-blue-500" size={16}/>}
                                   {assignedCode ? (
-                                    <button onClick={(e) => handleRemovePE(course.id, assignedCode, e)} className="p-1.5 rounded-md hover:bg-red-500/20 group z-10">
+                                    <button 
+                                      onClick={(e) => {
+                                        e.stopPropagation(); 
+                                        handleRemovePE(course.id, assignedCode, e);
+                                      }} 
+                                      className="p-1.5 rounded-md hover:bg-red-500/20 group z-10"
+                                    >
                                       <Trash2 size={16} className="text-red-500/60 group-hover:text-red-400 transition-colors"/>
                                     </button>
                                   ) : (
