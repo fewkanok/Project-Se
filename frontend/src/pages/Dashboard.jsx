@@ -289,7 +289,7 @@ const Dashboard = () => {
   const handleEditSetup = () => navigate('/setup');
 
   const getGradeInfo = (gpa) => {
-    if (gpa >= 3.5) return { gradient: 'from-emerald-400 via-teal-400 to-cyan-400', bg: 'from-emerald-500/20 via-teal-500/15 to-cyan-500/10', label: 'EXCELLENT', icon: '🏆' };
+    if (gpa >= 3.6) return { gradient: 'from-emerald-400 via-teal-400 to-cyan-400', bg: 'from-emerald-500/20 via-teal-500/15 to-cyan-500/10', label: 'EXCELLENT', icon: '🏆' };
     if (gpa >= 3.0) return { gradient: 'from-blue-400 via-cyan-400 to-sky-400', bg: 'from-blue-500/20 via-cyan-500/15 to-sky-500/10', label: 'VERY GOOD', icon: '⭐' };
     if (gpa >= 2.5) return { gradient: 'from-amber-400 via-yellow-400 to-orange-400', bg: 'from-amber-500/20 via-yellow-500/15 to-orange-500/10', label: 'GOOD', icon: '👍' };
     return { gradient: 'from-rose-400 via-pink-400 to-fuchsia-400', bg: 'from-rose-500/20 via-pink-500/15 to-fuchsia-500/10', label: 'KEEP GOING', icon: '📈' };
@@ -299,7 +299,7 @@ const Dashboard = () => {
   const getHonorsInfo = (gpax, earnedCredits, totalCredits, checks) => {
     const hasEnoughCredits = totalCredits > 0 && earnedCredits >= totalCredits;
     const allConditionsMet = checks.noFGrade && checks.noRegrade && hasEnoughCredits;
-    if (gpax >= 3.50) return { tier: allConditionsMet ? 1 : 'pending', label: 'เกียรตินิยมอันดับ 1', labelEn: '1st Class Honors', gradient: 'from-yellow-400 via-amber-400 to-orange-400', bg: 'from-yellow-500/20 via-amber-500/15 to-orange-500/10', border: allConditionsMet ? 'border-yellow-500/50' : 'border-yellow-500/20', glow: 'shadow-yellow-500/20', icon: '🥇', gpaxOk: true, allConditionsMet, hasEnoughCredits, needed: null };
+    if (gpax >= 3.60) return { tier: allConditionsMet ? 1 : 'pending', label: 'เกียรตินิยมอันดับ 1', labelEn: '1st Class Honors', gradient: 'from-yellow-400 via-amber-400 to-orange-400', bg: 'from-yellow-500/20 via-amber-500/15 to-orange-500/10', border: allConditionsMet ? 'border-yellow-500/50' : 'border-yellow-500/20', glow: 'shadow-yellow-500/20', icon: '🥇', gpaxOk: true, allConditionsMet, hasEnoughCredits, needed: null };
     if (gpax >= 3.25) return { tier: allConditionsMet ? 2 : 'pending', label: 'เกียรตินิยมอันดับ 2', labelEn: '2nd Class Honors', gradient: 'from-slate-300 via-slate-200 to-white', bg: 'from-slate-400/15 via-slate-300/10 to-slate-200/5', border: allConditionsMet ? 'border-slate-400/50' : 'border-slate-500/20', glow: 'shadow-slate-400/10', icon: '🥈', gpaxOk: true, allConditionsMet, hasEnoughCredits, needed: null };
     return { tier: 0, label: 'ยังไม่ถึงเกณฑ์ GPA', labelEn: 'No Honors', gradient: 'from-slate-500 via-slate-400 to-slate-300', bg: 'from-slate-500/10 via-slate-400/5 to-slate-300/5', border: 'border-slate-600/30', glow: 'shadow-slate-500/10', icon: '📚', gpaxOk: false, allConditionsMet: false, hasEnoughCredits, needed: (3.25 - gpax).toFixed(2) };
   };
@@ -389,7 +389,7 @@ const Dashboard = () => {
                   <div className="flex items-center justify-between mb-3"><div className="flex items-center gap-1.5"><GraduationCap size={14} className={honorsInfo.gpaxOk ? 'text-yellow-400' : 'text-slate-400'} /><span className="text-xs font-bold text-white uppercase tracking-wide">เกียรตินิยม</span></div><span className="text-lg">{honorsInfo.icon}</span></div>
                   <div className={`mb-3 px-3 py-2 rounded-xl bg-gradient-to-r ${honorsInfo.gradient}`}><p className={`text-xs font-black leading-tight ${honorsInfo.tier === 0 ? 'text-slate-300' : 'text-black/80'}`}>{honorsInfo.label}</p><p className={`text-[9px] font-mono ${honorsInfo.tier === 0 ? 'text-slate-500' : 'text-black/60'}`}>{honorsInfo.labelEn}</p></div>
                   <div className="space-y-2 mb-3">
-                    <HonorProgress label="🥇 3.50" value={stats.calculatedGPAX} target={3.50} active={stats.calculatedGPAX >= 3.50} color="from-yellow-400 to-orange-400" />
+                    <HonorProgress label="🥇 3.60" value={stats.calculatedGPAX} target={3.60} active={stats.calculatedGPAX >= 3.60} color="from-yellow-400 to-orange-400" />
                     <HonorProgress label="🥈 3.25" value={stats.calculatedGPAX} target={3.25} active={stats.calculatedGPAX >= 3.25} color="from-slate-300 to-slate-400" />
                   </div>
                   <div className="space-y-1.5">
