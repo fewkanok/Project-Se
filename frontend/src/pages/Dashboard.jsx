@@ -76,6 +76,7 @@ const Dashboard = () => {
     let totalGradedCredits = 0;    
     let graphData = [];
     let passedCourseCodes = new Set();
+    let uniqueCourseTracker = new Set(); // 🛡️ ตัวป้องกันวิชาซ้ำ (De-duplication)
 
     const currentYearNum = parseInt(profile.basicInfo?.currentYear || profile.currentYear) || 1;
     const currentTermNum = parseInt(profile.basicInfo?.currentTerm || profile.currentTerm) || 1;
@@ -91,7 +92,6 @@ const Dashboard = () => {
       return 3;
     };
 
-    // ✅ FIX 3.1: ทำให้ค้นหาวิชา Track Course เจอแน่นอน ไม่ว่าจะเก็บมาเป็น Array หรือ Object ก้อนใหญ่
     const peSlotCourseMap = {};
     Object.entries(peAssignments).forEach(([slotId, courseCode]) => {
       let trackCourse = null;
@@ -99,7 +99,6 @@ const Dashboard = () => {
         trackCourse = allTrackCourses.find(c => c.id === courseCode || c.code === courseCode);
       } else if (allTrackCourses) {
         trackCourse = allTrackCourses[courseCode];
-        // ถ้าหาไม่เจอ ลองควานหาใน Group ย่อยๆ
         if (!trackCourse) {
           for (const key in allTrackCourses) {
             if (Array.isArray(allTrackCourses[key])) {
@@ -136,25 +135,36 @@ const Dashboard = () => {
                 const termKey = `${yearNum}-${termNum}`;
                 const gpaKey = `Y${yearNum}/${termNum}`;
 
-                let displayCourses = sem.courses.reduce((acc, c) => {
-                  if (c.isProfessionalElective) {
-                    if (peSlotCourseMap[c.id]) acc.push(peSlotCourseMap[c.id]);
-                    return acc;
+                let termCourses = [];
+                
+                // 1. ดึงวิชาจาก Roadmap ปกติ
+                sem.courses.forEach(c => {
+                  let finalCourse = c;
+                  if (c.isProfessionalElective && peSlotCourseMap[c.id]) {
+                    finalCourse = peSlotCourseMap[c.id];
                   }
-                  acc.push(c);
-                  return acc;
-                }, []);
+                  
+                  // 🛡️ เช็คซ้ำก่อนเอาเข้า List
+                  if (!uniqueCourseTracker.has(finalCourse.id)) {
+                    termCourses.push(finalCourse);
+                    uniqueCourseTracker.add(finalCourse.id);
+                  }
+                });
 
+                // 2. ดึงวิชาจาก Custom Electives
                 if (customElectives[termKey]) {
                     customElectives[termKey].forEach(elecId => {
                         const elecInfo = electiveCourses.find(c => c.id === elecId);
-                        if (elecInfo) displayCourses.push({ ...elecInfo, isElective: true });
+                        // 🛡️ เช็คซ้ำก่อนเอาเข้า List
+                        if (elecInfo && !uniqueCourseTracker.has(elecInfo.id)) {
+                          termCourses.push({ ...elecInfo, isElective: true });
+                          uniqueCourseTracker.add(elecInfo.id);
+                        }
                     });
                 }
 
                 let termPassedCredits = 0;
-                displayCourses.forEach(c => {
-                    // ✅ FIX 3.2: เช็ค Status ทั้ง 2 ทาง (รหัสวิชาตรงๆ และ รหัส Slot อย่าง pe1, pe2)
+                termCourses.forEach(c => {
                     const status = profile.courseStates?.[c.id] || (c._peSlot ? profile.courseStates?.[c._peSlot] : undefined);
                     const safeCredits = parseCredits(c.credits);
                     if (!c.isElective) totalStructureCredits += safeCredits; 
@@ -328,13 +338,11 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen p-4 md:p-8">
-      {/* Animated Grid Background */}
       <div className="fixed inset-0 pointer-events-none opacity-20">
         <div className="absolute inset-0" style={{ backgroundImage: `linear-gradient(rgba(6, 182, 212, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(6, 182, 212, 0.1) 1px, transparent 1px)`, backgroundSize: '50px 50px', animation: 'grid-move 20s linear infinite' }}></div>
       </div>
 
       <div className="relative z-10 max-w-[2000px] mx-auto">
-        {/* Tech Header */}
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
             <div>
@@ -355,7 +363,6 @@ const Dashboard = () => {
               <button onClick={handleLogout} className="tech-button px-6 py-3 rounded-xl text-red-400 font-semibold flex items-center gap-2 text-sm border-red-500/20"><LogOut size={18}/> <span className="hidden md:inline">Logout</span></button>
             </div>
           </div>
-          {/* Stats Bar */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCardUI label="GPAX" value={animatedGPA.toFixed(2)} icon={<Cpu size={20}/>} color="from-cyan-500 to-blue-500" />
             <StatCardUI label="หน่วยกิต" value={`${Math.round(animatedCredits)}/${stats.totalCredits}`} icon={<Target size={20}/>} color="from-purple-500 to-pink-500" />
@@ -364,10 +371,8 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           <div className="lg:col-span-4 space-y-6">
-            {/* Profile Card */}
             <div className="tech-card p-6 rounded-2xl">
               <div className="flex items-start gap-4 mb-6">
                 <div className="relative"><div className="absolute inset-0 bg-gradient-to-br from-cyan-500/50 to-purple-500/50 rounded-xl blur-lg"></div><img src={profile.basicInfo?.image || 'https://via.placeholder.com/150'} alt="Profile" className="relative w-16 h-16 rounded-xl object-cover border-2 border-white/20"/></div>
@@ -376,7 +381,6 @@ const Dashboard = () => {
               <div className="space-y-3"><div className="tech-card p-3 rounded-lg"><div className="flex items-center justify-between"><div className="flex items-center gap-2"><Calendar size={14} className="text-purple-400"/><span className="text-xs text-slate-400 font-mono">TERM</span></div><span className="text-sm font-black text-white">Y{profile.basicInfo?.currentYear}/{profile.basicInfo?.currentTerm}</span></div></div></div>
             </div>
 
-            {/* GPAX + Honors Card */}
             <div className={`tech-card rounded-2xl relative overflow-hidden border ${honorsInfo.border}`}>
               <div className={`absolute inset-0 bg-gradient-to-br ${gradeInfo.bg} opacity-30`}></div>
               <div className="relative flex">
@@ -402,7 +406,6 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Co-op Card */}
             <div onClick={() => navigate('/coop')} className={`tech-card p-6 rounded-2xl border-l-4 ${stats.coopStats.isFullyEligible ? 'border-emerald-500' : 'border-orange-500'} cursor-pointer hover:bg-white/5 transition-all group relative overflow-hidden`}>
                 <div className="flex items-center gap-2 mb-4"><Award size={20} className={stats.coopStats.isFullyEligible ? "text-emerald-400" : "text-orange-400"} /><h3 className="text-white font-bold text-sm uppercase tracking-wide">Co-op Status (คุณสมบัติ)</h3></div>
                 <div className="space-y-3">
@@ -414,7 +417,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Middle Column: Active Courses */}
           <div className="lg:col-span-5">
   <div className="tech-card p-4 rounded-2xl h-fit max-h-[500px] flex flex-col">
     
@@ -467,7 +469,6 @@ const Dashboard = () => {
       </div>
     </div>
 
-          {/* Right Column: Risk & Trend */}
           <div className="lg:col-span-3 space-y-6">
             <div className="tech-card p-6 rounded-2xl relative overflow-hidden group">
                 <div className="flex items-center gap-2 mb-4">{getStatusIcon(academicStatus.color)}<h3 className="text-white font-bold text-sm uppercase tracking-wide">Academic Status</h3></div>
