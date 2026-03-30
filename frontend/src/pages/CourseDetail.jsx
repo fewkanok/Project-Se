@@ -7,16 +7,28 @@ import axios from 'axios';
 
 const ReplyInput = ({ onSend, onCancel, isSubmitting }) => {
   const [text, setText] = useState("");
+  const MAX_LENGTH = 200;
   
   return (
     <div className="mt-4 space-y-3 animate-in slide-in-from-top-2 duration-300">
-      <textarea 
-        value={text} 
-        onChange={(e) => setText(e.target.value)}
-        placeholder="ตอบกลับเพื่อนคนนี้..."
-        className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white text-xs h-20 outline-none focus:border-emerald-500 transition-all"
-        autoFocus
-      />
+      <div className="relative"> 
+        <textarea 
+          value={text} 
+          onChange={(e) => {
+            if (e.target.value.length <= MAX_LENGTH) {
+              setText(e.target.value);
+            }
+          }}
+          maxLength={MAX_LENGTH}
+          placeholder="ตอบกลับเพื่อนคนนี้..."
+          className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-white text-xs h-20 outline-none focus:border-emerald-500 transition-all pr-14 pb-6 custom-scrollbar"
+          autoFocus
+        />
+        <span className={`absolute bottom-2 right-3 text-[9px] font-mono transition-colors ${text.length >= MAX_LENGTH ? 'text-red-400 font-bold' : 'text-slate-500'}`}>
+          {text.length}/{MAX_LENGTH}
+        </span>
+      </div>
+      
       <div className="flex justify-end gap-2">
          <button onClick={onCancel} className="text-[10px] text-slate-500 font-bold uppercase hover:text-white transition-colors">Cancel</button>
          <button 
@@ -331,36 +343,52 @@ const CourseDetail = () => {
             </h3>
 
             <div className="bg-white/5 border border-white/5 rounded-2xl p-6 mb-10">
-                <div className="flex items-center gap-4 mb-4">
-                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/20 bg-slate-800 flex items-center justify-center">
-                        {currentUserImage ? <img src={currentUserImage} className="w-full h-full object-cover" alt="Me" /> : <User size={20} className="text-slate-500" />}
-                    </div>
-                    <div>
-                        <p className="text-xs font-black text-white uppercase">{currentUserName}</p>
-                        <p className="text-[10px] text-slate-500 font-mono">กำลังเขียนรีวิว...</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-3 mb-4">
-                    <span className="text-slate-400 text-sm font-bold">Rate:</span>
-                    <div className="flex gap-1">
-                        {[1, 2, 3, 4, 5].map((star) => (
-                            <Star key={star} size={20} className={`cursor-pointer transition-all ${star <= newRating ? "fill-yellow-400 text-yellow-400 shadow-yellow-400 scale-110" : "text-slate-700 hover:text-slate-500"}`} onClick={() => setNewRating(star)} />
-                        ))}
-                    </div>
-                </div>
-                <textarea 
-                  value={newComment} 
-                  onChange={(e) => setNewComment(e.target.value)} 
-                  placeholder="แชร์ประสบการณ์วิชานี้ให้เพื่อนๆ ฟังหน่อย..." 
-                  className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white h-28 mb-4 focus:border-blue-500 outline-none transition-all text-sm" 
-                />
-                <div className="flex justify-end">
-                    <button onClick={() => handleSubmitReview(newComment)} disabled={!newComment || newRating === 0 || isSubmitting} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${!newComment || newRating === 0 || isSubmitting ? 'bg-slate-800 text-slate-500' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'}`}>
-                        {isSubmitting ? <Loader2 className="animate-spin" size={16}/> : <Send size={16} />} Post Review
-                    </button>
-                </div>
-            </div>
+              <div className="flex items-center gap-4 mb-4">
+                  <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/20 bg-slate-800 flex items-center justify-center">
+                      {currentUserImage ? <img src={currentUserImage} className="w-full h-full object-cover" alt="Me" /> : <User size={20} className="text-slate-500" />}
+                  </div>
+                  <div>
+                      <p className="text-xs font-black text-white uppercase">{currentUserName}</p>
+                      <p className="text-[10px] text-slate-500 font-mono">กำลังเขียนรีวิว...</p>
+                  </div>
+              </div>
+              
+              <div className="flex items-center gap-3 mb-4">
+                  <span className="text-slate-400 text-sm font-bold">Rate:</span>
+                  <div className="flex gap-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                          <Star key={star} size={20} className={`cursor-pointer transition-all ${star <= newRating ? "fill-yellow-400 text-yellow-400 shadow-yellow-400 scale-110" : "text-slate-700 hover:text-slate-500"}`} onClick={() => setNewRating(star)} />
+                      ))}
+                  </div>
+              </div>
+              
+              {/* ---------- ส่วนที่แก้ใหม่ เริ่มตรงนี้ ---------- */}
+              <div className="relative mb-4">
+                  <textarea 
+                      value={newComment} 
+                      onChange={(e) => {
+                          if (e.target.value.length <= 200) {
+                              setNewComment(e.target.value);
+                          }
+                      }}
+                      maxLength={200}
+                      placeholder="แชร์ประสบการณ์วิชานี้ให้เพื่อนๆ ฟังหน่อย..." 
+                      // ลบ mb-4 ออก แล้วเพิ่ม pb-8 กับ custom-scrollbar แทน
+                      className="w-full bg-black/20 border border-white/10 rounded-xl p-4 text-white h-28 focus:border-blue-500 outline-none transition-all text-sm pb-8 custom-scrollbar" 
+                  />
+                  {/* ตัวนับอักษรมุมขวาล่าง */}
+                  <div className={`absolute bottom-3 right-4 text-[10px] font-mono transition-colors ${newComment.length >= 200 ? 'text-red-400 font-bold animate-pulse' : 'text-slate-500'}`}>
+                      {newComment.length}/200 
+                  </div>
+              </div>
+              {/* ---------- ส่วนที่แก้ใหม่ จบตรงนี้ ---------- */}
 
+              <div className="flex justify-end">
+                  <button onClick={() => handleSubmitReview(newComment)} disabled={!newComment || newRating === 0 || isSubmitting} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${!newComment || newRating === 0 || isSubmitting ? 'bg-slate-800 text-slate-500' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg'}`}>
+                      {isSubmitting ? <Loader2 className="animate-spin" size={16}/> : <Send size={16} />} Post Review
+                  </button>
+              </div>
+          </div>
             <div className="space-y-8">
                 {loading ? <div className="flex justify-center py-10"><Loader2 className="animate-spin text-blue-500" size={32}/></div> : 
                  reviews.length === 0 ? <p className="text-center text-slate-500 py-4">No reviews yet. Be the first!</p> :
