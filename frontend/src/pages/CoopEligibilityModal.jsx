@@ -1,36 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Award, CheckCircle2, XCircle, AlertCircle, BookOpen, Calendar, FileText, TrendingUp, GraduationCap, Briefcase, ClipboardCheck, ChevronDown, Calculator } from 'lucide-react';
-
-// ─── COURSES DATA (ข้อมูลครบในไฟล์เดียว) ───────────────────────────────────
-const COURSES_DATA = [
-  { code: '001101', name: 'Thai for Communication', credit: 3, semester: 1, type: 'gen-ed' },
-  { code: '001102', name: 'Foundation English 1', credit: 3, semester: 1, type: 'gen-ed' },
-  { code: '040613101', name: 'Introduction to Computer Science', credit: 3, semester: 1, type: 'major' },
-  { code: '040623172', name: 'Calculus for Computer Science', credit: 3, semester: 1, type: 'basic' },
-  { code: '040643141', name: 'General Physics', credit: 3, semester: 1, type: 'basic' },
-  { code: '040643143', name: 'General Physics Laboratory', credit: 1, semester: 1, type: 'basic' },
-  { code: '001103', name: 'Foundation English 2', credit: 3, semester: 2, type: 'gen-ed' },
-  { code: '040613102', name: 'Principles of Information Technology', credit: 3, semester: 2, type: 'major' },
-  { code: '040613203', name: 'Structured Programming', credit: 3, semester: 2, type: 'major' },
-  { code: '040623272', name: 'Discrete Mathematics', credit: 3, semester: 2, type: 'basic' },
-  { code: '040643241', name: 'Basic Statistics', credit: 3, semester: 2, type: 'basic' },
-  { code: '001201', name: 'Purposeful Living', credit: 3, semester: 3, type: 'gen-ed' },
-  { code: '001204', name: 'Aesthetics', credit: 3, semester: 3, type: 'gen-ed' },
-  { code: '040613204', name: 'Object-oriented Programming', credit: 3, semester: 3, type: 'major' },
-  { code: '040613205', name: 'Data Structure', credit: 3, semester: 3, type: 'major' },
-  { code: '040623371', name: 'Probability and Statistics for Computer Science', credit: 3, semester: 3, type: 'basic' },
-  { code: '001202', name: 'Self Development', credit: 3, semester: 4, type: 'gen-ed' },
-  { code: '040613301', name: 'Database System', credit: 3, semester: 4, type: 'major' },
-  { code: '040613302', name: 'System Analysis and Design', credit: 3, semester: 4, type: 'major' },
-  { code: '040613501', name: 'Computer Organization and Operating System', credit: 3, semester: 4, type: 'major' },
-  { code: '040623471', name: 'Linear Algebra for Computer Science', credit: 3, semester: 4, type: 'basic' },
-  { code: '001203', name: 'Community Development', credit: 3, semester: 5, type: 'gen-ed' },
-  { code: '040613306', name: 'Software Engineering', credit: 3, semester: 5, type: 'major' },
-  { code: '040613502', name: 'Computer Network', credit: 3, semester: 5, type: 'major' },
-  { code: '040613601', name: 'Computer System Security', credit: 3, semester: 5, type: 'major' },
-  { code: '040613701', name: 'Intelligent System', credit: 3, semester: 5, type: 'major' },
-];
+import { roadmapData } from '../data/courses'; 
+import { electiveCourses } from '../data/electiveCourses';
 
 // ─── Grade options ──────────────────────────────────────────────────────────
 const GRADE_OPTIONS = [
@@ -100,16 +72,17 @@ const saveCoopGrades = (grades) => {
 const loadUserProfile = () => {
   try {
     const raw = localStorage.getItem(LS_KEY_PROFILE);
-    if (!raw) return { courseStates: {}, gpaHistory: {}, basicInfo: {}, totalCredits: null };
+    if (!raw) return { courseStates: {}, gpaHistory: {}, basicInfo: {}, totalCredits: null, customElectives: {} };
     const parsed = JSON.parse(raw);
     return {
       courseStates: parsed.courseStates || {},
       gpaHistory: parsed.gpaHistory || {},
       basicInfo: parsed.basicInfo || {},
       totalCredits: typeof parsed.totalCredits === 'number' ? parsed.totalCredits : null,
+      customElectives: parsed.customElectives || {},
     };
   } catch {
-    return { courseStates: {}, gpaHistory: {}, basicInfo: {}, totalCredits: null };
+    return { courseStates: {}, gpaHistory: {}, basicInfo: {}, totalCredits: null, customElectives: {} };
   }
 };
 
@@ -276,7 +249,7 @@ const GPA10Meter = ({ gpa10, gradedCount, totalPassedCourses }) => {
             <div>
               <h4 className="text-lg font-bold text-white">GPA_10 Calculator (Live)</h4>
               <p className="text-xs text-slate-300 mt-1">
-                คำนวณแบบ real-time จากเกรดที่เลือก • ต้องการ ≥ 2.50
+                คำนวณ จากเกรดที่เลือก • ต้องการ ≥ 2.50
               </p>
             </div>
           </div>
@@ -361,72 +334,81 @@ const CoopEligibilityPage = () => {
   
   const [courseStates, setCourseStates] = useState({});
   const [courseGrades, setCourseGrades] = useState({});
-  const [userProfile, setUserProfile] = useState({ gpaHistory: {}, basicInfo: {}, totalCredits: null });
+  const [userProfile, setUserProfile] = useState({ gpaHistory: {}, basicInfo: {}, totalCredits: null, customElectives: {} });
 
   useEffect(() => {
-
     const profile = loadUserProfile();
     setUserProfile(profile);
     setCourseStates(profile.courseStates);
-
-
     const savedGrades = loadCoopGrades();
     setCourseGrades(savedGrades);
   }, []);
 
   const stats = useMemo(() => {
+    const states = userProfile.courseStates || {};
+    const history = userProfile.gpaHistory || {};
+    const customs = userProfile.customElectives || {};
+    
+    let totalEarnedCredits = 0; 
+    let totalPoints5Terms = 0; 
+    let totalCreditsGraded5Terms = 0; 
+    const targetTermKeys = ['Y1/1', 'Y1/2', 'Y2/1', 'Y2/2', 'Y3/1'];
 
-    let earnedCredits = 0;
+    roadmapData.forEach((yearGroup, yIdx) => {
+      const yearNum = yIdx + 1;
+      yearGroup.semesters.forEach((sem, sIdx) => {
+        const termNum = sIdx + 1;
+        const gpaKey = `Y${yearNum}/${termNum}`;
+        const termCustomKey = `${yearNum}-${termNum}`;
+        let termCreditsPassed = 0;
 
-    if (userProfile.totalCredits !== null && userProfile.totalCredits !== undefined) {
-      earnedCredits = userProfile.totalCredits;
-    } else {
-      COURSES_DATA.forEach(course => {
-        if (courseStates[course.code] === 'passed') {
-          earnedCredits += course.credit;
+        // 1. นับหน่วยกิตจาก Roadmap
+        sem.courses.forEach(c => {
+          if (states[c.id] === 'passed') {
+            const cr = typeof c.credits === 'number' ? c.credits : parseInt(c.credits) || 3;
+            termCreditsPassed += cr;
+          }
+        });
+
+        // 2. นับหน่วยกิตจาก Custom Electives
+        (customs[termCustomKey] || []).forEach(id => {
+          if (states[id] === 'passed') {
+            const elec = electiveCourses.find(e => e.id === id);
+            termCreditsPassed += elec ? (elec.credits || 3) : 3;
+          }
+        });
+
+        totalEarnedCredits += termCreditsPassed;
+
+        // 🛡️ Logic คำนวณเกรด 5 เทอม: ต้องอยู่ในช่วงที่กำหนด และต้องมีการลงเกรดจริงในประวัติ
+        if (targetTermKeys.includes(gpaKey)) {
+          const termGPA = parseFloat(history[gpaKey]);
+          if (!isNaN(termGPA) && termCreditsPassed > 0) {
+            totalPoints5Terms += (termGPA * termCreditsPassed);
+            totalCreditsGraded5Terms += termCreditsPassed;
+          }
         }
       });
-    }
-
-    let totalGradePoints = 0;
-    let totalCreditsGraded = 0;
-
-    COURSES_DATA.forEach(course => {
-      const state = courseStates[course.code];
-      if (state === 'passed') {
-        const grade = courseGrades[course.code];
-        if (grade !== null && grade !== undefined) {
-          totalGradePoints += grade * course.credit;
-          totalCreditsGraded += course.credit;
-        }
-      }
     });
 
-
-    let calculatedGPAX = totalCreditsGraded > 0 ? totalGradePoints / totalCreditsGraded : 0;
-    
-    
-    if (calculatedGPAX === 0 && userProfile.gpaHistory) {
-      const latestGPA = Object.values(userProfile.gpaHistory).pop();
-      calculatedGPAX = latestGPA || 0;
-    }
+    const gpax5 = totalCreditsGraded5Terms > 0 
+      ? (Math.floor((totalPoints5Terms / totalCreditsGraded5Terms) * 100) / 100) 
+      : 0;
 
     return {
-      earnedCredits,
-      calculatedGPAX,
+      earnedCredits: totalEarnedCredits,
+      calculatedGPAX: gpax5,
       coopStats: {
-        isCreditReady: earnedCredits >= 90,
-        isGPAReady: calculatedGPAX >= 2.75,
+        isCreditReady: totalEarnedCredits >= 90,
+        isGPAReady: gpax5 >= 2.75,
       }
     };
-  }, [courseStates, courseGrades, userProfile]);
+  }, [userProfile]);
 
-  
   const isCoursePassedByCode = (code) => {
     return courseStates[code] === 'passed';
   };
 
-  
   const { gpa10, gradedCount, totalPassedCourses } = useMemo(() => {
     let sum = 0;
     let count = 0;
@@ -451,8 +433,6 @@ const CoopEligibilityPage = () => {
   }, [courseStates, courseGrades]);
 
   const isCoursesReady = gpa10 !== null && gpa10 >= 2.5;
-
-
   const allCriteriaMet = stats.coopStats.isCreditReady && stats.coopStats.isGPAReady && isCoursesReady;
 
   const handleGradeChange = (code, value) => {
@@ -466,13 +446,10 @@ const CoopEligibilityPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-transparent">
-      
+    <div className="min-h-screen bg-transparent font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
-          
           <div className="relative">
-            
             <button
               onClick={handleBack}
               className="absolute left-0 top-0 flex items-center justify-center w-12 h-12 rounded-xl bg-slate-800/80 border-2 border-slate-700/60 text-slate-300 hover:text-white hover:bg-slate-700/80 hover:border-cyan-500/40 transition-all duration-200 group z-10"
@@ -486,17 +463,16 @@ const CoopEligibilityPage = () => {
                   <Award size={48} className="text-cyan-400" />
                 </div>
               </div>
-              <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400">
+              <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 uppercase">
                 คุณสมบัติสหกิจศึกษา
               </h1>
               <p className="text-lg text-slate-400 max-w-3xl mx-auto">
                 ตรวจสอบคุณสมบัติการสมัครโครงการสหกิจศึกษา (Cooperative Education) 
-                ให้ครบ 3 เงื่อนไขหลัก พร้อม GPA_10 Calculator แบบ real-time
+                ให้ครบ 3 เงื่อนไขหลัก พร้อม GPA_10 Calculator
               </p>
             </div>
           </div>
 
-          
           <div className={`relative overflow-hidden rounded-2xl border-2 transition-all duration-500 ${
             allCriteriaMet
               ? 'border-emerald-500/60 bg-gradient-to-br from-emerald-500/25 via-emerald-500/15 to-slate-800/50'
@@ -530,7 +506,7 @@ const CoopEligibilityPage = () => {
                   <div className="flex flex-wrap gap-3 mt-4">
                     {[
                       { label: 'หน่วยกิต ≥ 90', ok: stats.coopStats.isCreditReady },
-                      { label: 'GPA ≥ 2.75', ok: stats.coopStats.isGPAReady },
+                      { label: 'GPAX (5 เทอม) ≥ 2.75', ok: stats.coopStats.isGPAReady },
                       { label: 'GPA_10 ≥ 2.50', ok: isCoursesReady }
                     ].map((item, idx) => (
                       <div key={idx} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border-2 text-xs font-bold ${
@@ -546,11 +522,10 @@ const CoopEligibilityPage = () => {
             </div>
           </div>
 
-          {/* Main Requirements Grid */}
           <div>
             <div className="flex items-center gap-3 mb-6">
               <ClipboardCheck size={24} className="text-cyan-400" />
-              <h3 className="text-2xl font-bold text-white">คุณสมบัติหลัก (3 ข้อ)</h3>
+              <h3 className="text-2xl font-bold text-white uppercase">คุณสมบัติหลัก (3 ข้อ)</h3>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <RequirementCard
@@ -564,40 +539,37 @@ const CoopEligibilityPage = () => {
               />
               <RequirementCard
                 icon={TrendingUp}
-                title="เกรดเฉลี่ยรวม (GPA)"
-                description="ผลการเรียน 5 ภาคการศึกษา"
+                title="GPAX (5 เทอมแรก)"
+                description="คำนวณจาก Year 1 ถึง Year 3 เทอม 1"
                 current={Number(stats.calculatedGPAX || 0).toFixed(2)}
                 required={2.75}
                 isPassed={stats.coopStats.isGPAReady}
                 unit=""
+                highlight={true}
               />
               <RequirementCard
                 icon={GraduationCap}
                 title="เกรดเฉลี่ยวิชาเอก (GPA_10)"
-                description="คำนวณแบบ real-time จากเกรดที่เลือก"
+                description="คำนวณ จากเกรดที่เลือก"
                 current={gpa10 !== null ? gpa10.toFixed(2) : '—'}
                 required={2.5}
                 isPassed={isCoursesReady}
                 unit=""
-                highlight={true}
               />
             </div>
           </div>
 
-          {/* GPA_10 Live Meter */}
           <GPA10Meter gpa10={gpa10} gradedCount={gradedCount} totalPassedCourses={totalPassedCourses} />
 
-          {/* Required Courses Section */}
           <div>
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <FileText size={24} className="text-purple-400" />
-                <h3 className="text-2xl font-bold text-white">
+                <h3 className="text-2xl font-bold text-white uppercase">
                   10 รายวิชาบังคับ (GPA_10 ≥ 2.50)
                 </h3>
               </div>
               <div className="flex items-center gap-3">
-                {/* Live GPA pill */}
                 <div className={`px-4 py-2 rounded-xl border-2 transition-all duration-300 ${
                   gpa10 === null
                     ? 'bg-slate-800/60 border-slate-700/60'
@@ -646,18 +618,17 @@ const CoopEligibilityPage = () => {
                   <p className="text-xs text-blue-200 leading-relaxed">
                     นอกจากต้องเรียนผ่านครบทั้ง 10 วิชาแล้ว นักศึกษาต้องมี{' '}
                     <strong className="text-white">เกรดเฉลี่ยเฉพาะกลุ่มวิชานี้ (GPA_10) ไม่ต่ำกว่า 2.50</strong>{' '}
-                    โดยคำนวณจากผลการเรียนใน 10 รายวิชาข้างต้นเท่านั้น เลือกเกรดด้านขวาเพื่อดูผลแบบ real-time
+                    โดยคำนวณจากผลการเรียนใน 10 รายวิชาข้างต้นเท่านั้น เลือกเกรดด้านขวาเพื่อดูผลแบบ 
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Application Timeline */}
           <div>
             <div className="flex items-center gap-3 mb-6">
               <Calendar size={24} className="text-emerald-400" />
-              <h3 className="text-2xl font-bold text-white">ขั้นตอนการสมัคร</h3>
+              <h3 className="text-2xl font-bold text-white uppercase">ขั้นตอนการสมัคร</h3>
             </div>
             <div className="bg-slate-800/60 border-2 border-slate-700/60 rounded-2xl p-6">
               <TimelineStep number={1} title="ตรวจสอบคุณสมบัติ" detail="ตรวจสอบว่าตนเองมีคุณสมบัติครบถ้วนตามเงื่อนไข 3 ข้อข้างต้น (หน่วยกิต, GPA, และ GPA_10)" isActive={true} />
@@ -666,7 +637,6 @@ const CoopEligibilityPage = () => {
             </div>
           </div>
 
-          {/* Additional Info */}
           <div className="bg-gradient-to-br from-cyan-500/20 via-purple-500/15 to-pink-500/20 border-2 border-cyan-500/30 rounded-2xl p-6">
             <div className="flex items-start gap-4">
               <div className="p-3 rounded-xl bg-gradient-to-br from-cyan-500/30 to-purple-500/30">
