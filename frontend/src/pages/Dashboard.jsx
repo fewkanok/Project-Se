@@ -277,6 +277,13 @@ const Dashboard = () => {
     return () => clearInterval(timer);
   }, [profile, stats.calculatedGPAX, stats.earnedCredits]);
 
+  // 💾 Save GPAX ให้หน้าอื่นดึงไปใช้ได้ (single source of truth)
+  useEffect(() => {
+    if (stats.calculatedGPAX > 0) {
+      try { localStorage.setItem('dashboardGPAX', String(stats.calculatedGPAX)); } catch (e) {}
+    }
+  }, [stats.calculatedGPAX]);
+
   const CustomTooltip = ({ active, payload }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;

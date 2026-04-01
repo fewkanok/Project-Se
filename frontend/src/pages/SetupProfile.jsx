@@ -412,12 +412,16 @@ const SetupProfile = () => {
     return results;
   }, [activeTermKey, courseSearchTerm, courseStates, customElectives, peAssignments]);
 
-  // --- ส่วนตรวจสอบหน่วยกิตที่แก้ไข ---
+
   const checkTermCreditsValid = useCallback((y, t) => {
     const credits = calculateTermCredits(y, t);
     if (credits === 0) return true;
     const isExt = parseInt(y, 10) >= 5;
-    return isExt ? (credits <= 21) : (credits >= 12 && credits <= 21);
+    const isSummer = (parseInt(y, 10) === 4 && t === 1);
+    if (isExt || isSummer) {
+      return credits <= 21;
+    }
+    return credits >= 12 && credits <= 21;
   }, [calculateTermCredits]);
 
   // เช็คทุกเทอมตั้งแต่อดีตจนถึงปัจจุบัน

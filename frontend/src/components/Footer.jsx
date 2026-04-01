@@ -117,7 +117,7 @@ const Footer = () => {
             </div>
             <ul className="space-y-3">
                {[
-               { label: 'IG : sta.kit ( GET REQUIREMENT )', link: 'https://www.instagram.com/sta.kit/' },
+               { label: 'IG : sta.kit ( DOCUMENT )', link: 'https://www.instagram.com/sta.kit/' },
                { label: 'IG : XSX ( TESTTER )', link: 'https://www.instagram.com/chayang_koo.l' },
                { label: 'IG : kt_k1tt1111 ( PM ALL ROLE )', link: 'https://www.instagram.com/kt_k1tt1111/' },
                { label: 'IG : fiwkanokkk ( CODE )', link: 'https://www.instagram.com/fiwkanokkk/' },
@@ -156,14 +156,13 @@ const Footer = () => {
 
             <div className="flex flex-wrap gap-3">
               {[
-                { icon: Facebook, color: 'hover:bg-blue-600 hover:border-blue-500/50', name: 'Facebook' },
-                { icon: Twitter, color: 'hover:bg-sky-500 hover:border-sky-400/50', name: 'Twitter' },
-                { icon: Instagram, color: 'hover:bg-gradient-to-br hover:from-purple-600 hover:to-pink-600 hover:border-pink-500/50', name: 'Instagram' },
-                { icon: Github, color: 'hover:bg-white hover:text-black hover:border-white/50', name: 'Github' }
+                { icon: Github, color: 'hover:bg-white hover:text-black hover:border-white/50', name: 'Github', link: 'https://github.com/fewkanok/Project-Se.git' }
               ].map((social, idx) => (
                 <a 
                   key={idx}
-                  href="#" 
+                  href={social.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className={`group relative w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-400 hover:text-white hover:-translate-y-1 hover:shadow-xl transition-all duration-300 ${social.color}`}
                   title={social.name}
                 >
