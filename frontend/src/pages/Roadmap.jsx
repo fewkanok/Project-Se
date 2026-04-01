@@ -59,7 +59,7 @@ const CURRICULUM_COURSES = {
 
 const CURRICULUM_TRACKS = [
   {
-    id: "ai", label: "AI Track", color: "#7c3aed", icon: "🧠",
+    id: "ai", label: "AI Track", color: "#7c3aed", icon: "",
     chains: [
       ["040613205", "arrow", "040613701", "arrow", "040613702", "arrow", "040613704"],
       ["040613701*", "arrow", "040613703", "arrow", "040613152"],
@@ -128,7 +128,7 @@ const CURRICULUM_NODE_TYPE_MAP = {
 
 const CM_TREES = [
   {
-    id:"fs", label:"Full-Stack Track", icon:"🌐", color:"#db2777",
+    id:"fs", label:"Full-Stack Track", icon:"", color:"#db2777",
     gradient:"from-pink-600 to-rose-600", shadow:"shadow-pink-500/50", activeBg:"from-pink-900/60 to-rose-900/40",
     roots:[
       { code:"040613201", t:"base", children:[
@@ -674,7 +674,7 @@ function CurriculumMapTab() {
             { id:"net",  icon:"", label:"Security & Network", color:"#0891b2" },
             { id:"game", icon:"", label:"Game & Graphic",      color:"#d97706" },
             { id:"iot",  icon:"", label:"IoT & Robot",         color:"#059669" },
-            { id:"outside",  icon:"🌐", label:"Outside of Track",        color:"#FEE12B" },
+            { id:"outside",  icon:"", label:"Outside of Track",        color:"#FEE12B" },
           ].map(t => {
             const active = activeCMTrack === t.id;
             const countNodes = (roots) => {
@@ -1058,11 +1058,11 @@ const Roadmap = () => {
   };
 
   const ELECTIVE_CATEGORIES = [
-    { key:'all',        label:'ทั้งหมด',           emoji:'📚', gradient:'from-slate-600 to-slate-700',   active:'from-slate-500 to-slate-600' },
-    { key:'sport',      label:'กีฬา & สุขภาพ',      emoji:'🏃', gradient:'from-green-700 to-emerald-700', active:'from-green-500 to-emerald-500' },
-    { key:'science',    label:'วิทยาศาสตร์',        emoji:'🔬', gradient:'from-purple-700 to-violet-700', active:'from-purple-500 to-violet-500' },
-    { key:'humanities', label:'มนุษยศาสตร์/สังคม', emoji:'🎨', gradient:'from-pink-700 to-rose-700',      active:'from-pink-500 to-rose-500' },
-    { key:'other',      label:'อื่นๆ',              emoji:'✨', gradient:'from-orange-700 to-amber-700',  active:'from-orange-500 to-amber-500' },
+    { key:'all',        label:'ทั้งหมด',           emoji:'', gradient:'from-slate-600 to-slate-700',   active:'from-slate-500 to-slate-600' },
+    { key:'sport',      label:'กีฬา & สุขภาพ',      emoji:'', gradient:'from-green-700 to-emerald-700', active:'from-green-500 to-emerald-500' },
+    { key:'science',    label:'วิทยาศาสตร์',        emoji:'', gradient:'from-purple-700 to-violet-700', active:'from-purple-500 to-violet-500' },
+    { key:'humanities', label:'มนุษยศาสตร์/สังคม', emoji:'', gradient:'from-pink-700 to-rose-700',      active:'from-pink-500 to-rose-500' },
+    { key:'other',      label:'อื่นๆ',              emoji:'', gradient:'from-orange-700 to-amber-700',  active:'from-orange-500 to-amber-500' },
   ];
 
   return (
