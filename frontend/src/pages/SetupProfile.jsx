@@ -21,11 +21,11 @@ const getTrackCoursesArray = () => {
 const allTrackCoursesArray = getTrackCoursesArray();
 
 const trackOptions = [
-  { id: "SmartTech", label: "Smart Technology", color: "#059669", icon: "🤖" },
-  { id: "AI", label: "Artificial Intelligence", color: "#7c3aed", icon: "🧠" },
-  { id: "Games", label: "Games & Graphic", color: "#d97706", icon: "🎮" },
-  { id: "Network", label: "Security & Network", color: "#0891b2", icon: "🔐" },
-  { id: "FullStack", label: "Full-Stack Developer", color: "#db2777", icon: "🌐" }
+  { id: "SmartTech", label: "Smart Technology", color: "#059669", icon: "" },
+  { id: "AI", label: "Artificial Intelligence", color: "#7c3aed", icon: "" },
+  { id: "Games", label: "Games & Graphic", color: "#d97706", icon: "" },
+  { id: "Network", label: "Security & Network", color: "#0891b2", icon: "" },
+  { id: "FullStack", label: "Full-Stack Developer", color: "#db2777", icon: "" }
 ];
 
 const SetupProfile = () => {
