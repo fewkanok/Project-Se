@@ -69,7 +69,7 @@ const CURRICULUM_TRACKS = [
     ],
   },
   {
-    id: "net", label: "Security & Network", color: "#0891b2", icon: "🔐",
+    id: "net", label: "Security & Network", color: "#0891b2", icon: "",
     chains: [
       ["040613100", "arrow", "040613601"],
       ["040613100*", "arrow", "040613502", "arrow", "040613504"],
@@ -82,7 +82,7 @@ const CURRICULUM_TRACKS = [
     ],
   },
   {
-    id: "game", label: "Game & Graphic", color: "#d97706", icon: "🎮",
+    id: "game", label: "Game & Graphic", color: "#d97706", icon: "",
     chains: [
       ["040613104", "arrow", "040613801", "arrow", "040613805"],
       ["040613801*", "arrow", "040613806"],
@@ -92,7 +92,7 @@ const CURRICULUM_TRACKS = [
     ],
   },
   {
-    id: "iot", label: "IoT & Robot", color: "#059669", icon: "🤖",
+    id: "iot", label: "IoT & Robot", color: "#059669", icon: "",
     chains: [
       ["040613112", "arrow", "040613901", "arrow", "040613904"],
       ["040613201", "arrow", "040613902"],
@@ -102,14 +102,14 @@ const CURRICULUM_TRACKS = [
     ],
   },
   {
-    id: "fs", label: "Full-Stack", color: "#db2777", icon: "🌐",
+    id: "fs", label: "Full-Stack", color: "#db2777", icon: "",
     chains: [
       ["040613201", "arrow", "040613411", "arrow", "040613412"],
       ["040613204", "arrow", "040613421", "arrow", "040613521"],
     ],
   },
   {
-    id: "Outside", label: "Outside of Track", color: "#db2777", icon: "🌐",
+    id: "Outside", label: "Outside of Track", color: "#db2777", icon: "",
     chains: [
       ["040613201", "arrow", "040613302", "arrow", ["040613304", "040613305", "040613307", "040613308"]],
       ["040613201", "arrow", "040613203", "arrow", "040613203", "arrow", "040613207"],
@@ -143,7 +143,7 @@ const CM_TREES = [
     ]
   },
   {
-    id:"net", label:"Security & Network Track", icon:"🔐", color:"#0891b2",
+    id:"net", label:"Security & Network Track", icon:"", color:"#0891b2",
     gradient:"from-cyan-600 to-sky-600", shadow:"shadow-cyan-500/50", activeBg:"from-cyan-900/60 to-sky-900/40",
     roots:[
       { code:"040613100", t:"base", children:[
@@ -166,7 +166,7 @@ const CM_TREES = [
     ]
   },
   {
-    id:"game", label:"Game & Graphic Track", icon:"🎮", color:"#d97706",
+    id:"game", label:"Game & Graphic Track", icon:"", color:"#d97706",
     gradient:"from-amber-600 to-orange-600", shadow:"shadow-amber-500/50", activeBg:"from-amber-900/60 to-orange-900/40",
     roots:[
       { code:"040613104", t:"base", children:[
@@ -184,7 +184,7 @@ const CM_TREES = [
     ]
   },
   {
-    id:"iot", label:"IoT & Robot Track", icon:"🤖", color:"#059669",
+    id:"iot", label:"IoT & Robot Track", icon:"", color:"#059669",
     gradient:"from-emerald-600 to-green-600", shadow:"shadow-emerald-500/50", activeBg:"from-emerald-900/60 to-green-900/40",
     roots:[
       { code:"040613112", t:"base", children:[
@@ -203,7 +203,7 @@ const CM_TREES = [
     ]
   },
   {
-    id:"ai", label:"AI Track", icon:"🧠", color:"#7c3aed",
+    id:"ai", label:"AI Track", icon:"", color:"#7c3aed",
     gradient:"from-violet-600 to-purple-600", shadow:"shadow-violet-500/50", activeBg:"from-violet-900/60 to-purple-900/40",
     roots:[
       { code:"040613205", t:"base", children:[
@@ -221,7 +221,7 @@ const CM_TREES = [
     ]
   },
   {
-    id:"outside", label:"Outside of Track", icon:"🌐", color:"#7c3aed",
+    id:"outside", label:"Outside of Track", icon:"", color:"#7c3aed",
     gradient:"from-violet-600 to-purple-600", shadow:"shadow-violet-500/50", activeBg:"from-violet-900/60 to-purple-900/40",
     roots:[
       { code:"040613201", t:"base", children:[
@@ -308,12 +308,12 @@ function CMNodeBox({ code, t, onHover, onLeave, courseStates, navigate }) {
       )}
       {isLearning && !isPassed && (
         <div style={{ position:"absolute", top:6, right:6, background:"linear-gradient(135deg,#1d4ed8,#2563eb)", borderRadius:999, padding:"2px 7px", fontSize:"0.58rem", fontWeight:800, color:"#fff", display:"flex", alignItems:"center", gap:3, boxShadow:"0 2px 8px rgba(37,99,235,0.5)" }}>
-          📖 เรียน
+           เรียน
         </div>
       )}
       {isLocked && (
         <div style={{ position:"absolute", top:6, right:6, background:"linear-gradient(135deg,#991b1b,#ef4444)", borderRadius:999, padding:"2px 7px", fontSize:"0.58rem", fontWeight:800, color:"#fff", display:"flex", alignItems:"center", gap:3, boxShadow:"0 2px 8px rgba(239,68,68,0.5)" }}>
-          🔒 ลงไม่ได้
+           ลงไม่ได้
         </div>
       )}
 
@@ -668,12 +668,12 @@ function CurriculumMapTab() {
       <div className="flex flex-col gap-6 mb-8">
         <div className="flex flex-wrap justify-center gap-2 w-full">
           {[
-            { id:"all",   icon:"⚡", label:"All",                 color:"#94a3b8" },
-            { id:"ai",   icon:"🧠", label:"AI",                  color:"#7c3aed" },
-            { id:"fs",   icon:"🌐", label:"Full-Stack",          color:"#db2777" },
-            { id:"net",  icon:"🔐", label:"Security & Network", color:"#0891b2" },
-            { id:"game", icon:"🎮", label:"Game & Graphic",      color:"#d97706" },
-            { id:"iot",  icon:"🤖", label:"IoT & Robot",         color:"#059669" },
+            { id:"all",   icon:"", label:"All",                 color:"#94a3b8" },
+            { id:"ai",   icon:"", label:"AI",                  color:"#7c3aed" },
+            { id:"fs",   icon:"", label:"Full-Stack",          color:"#db2777" },
+            { id:"net",  icon:"", label:"Security & Network", color:"#0891b2" },
+            { id:"game", icon:"", label:"Game & Graphic",      color:"#d97706" },
+            { id:"iot",  icon:"", label:"IoT & Robot",         color:"#059669" },
             { id:"outside",  icon:"🌐", label:"Outside of Track",        color:"#FEE12B" },
           ].map(t => {
             const active = activeCMTrack === t.id;
